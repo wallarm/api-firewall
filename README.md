@@ -1,6 +1,8 @@
 # API Firewall
 Free API firewall for OpenAPI endpoints. Strict controls for your API inputs and outputs by Swagger/OpenAPI v3 definitions. Reducing attack surface drammatically.
 
+Reverse proxy with a built-in OpenAPI v3 request and response validator.
+
 ## Hardening
 
 Allow only requests and responses that satisfy your data validation requerements defined by the latest version of OpenAPI. The API FIrewall will block all the rest. 
@@ -36,7 +38,7 @@ Transfer rate:          4813.78 [Kbytes/sec] received
                         9258.94 kb/s total
 ```
 
-## Quick start
+## Installation
 
 Docker deployment:
 ```
@@ -51,10 +53,6 @@ Kubernetes deployment:
 Terraform:
 ```
 ```
-
-## How it work
-
-
 
 ## Configuration
 
