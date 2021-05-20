@@ -1,5 +1,6 @@
 # API Firewall
-Light-weighted API Firewall to protect your API endpoints in cloud-native environments with API Schema validation. API Firewall relies on a positive security model allowing calls that match predefined API specs, while rejecting everything else. Technically, API Firewall is a reverse proxy with a built-in OpenAPI v3 request and response validator, written in Go, and optimized for extreme performance and near-zero added latency.
+Light-weighted API Firewall to protect your API endpoints in cloud-native environments with API Schema validation. API Firewall relies on a positive security model allowing calls that match predefined API specs, while rejecting everything else. 
+Technically, API Firewall is a reverse proxy with a built-in OpenAPI v3 request and response validator, written in Go, and optimized for extreme performance and near-zero added latency.
 
 ## Installation
 
