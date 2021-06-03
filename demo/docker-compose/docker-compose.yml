@@ -1,0 +1,31 @@
+version: '3.8'
+services:
+  api-firewall:
+    container_name: api-firewall
+    image: wallarm/api-firewall:v0.6.0-rc1
+    restart: on-failure
+    environment:
+      # APIFW_URL: "http://0.0.0.0:8080"
+      APIFW_API_SPECS: "/opt/resources/httpbin.json"
+      # APIFW_API_SPECS: "/opt/resources/httpbin-with-constraints.json"
+      APIFW_SERVER_URL: "http://backend:80"
+      APIFW_SERVER_MAX_CONNS_PER_HOST: "512"
+      APIFW_SERVER_READ_TIMEOUT: "5s"
+      APIFW_SERVER_WRITE_TIMEOUT: "5s"
+      APIFW_SERVER_DIAL_TIMEOUT: "200ms"
+      APIFW_REQUEST_VALIDATION: "BLOCK"
+      APIFW_RESPONSE_VALIDATION: "BLOCK"
+    volumes:
+      - ./volumes/api-firewall:/opt/resources:ro
+    ports:
+      - "8080:8080"
+    stop_grace_period: 1s
+  backend:
+    container_name: api-firewall-backend
+    image: kennethreitz/httpbin
+    restart: on-failure
+    ports:
+      - 8090:80
+    expose:
+      - 80
+    stop_grace_period: 1s
