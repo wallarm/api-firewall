@@ -1,0 +1,15 @@
+{{- if .Values.manifest.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "api-firewall.fullname" . }}-manifest
+  labels:
+    app: {{ template "api-firewall.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    component: openapi-manifest
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+data:
+  openapi-manifest.json: |-
+    {{ .Values.manifest.body | indent 4 | trimPrefix "    " }}
+{{- end }}

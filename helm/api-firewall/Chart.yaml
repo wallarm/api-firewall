@@ -1,0 +1,17 @@
+apiVersion: v1
+name: api-firewall
+version: 0.6.0
+description: Wallarm OpenAPI-based API Firewall
+keywords:
+  - wallarm
+  - ingress
+  - middleware
+  - firewall
+  - waf
+sources:
+  - https://github.com/wallarm/api-firewall
+maintainers:
+  - name: Wallarm Support Team
+    email: support@wallarm.com
+engine: gotpl
+kubeVersion: ">=1.16.0-0"
