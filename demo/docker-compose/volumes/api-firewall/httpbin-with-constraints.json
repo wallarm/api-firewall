@@ -1,0 +1,100 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "httpbin.org",
+    "description": "A simple HTTP Request & Response Service.<br/> <br/> <b>Run locally: </b> <code>$ docker run -p 80:80 kennethreitz/httpbin</code>",
+    "contact": {
+      "url": "https://kennethreitz.org",
+      "email": "me@kennethreitz.org"
+    },
+    "version": "0.9.2"
+  },
+  "servers": [
+    {
+      "url": "https://httpbin.org/"
+    }
+  ],
+  "tags": [
+    {
+      "name": "HTTP Methods",
+      "description": "Testing different HTTP verbs"
+    },
+    {
+      "name": "Auth",
+      "description": "Auth methods"
+    },
+    {
+      "name": "Status codes",
+      "description": "Generates responses with given status code"
+    },
+    {
+      "name": "Request inspection",
+      "description": "Inspect the request data"
+    },
+    {
+      "name": "Response inspection",
+      "description": "Inspect the response data like caching and headers"
+    },
+    {
+      "name": "Response formats",
+      "description": "Returns responses in different data formats"
+    },
+    {
+      "name": "Dynamic data",
+      "description": "Generates random and dynamic data"
+    },
+    {
+      "name": "Cookies",
+      "description": "Creates, reads and deletes Cookies"
+    },
+    {
+      "name": "Images",
+      "description": "Returns different image formats"
+    },
+    {
+      "name": "Redirects",
+      "description": "Returns different redirect responses"
+    },
+    {
+      "name": "Anything",
+      "description": "Returns anything that is passed to request"
+    }
+  ],
+  "paths": {
+    "/get": {
+      "get": {
+        "tags": [
+          "HTTP Methods"
+        ],
+        "summary": "The request's query parameters.",
+        "responses": {
+          "200": {
+            "description": "The request's query parameters.",
+            "content": {}
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "int",
+            "schema": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 100
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "str",
+            "schema": {
+              "type": "string",
+              "pattern": "^.{1,10}-\\d{1,10}$"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {}
+}
