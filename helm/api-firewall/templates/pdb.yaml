@@ -1,0 +1,19 @@
+{{- if .Values.apiFirewall.podDisruptionBudget.enabled }}
+apiVersion: {{ template "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "api-firewall.fullname" . }}
+  labels:
+    app: {{ template "api-firewall.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    component: api-firewall
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "api-firewall.name" . }}
+      release: {{ .Release.Name }}
+      component: api-firewall
+  maxUnavailable: {{ .Values.apiFirewall.podDisruptionBudget.maxUnavailable }}
+{{- end }}

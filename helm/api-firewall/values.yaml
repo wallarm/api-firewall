@@ -1,0 +1,459 @@
+manifest:
+  enabled: true
+  body: |-
+    ## OpenAPI 3.0 specification in the JSON format
+    ## https://swagger.io/specification/
+    ##
+    # {
+    #   "openapi": "3.0.1",
+    #   "tags": [
+    #     {
+    #       "name": "HTTP Methods",
+    #       "description": "Testing different HTTP verbs"
+    #     }
+    #   ],
+    #   "paths": {
+    #     "/get": {
+    #       "get": {
+    #         "tags": [
+    #           "HTTP Methods"
+    #         ],
+    #         "summary": "The request's query parameters.",
+    #         "responses": {
+    #           "200": {
+    #             "description": "The request's query parameters.",
+    #             "content": {}
+    #           }
+    #         },
+    #         "parameters": [
+    #           {
+    #             "in": "query",
+    #             "name": "test",
+    #             "schema": {
+    #               "type": "integer",
+    #               "minimum": 10,
+    #               "maximum": 100
+    #             },
+    #             "required": true
+    #           }
+    #         ]
+    #       }
+    #     }
+    #   },
+    #   "components": {}
+    # }
+
+## API Firewall chart
+## TODO LINK
+##
+apiFirewall:
+  ## Chart name to use instead of the automatically generated name
+  nameOverride: ""
+
+  ## Docker image of API Firewall
+  ## https://kubernetes.io/docs/concepts/containers/images/
+  ##
+  image:
+    registry: ""
+    name: "wallarm/api-firewall"
+    tag: "v0.6.0-rc1"
+    pullPolicy: IfNotPresent
+
+  ## Array of private container registry credentials
+  ## (If you forked the official API Firewall image and pushed it to a private registry)
+  ## https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+  ##
+  imagePullSecrets: []
+  # - name: secretName
+
+  ## Main settings of API Firewall
+  config:
+    listenAddress: 0.0.0.0
+    listenPort: 8080
+    maxConnsPerHost: "512"
+    timeouts:
+      dial: "200ms"
+      readFromBackend: "5s"
+      writeToBackend: "5s"
+    validationMode:
+      request: block
+      response: block
+
+  ## Number of deployment replicas for the API Firewall container
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#deploymentspec-v1-apps
+  ##
+  replicaCount: 3
+
+  ## Settings for automated rolling updates of the API Firewall container
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#deploymentstrategy-v1-apps
+  ##
+  updateStrategy: {}
+  #  type: RollingUpdate
+  #  rollingUpdate:
+  #    maxUnavailable: 1
+  #    maxSurge: 25%
+
+  ## Minimum number of seconds for which a newly created pod should be ready without the API Firewall container crashing
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#deploymentspec-v1-apps
+  ##
+  minReadySeconds: 0
+
+  ## The number of old ReplicaSets to retain to allow rollback
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#deploymentspec-v1-apps
+  ##
+  revisionHistoryLimit: 10
+
+  ## Labels to add to the Pod with the API Firewall container
+  ##
+  podLabels: {}
+  # key: value
+
+  ## Annotations to add to the Pod with the API Firewall container
+  ##
+  podAnnotations: {}
+  # key: value
+
+  ## Additional command line arguments to pass to API Firewall
+  ## These arguments override environment variables values passed to the Docker container
+  ##
+  extraArgs: []
+  # tls-certs-path: certs
+  # tls-cert-file: localhost.crt
+  # tls-cert-key: localhost.key
+  # shutdown-timeout: 5s
+  # log-level: DEBUG
+  # api-specs: swagger.json
+
+  ## Additional environment variables to pass to the API Firewall container
+  ## (If you forked and customize the official API Firewall image)
+  ##
+  extraEnvs: []
+  # - name: FOO
+  #   value: FOO
+  # - name: BAR
+  #   valueFrom:
+  #     secretKeyRef:
+  #       key: BAR
+  #       name: bar-secret
+
+  ## Setting to allow this Pod to schedule onto nodes with matching taints
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  ##
+  tolerations: []
+  # - key: "key"
+  #   operator: "Equal|Exists"
+  #   value: "value"
+  #   effect: "NoSchedule|PreferNoSchedule"
+
+  ## Affinity and anti-affinity settings of this Pod
+  ## https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  ##
+  ## Prefered podAntiAffinity will be applied if no one affinity configured
+  ##
+  affinity: {}
+  # podAntiAffinity:
+  #   preferredDuringSchedulingIgnoredDuringExecution:
+  #   - weight: 100
+  #     podAffinityTerm:
+  #       labelSelector:
+  #         matchExpressions:
+  #         - key: component
+  #           operator: In
+  #           values:
+  #           - api-firewall
+  #         - key: app
+  #           operator: In
+  #           values:
+  #           - api-firewall
+  #       topologyKey: kubernetes.io/hostname
+  # podAntiAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #   - labelSelector:
+  #       matchExpressions:
+  #       - key: component
+  #         operator: In
+  #         values:
+  #         - api-firewall
+  #       - key: app
+  #         operator: In
+  #         values:
+  #         - api-firewall
+  #     topologyKey: "kubernetes.io/hostname"
+
+  ## Lables of the node this Pod should be assigned to
+  ## https://kubernetes.io/docs/user-guide/node-selection/
+  ##
+  nodeSelector: {}
+
+  ## Settings for the API Firewall container lifecycle hooks
+  ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+  ##
+  lifecycle: {}
+
+  ## Liveness and readiness probe values for the API Firewall container
+  ## https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
+  ##
+  livenessProbe: {}
+  # httpGet:
+  #   path: /healthz
+  #   port: 80
+  #   scheme: HTTP
+  # failureThreshold: 3
+  # initialDelaySeconds: 10
+  # periodSeconds: 10
+  # successThreshold: 1
+  # timeoutSeconds: 1
+  # port: 10254
+  readinessProbe: {}
+  # httpGet:
+  #   path: /healthz
+  #   port: 80
+  #   scheme: HTTP
+  # failureThreshold: 3
+  # initialDelaySeconds: 10
+  # periodSeconds: 10
+  # successThreshold: 1
+  # timeoutSeconds: 1
+  # port: 10254
+
+  ## Grace period for this Pod termination in seconds
+  ##
+  terminationGracePeriodSeconds: 60
+
+  ## One of the PriorityClass names applied to this Pod
+  ## This setting indicates the importance of the Pod relative to other Pods
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
+  ##
+  priorityClassName: ""
+
+  ## One of the RuntimeClass names applied to this Pod
+  ## This setting selects the API Firewall container runtime configuration
+  ## https://kubernetes.io/docs/concepts/containers/runtime-class/
+  ##
+  runtimeClassName: ""
+
+  ## privilege and access control settings for the API Firewall container
+  ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+  ##
+  securityContext: {}
+
+  ## The number of resources required for the API Firewall container
+  ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  ##
+  resources: {}
+  # limits:
+  #   cpu: 1000m
+  #   memory: 400Mi
+  # requests:
+  #   cpu: 700m
+  #   memory: 250Mi
+
+  ## Additional containers to be added to this Pod
+  ##
+  extraContainers: []
+  # - name: some-container
+  #   image: some/image:latest
+  #   env:
+  #   - name: FOO
+  #     value: "123"
+  #   volumeMounts:
+  #   - name: bar-volume
+  #     mountPath: /mnt
+
+  ## Containers that should be started before the API Firewall container start
+  ##
+  extraInitContainers: []
+  # - name: init
+  #   image: busybox
+  #   command: ['sh', '-c', 'until nslookup myservice; do echo waiting for myservice; sleep 2; done;']
+
+  ## Volumes that should be mounted to the API Firewall container
+  ##
+  extraVolumeMounts: []
+  # - name: something
+  #   mountPath: /mnt/something
+
+  ## Volumes that should be mounted to this pod
+  ##
+  extraVolumes: []
+  # - name: something
+  #   emptyDir: {}
+
+  ## Target backend configuration
+  ##
+  target:
+    ## Type of a target backend Service
+    ## API Firewall will protect this Service and proxy requests to this Service
+    ##   "service"   - use an existing Service or static IP of a load balacer
+    ##   "endpoints" - create a Service with specified endpoints
+    ##
+    type: "service"
+
+    ## A name of an existing Service or a Service that should be created
+    ##
+    name: "backend"
+
+    ## Destination port of a backend Service
+    ## If a Service type is "service", this setting will not be applied
+    ##
+    port: 80
+
+    ## Endpoints to be attached to the created Service
+    ## If a Service type is "service", this setting will not be applied
+    ##
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#endpointaddress-v1-core
+    ##
+    endpoints: []
+    # - hostname: some.hostname.example-1.tld
+    # - hostname: some.hostname.example-2.tld
+    # - ip: 1.1.1.1
+    # - ip: 2.2.2.2
+
+    ## Annotations for the created backend Service
+    ## If a Service type is "service", this setting will not be applied
+    ##
+    annotations: {}
+
+    ## Cluster IP for the created Service
+    ## If a Service type is "service", this setting will not be applied
+    ##
+    clusterIP: ""
+
+  service:
+    ## Service type
+    ## https://kubernetes.io/docs/concepts/services-networking/service/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#service-v1-core
+    ##
+    type: ClusterIP
+
+    ## Service port
+    ##
+    port: 80
+
+    ## Service node port (if the service type if "NodePort")
+    ##
+    nodePort: 0
+
+    ## Load balancer IP address
+    ## https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer
+    ##
+    loadBalancerIP: ""
+
+    ## Load balancer source ranges
+    ## https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support
+    ##
+    loadBalancerSourceRanges: []
+    # - "192.168.0.0/16"
+    # - "10.0.0.0/8"
+    # - "172.16.0.0/12"
+
+    ## Kubernetes external traffic policy
+    ## https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/
+    ##
+    externalTrafficPolicy: ""
+
+    ## Annotations for this Service
+    ##
+    annotations: {}
+
+    ## IP address of this Service cluster
+    ##
+    clusterIP: ""
+
+  ingress:
+    enabled: false
+
+    ## Ingress class name used to expose this Service
+    ## https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class
+    ##
+    ingressClass: ""
+
+    ## Ingress hosts
+    ##
+    hosts: []
+    # - my.example-1.tld
+    # - my.example-2.tld
+
+    ## Ingress route
+    ##
+    path: /
+
+    ## TLS configuration
+    ##
+    tls: []
+    # - hosts:
+    #   - my.example-1.tld
+    #   - my.example-2.tld
+    #   secretName: my-example-1-tld-tls-secret
+
+    ## Annotations for the Ingress resource
+    ##
+    annotations: {}
+
+  ## Pod Security Policy settings
+  ## https://kubernetes.io/docs/concepts/policy/pod-security-policy/
+  ##
+  podSecurityPolicy:
+    enabled: false
+    allowedCapabilities: []
+    privileged: false
+    allowPrivilegeEscalation: false
+    volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'downwardAPI'
+    - 'secret'
+    hostNetwork: false
+    hostIPC: false
+    hostPID: false
+    runAsUser:
+      rule: 'MustRunAsNonRoot'
+    supplementalGroups:
+      rule: 'MustRunAs'
+      ranges:
+      - min: 1000
+        max: 65535
+    fsGroup:
+      rule: 'MustRunAs'
+      ranges:
+      - min: 1000
+        max: 65535
+    seLinux:
+      rule: RunAsAny
+    
+    ## Just for additional entries in ".spec" if PodSecurityPolicy
+    ##
+    additionalRestrictions: {}
+    # requiredDropCapabilities:
+    #   - ALL
+    # readOnlyRootFilesystem: false
+
+  ## Pod Disturion Budget settings
+  ## https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  ##
+  podDisruptionBudget:
+    enabled: true
+    maxUnavailable: 1
+
+  ## Pod autoscaling policy
+  ## https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  ##
+  autoscaling:
+    enabled: false
+    minReplicas: 3
+    maxReplicas: 11
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 70
+
+  ## Service Account for this Pod
+  ## https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+  ##
+  serviceAccount:
+    ## Name of the existing Service Account
+    ## If not specified, new Service Account will be created
+    ##
+    name: ""
+    ## Annotations for the created Service Account
+    ##
+    annotations: {}

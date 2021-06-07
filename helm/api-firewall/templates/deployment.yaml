@@ -1,0 +1,146 @@
+apiVersion: {{ template "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ template "api-firewall.fullname" . }}
+  labels:
+    app: {{ template "api-firewall.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    component: api-firewall
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.apiFirewall.replicaCount }}
+  revisionHistoryLimit: {{ .Values.apiFirewall.revisionHistoryLimit }}
+  {{ if .Values.apiFirewall.updateStrategy -}}
+  strategy: {{ .Values.apiFirewall.updateStrategy | toYaml | trimSuffix "\n" | nindent 4 }}
+  {{ end -}}
+  {{ if .Values.apiFirewall.minReadySeconds -}}
+  minReadySeconds: {{ .Values.apiFirewall.minReadySeconds }}
+  {{ end -}}
+  selector:
+    matchLabels:
+      app: {{ template "api-firewall.name" . }}
+      component: api-firewall
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "api-firewall.name" . }}
+        component: api-firewall
+        release: {{ .Release.Name }}
+        {{- if .Values.apiFirewall.podLabels }}
+        {{ range $key, $value := .Values.apiFirewall.podLabels -}}
+        {{ $key }}: {{ $value | quote }}
+        {{- end -}}
+        {{- end }}
+      {{- if .Values.apiFirewall.podAnnotations }}
+      annotations:
+        {{ range $key, $value := .Values.apiFirewall.podAnnotations -}}
+        {{ $key }}: {{ $value | quote }}
+        {{- end -}}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ template "api-firewall.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ .Values.apiFirewall.terminationGracePeriodSeconds }}
+      {{ if .Values.apiFirewall.nodeSelector -}}
+      nodeSelector: {{ toYaml .Values.apiFirewall.nodeSelector | trimSuffix "\n" | nindent 8 }}
+      {{ end -}}
+      {{ if .Values.apiFirewall.tolerations -}}
+      tolerations: {{ toYaml .Values.apiFirewall.tolerations | trimSuffix "\n" | nindent 6 }}
+      {{ end -}}
+      {{ if .Values.apiFirewall.affinity -}}
+      affinity: {{ toYaml .Values.apiFirewall.affinity | trimSuffix "\n" | nindent 8 }}
+      {{ end -}}
+      {{ if .Values.apiFirewall.priorityClassName -}}
+      priorityClassName: {{ .Values.apiFirewall.priorityClassName }}
+      {{ end -}}
+      {{ if .Values.apiFirewall.runtimeClassName -}}
+      runtimeClassName: {{ .Values.apiFirewall.runtimeClassName }}
+      {{ end -}}
+      {{ if len .Values.apiFirewall.imagePullSecrets -}}
+      imagePullSecrets: {{ toYaml .Values.apiFirewall.imagePullSecrets | trimSuffix "\n" | nindent 6 }}
+      {{ end -}}
+      {{ if .Values.apiFirewall.extraInitContainers -}}
+      initContainers: {{ toYaml .Values.apiFirewall.extraInitContainers | trimSuffix "\n" | nindent 6 }}
+      {{ end -}}
+      containers:
+      - name: api-firewall
+        image: {{ template "api-firewall.image" . }}
+        imagePullPolicy: {{ .Values.apiFirewall.image.pullPolicy }}
+        {{ if .Values.apiFirewall.lifecycle -}}
+        lifecycle: {{ toYaml .Values.apiFirewall.lifecycle | trimSuffix "\n" | nindent 10 }}
+        {{ end -}}
+        {{ if .Values.apiFirewall.extraArgs -}}
+        args:
+        {{ range $key, $value := .Values.apiFirewall.extraArgs -}}
+        {{ if $value -}}
+        - --{{ $key }}={{ $value }}
+        {{- else -}}
+        - --{{ $key }}
+        {{- end }}
+        {{ end -}}
+        {{ end -}}
+        {{ if .Values.apiFirewall.securityContext -}}
+        securityContext: {{ toYaml .Values.apiFirewall.securityContext | trimSuffix "\n" | nindent 10 }}
+        {{ end -}}
+        env:
+        - name: APIFW_URL
+          value: http://{{ .Values.apiFirewall.config.listenAddress }}:{{ .Values.apiFirewall.config.listenPort }}
+        {{ if .Values.manifest.enabled -}}
+        - name: APIFW_API_SPECS
+          value: /etc/api-firewall/manifests/openapi-manifest.json
+        {{ end -}}
+        - name: APIFW_SERVER_URL
+          value: http://{{ template "api-firewall.targetServiceName" . }}:{{ .Values.apiFirewall.target.port }}
+        - name: APIFW_SERVER_MAX_CONNS_PER_HOST
+          value: {{ .Values.apiFirewall.config.maxConnsPerHost | quote }}
+        - name: APIFW_SERVER_DIAL_TIMEOUT
+          value: {{ .Values.apiFirewall.config.timeouts.dial | quote }}
+        - name: APIFW_SERVER_READ_TIMEOUT
+          value: {{ .Values.apiFirewall.config.timeouts.readFromBackend | quote }}
+        - name: APIFW_SERVER_WRITE_TIMEOUT
+          value: {{ .Values.apiFirewall.config.timeouts.writeToBackend | quote }}
+        - name: APIFW_REQUEST_VALIDATION
+          value: {{ .Values.apiFirewall.config.validationMode.request | upper }}
+        - name: APIFW_RESPONSE_VALIDATION
+          value: {{ .Values.apiFirewall.config.validationMode.response | upper }}
+        {{- if .Values.apiFirewall.extraEnvs -}}
+        {{ toYaml .Values.apiFirewall.extraEnvs | trimSuffix "\n" | nindent 10 }}
+        {{- end }}
+        {{ if .Values.apiFirewall.livenessProbe -}}
+        livenessProbe: {{ toYaml .Values.apiFirewall.livenessProbe | trimSuffix "\n" | nindent 10 }}
+        {{ end -}}
+        {{ if .Values.apiFirewall.readinessProbe -}}
+        readinessProbe: {{ toYaml .Values.apiFirewall.readinessProbe | trimSuffix "\n" | nindent 10 }}
+        {{ end -}}
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        {{- if or .Values.manifest.enabled (gt (len .Values.apiFirewall.extraVolumeMounts) 0) }}
+        volumeMounts:
+        {{- if .Values.manifest.enabled }}
+        - name: openapi-manifest
+          mountPath: /etc/api-firewall/manifests
+        {{- end }}
+        {{- if .Values.apiFirewall.extraVolumeMounts -}}
+        {{ toYaml .Values.apiFirewall.extraVolumeMounts | trimSuffix "\n" | nindent 8 }}
+        {{- end }}
+        {{- if .Values.apiFirewall.resources }}
+        resources: {{ toYaml .Values.apiFirewall.resources | trimSuffix "\n" | nindent 10 }}
+        {{- end }}
+        {{- end }}
+      {{ if .Values.apiFirewall.extraContainers -}}
+      {{ toYaml .Values.apiFirewall.extraContainers | trimSuffix "\n" | indent 6 | trimPrefix "      " }}
+      {{ end -}}
+      {{ if or .Values.manifest.enabled (gt (len .Values.apiFirewall.extraVolumes) 0) -}}
+      volumes:
+      {{- if .Values.manifest.enabled }}
+      - name: openapi-manifest
+        configMap:
+          name: {{ template "api-firewall.fullname" . }}-manifest
+      {{- end }}
+      {{- if .Values.apiFirewall.extraVolumes -}}
+      {{ toYaml .Values.apiFirewall.extraVolumes | trimSuffix "\n" | nindent 6 }}
+      {{ end -}}
+      {{ end -}}
