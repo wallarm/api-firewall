@@ -1,0 +1,78 @@
+version: '3.6'
+
+x-env-kubernetes-version: &ref_env_kubernetes_version ${KUBERNETES_VERSION}
+x-env-kind-version: &ref_env_kind_version ${KIND_VERSION}
+x-env-docker-version: &ref_env_docker_version ${DOCKER_VERSION}
+x-env-kind-image: &ref_env_kind_image ${KIND_IMAGE}
+x-env-local-dns: &ref_env_local_dns ${LOCAL_DNS}
+
+services:
+  dns: # makes env compatible with macos/windows, not linux only
+    container_name: api-firewall-kubernetes-dns
+    image: coredns/coredns:1.8.3
+    command:
+    - -conf
+    - /etc/Coredns
+    expose:
+      - "53/udp"
+    networks:
+      default:
+        ipv4_address: *ref_env_local_dns
+    volumes:
+    - "./volumes/dns/Corefile:/etc/Coredns:ro"
+    restart: on-failure
+    stop_grace_period: 1s
+
+  kubernetes:
+    container_name: api-firewall-kubernetes-kind
+    image: *ref_env_kind_image
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+      labels:
+        tld.local: local
+      network: host
+      args:
+        DOCKER_VERSION: *ref_env_docker_version
+        KUBERNETES_VERSION: *ref_env_kubernetes_version
+        KIND_VERSION: *ref_env_kind_version
+    privileged: true
+    environment:
+      KIND_DNS_SERVER_IP: *ref_env_local_dns
+      CLUSTER_MANIFEST_TEMPLATE: /root/cluster.yaml.tmpl
+      KIND_CLUSTER_MANIFEST: /root/cluster.yaml
+    env_file:
+    - ".env"
+    entrypoint:
+    - sh
+    - -c
+    command:
+    - |
+      echo nameserver ${LOCAL_DNS} > /etc/resolv.conf
+      exec dockerd-entrypoint.sh
+    ports:
+    - "6443:6443"  # kubernetes api
+    - "8008:30080" # kubernetes dashboard
+    - "8080:31080" # backend via firewall
+    - "8090:31090" # backend
+    dns:
+    - *ref_env_local_dns
+    extra_hosts:
+    - "kubernetes:127.0.0.1"
+    volumes:
+    - ./volumes/kubeconfig:/root/.kube/config:rw
+    - ./volumes/cluster.yaml:/root/cluster.yaml.tmpl:ro
+    - ./volumes/init-backend:/root/init-backend:ro
+    - ./volumes/helm:/root/helm:ro
+    - ./volumes/chart:/root/chart:ro
+    - ./volumes/docker/daemon.json:/etc/docker/daemon.json:ro
+    stop_grace_period: 5s
+    depends_on:
+    - dns
+
+networks:
+  default:
+    name: api-firewall-kubernetes
+    ipam:
+      config:
+        - subnet: 10.254.254.0/24
