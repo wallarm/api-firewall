@@ -1,4 +1,5 @@
 # API Firewall
+
 Light-weighted API Firewall to protect your API endpoints in cloud-native environments with API Schema validation. API Firewall relies on a positive security model allowing calls that match predefined API specs, while rejecting everything else. 
 
 Technically, API Firewall is a reverse proxy with a built-in OpenAPI v3 request and response validator, written in Go, and optimized for extreme performance and near-zero added latency.
@@ -6,12 +7,14 @@ Technically, API Firewall is a reverse proxy with a built-in OpenAPI v3 request 
 ## Installation
 
 Docker deployment:
+
 ```
 $ docker pull wallarm:api-firewall
 $ docker run -v /opt/sample-api/openapi3/:/tmp -e SERVER_URL=http://172.17.0.1:9090/v1.0/ -e SWAGGER_FILE=/tmp/pets-api.yaml api-firewall
 ```
 
 Kubernetes deployment:
+
 ```
 TBD
 ```
@@ -30,6 +33,7 @@ APIFW_PROXY_READ_TIMEOUT: "5s"
 APIFW_PROXY_WRITE_TIMEOUT: "5s"
 APIFW_PROXY_SHUTDOWN_TIMEOUT: "5s"
 ```
+
 #### TLS section
 
 ```dockerfile
@@ -41,11 +45,13 @@ APIFW_TLS_CERT_KEY: "localhost.key"
 #### Swagger section
 
 File with API specs may have .json or .yaml extension and should be defined using OpeanAPI v3 standard.
+
 ```dockerfile
 APIFW_SWAGGER_FILE: "/api-firewall/resources/swagger.json"
 ```
 
 #### Server section
+
 ```dockerfile
 APIFW_SERVER_URL: "http://example.com/v1/"
 APIFW_SERVER_MAX_CONNS_PER_HOST: 512
