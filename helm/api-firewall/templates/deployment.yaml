@@ -96,9 +96,9 @@ spec:
           value: {{ .Values.apiFirewall.config.maxConnsPerHost | quote }}
         - name: APIFW_SERVER_DIAL_TIMEOUT
           value: {{ .Values.apiFirewall.config.timeouts.dial | quote }}
-        - name: APIFW_SERVER_READ_TIMEOUT
+        - name: APIFW_READ_TIMEOUT
           value: {{ .Values.apiFirewall.config.timeouts.readFromBackend | quote }}
-        - name: APIFW_SERVER_WRITE_TIMEOUT
+        - name: APIFW_WRITE_TIMEOUT
           value: {{ .Values.apiFirewall.config.timeouts.writeToBackend | quote }}
         - name: APIFW_REQUEST_VALIDATION
           value: {{ .Values.apiFirewall.config.validationMode.request | upper }}
@@ -126,9 +126,9 @@ spec:
         {{- if .Values.apiFirewall.extraVolumeMounts -}}
         {{ toYaml .Values.apiFirewall.extraVolumeMounts | trimSuffix "\n" | nindent 8 }}
         {{- end }}
+        {{- end }}
         {{- if .Values.apiFirewall.resources }}
         resources: {{ toYaml .Values.apiFirewall.resources | trimSuffix "\n" | nindent 10 }}
-        {{- end }}
         {{- end }}
       {{ if .Values.apiFirewall.extraContainers -}}
       {{ toYaml .Values.apiFirewall.extraContainers | trimSuffix "\n" | indent 6 | trimPrefix "      " }}

@@ -44,7 +44,7 @@ manifest:
     # }
 
 ## API Firewall chart
-## TODO LINK
+## https://docs.wallarm.com/api-firewall/overview/
 ##
 apiFirewall:
   ## Chart name to use instead of the automatically generated name
@@ -56,7 +56,7 @@ apiFirewall:
   image:
     registry: ""
     name: "wallarm/api-firewall"
-    tag: "v0.6.0-rc1"
+    tag: "v0.6.2"
     pullPolicy: IfNotPresent
 
   ## Array of private container registry credentials
@@ -70,7 +70,7 @@ apiFirewall:
   config:
     listenAddress: 0.0.0.0
     listenPort: 8080
-    maxConnsPerHost: "512"
+    maxConnsPerHost: 512
     timeouts:
       dial: "200ms"
       readFromBackend: "5s"
@@ -120,7 +120,8 @@ apiFirewall:
   # tls-certs-path: certs
   # tls-cert-file: localhost.crt
   # tls-cert-key: localhost.key
-  # shutdown-timeout: 5s
+  # server-read-timeout: 5s
+  # server-write-timeout: 5s
   # log-level: DEBUG
   # api-specs: swagger.json
 
