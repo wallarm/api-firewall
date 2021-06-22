@@ -16,11 +16,6 @@ Kubernetes deployment:
 TBD
 ```
 
-Terraform:
-```
-TBD
-```
-
 ## Configuration
 
 ### Environment options
