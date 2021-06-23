@@ -60,12 +60,11 @@ services:
     extra_hosts:
     - "kubernetes:127.0.0.1"
     volumes:
-    - ./volumes/kubeconfig:/root/.kube/config:rw
-    - ./volumes/cluster.yaml:/root/cluster.yaml.tmpl:ro
-    - ./volumes/init-backend:/root/init-backend:ro
-    - ./volumes/helm:/root/helm:ro
-    - ./volumes/chart:/root/chart:ro
-    - ./volumes/docker/daemon.json:/etc/docker/daemon.json:ro
+    - ./volumes/cluster.yaml:/root/cluster.yaml.tmpl:ro       # kubernetes cluster configuration
+    - ./volumes/init-backend:/root/init-backend:ro            # kubernetes initial configuration (manifests)
+    - ./volumes/helm:/root/helm:ro                            # helm values for api-firewall
+    - ../../helm/api-firewall:/root/chart:ro                  # helm chart for api-firewall
+    - ./volumes/docker/daemon.json:/etc/docker/daemon.json:ro # docker daemon config
     stop_grace_period: 5s
     depends_on:
     - dns

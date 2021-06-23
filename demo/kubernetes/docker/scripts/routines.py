@@ -29,6 +29,8 @@ def create():
         help(exitcode=4)
 
     # Wipe kubeconfig
+    if not os.path.exists(os.path.dirname(os.path.realpath(__config_kubeconfig))):
+        os.makedirs(os.path.dirname(os.path.realpath(__config_kubeconfig)))
     with open(__config_kubeconfig, 'w') as fd:
         fd.write('')
 

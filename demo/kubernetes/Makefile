@@ -13,6 +13,7 @@ start:
 	@docker-compose up --no-start
 	@docker-compose start kubernetes
 	@docker-compose start dns
+	@sleep 2 # wait docker for ready
 	@docker-compose exec -w /root kubernetes bash -c 'cat $${CLUSTER_MANIFEST_TEMPLATE} | envsubst > $${KIND_CLUSTER_MANIFEST}'
 	@docker-compose exec -w /root kubernetes routines.py create
 	@docker-compose start
