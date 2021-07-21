@@ -19,7 +19,7 @@ The following resources are used in this demo:
 
 ## Demo code description
 
-[The demo code](https://github.com/wallarm/api-firewall/tree/main/demo/docker-compose) contains the following configuration files:
+The [demo code](https://github.com/wallarm/api-firewall/tree/main/demo/docker-compose) contains the following configuration files:
 
 * The following OpenAPI 3.0 specifications located in the `volumes` directory:
     * `httpbin.json` is the [**httpbin** OpenAPI 2.0 specification](https://httpbin.org/spec.json) converted to the OpenAPI 3.0 specification format.
