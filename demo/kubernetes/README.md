@@ -6,11 +6,11 @@ This demo deploys the application [**httpbin**](https://httpbin.org/) and Wallar
 
 Before running this demo, please ensure your system meets the following requirements:
 
-* Docker Engine 20.x or later installed for [Mac](https://docs.docker.com/docker-for-mac/install/), [Windows](https://docs.docker.com/docker-for-windows/install/), or [Linix](https://docs.docker.com/engine/install/#server)
+* Docker Engine 20.x or later installed for [Mac](https://docs.docker.com/docker-for-mac/install/), [Windows](https://docs.docker.com/docker-for-windows/install/), or [Linux](https://docs.docker.com/engine/install/#server)
 * [Docker Compose](https://docs.docker.com/compose/install/) installed
 * make installed for [Mac](https://formulae.brew.sh/formula/make), [Windows](https://sourceforge.net/projects/ezwinports/files/make-4.3-without-guile-w32-bin.zip/download), or Linux (using suitable package-management utilities)
 
-Deploying Kubernetes can be resource intensive. Please ensure you have the following resources available:
+Deploying Kubernetes can be resource-intensive. Please ensure you have the following resources available:
 
 * At least 2 CPU cores
 * At least 6GB volatile memory
@@ -32,9 +32,9 @@ The demo deployment is configured via the following directories/files:
 
 * The OpenAPI 3.0 specification for **httpbin** API is located in the file `volumes/helm/api-firewall.yaml` under the `manifest.body` path. Using this specification, API Firewall will validate whether requests and responses sent to the application address match the application API schema.
 
-    This specification does not define the [original API schema of **httpbin**](https://httpbin.org/spec.json). To demonstrate more transparently the API Firewall features, we have explicitly converted and stricten the original OpenAPI 2.0 schema and saved the changed specification to `volumes/helm/api-firewall.yaml` > `manifest.body`.
+    This specification does not define the [original API schema of **httpbin**](https://httpbin.org/spec.json). To demonstrate more transparently the API Firewall features, we have explicitly converted and complicated the original OpenAPI 2.0 schema and saved the changed specification to `volumes/helm/api-firewall.yaml` > `manifest.body`.
 * `Makefile` is the configuration file defining Docker routines.
-* `docker-compose.yml` is the file defining the following cofiguration for running the temporary Kubernetes cluster:
+* `docker-compose.yml` is the file defining the following configuration for running the temporary Kubernetes cluster:
 
     * The [**kind**](https://kind.sigs.k8s.io/) node building based on [this Dockerfile](https://github.com/wallarm/api-firewall/blob/main/demo/kubernetes/docker/Dockerfile).
     * Deployment of the DNS server providing simultaneous Kubernetes ad Docker service discovery.
@@ -55,7 +55,7 @@ To run the demo code:
     ```bash
     cd api-firewall/demo/kubernetes
     ```
-3. Run the demo code by using the command below. Please note that running this demo can be resource intensive. It takes up to 3 minutes to start this demo environment.
+3. Run the demo code by using the command below. Please note that running this demo can be resource-intensive. It takes up to 3 minutes to start this demo environment.
 
     ```bash
     make start
