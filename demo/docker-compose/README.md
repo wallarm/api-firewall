@@ -1,17 +1,25 @@
-# API Firewall demo with Docker Compose
+# Wallarm API Firewall demo with Docker Compose
 
-This document describes the steps to run this demo code that deploys the application **httpbin** protected by API Firewall using [Docker Compose](https://docs.docker.com/compose/).
+This demo deploys the application [**httpbin**](https://httpbin.org/) and Wallarm API Firewall as a proxy protecting **httpbin** API. Both applications are running in the Docker containers connected using Docker Compose.
+
+## System requirements
+
+Before running this demo, please ensure your system meets the following requirements:
+
+* Docker Engine 20.x or later installed for [Mac](https://docs.docker.com/docker-for-mac/install/), [Windows](https://docs.docker.com/docker-for-windows/install/), or [Linix](https://docs.docker.com/engine/install/#server)
+* [Docker Compose](https://docs.docker.com/compose/install/) installed
+* make installed for [Mac](https://formulae.brew.sh/formula/make), [Windows](https://sourceforge.net/projects/ezwinports/files/make-4.3-without-guile-w32-bin.zip/download), or Linux (using suitable package-management utilities)
 
 ## Used resources
 
 The following resources are used in this demo:
 
-* [**httpbin** Docker image](https://hub.docker.com/r/kennethreitz/httpbin/) as the example application image
+* [**httpbin** Docker image](https://hub.docker.com/r/kennethreitz/httpbin/)
 * [API Firewall Docker image](https://hub.docker.com/r/wallarm/api-firewall)
 
-## The demo code description
+## Demo code description
 
-This demo code published on our GitHub contains the following configuration files:
+[The demo code](https://github.com/wallarm/api-firewall/tree/main/demo/docker-compose) contains the following configuration files:
 
 * The following OpenAPI 3.0 specifications located in the `volumes` directory:
     * `httpbin.json` is the [**httpbin** OpenAPI 2.0 specification](https://httpbin.org/spec.json) converted to the OpenAPI 3.0 specification format.
@@ -49,7 +57,7 @@ To run the demo code:
 
 By default, this demo is running with the original **httpbin** OpenAPI 3.0 specification. To test this demo option, you can use the following requests:
 
-* Check that API Firewall blocks requests sent to unexposed path:
+* Check that API Firewall blocks requests sent to the unexposed path:
 
     ```bash
     curl -sD - http://localhost:8080/unexposed/path
@@ -64,7 +72,7 @@ By default, this demo is running with the original **httpbin** OpenAPI 3.0 speci
     Content-Length: 0
     Apifw-Request-Id: 0000000200000001
     ```
-* Check that API Firewall blocks request with string value passed in the parameter that requires integer data type:
+* Check that API Firewall blocks requests with string value passed in the parameter that requires integer data type:
 
     ```bash
     curl -sD - http://localhost:8080/cache/arewfser
