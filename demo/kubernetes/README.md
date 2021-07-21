@@ -8,9 +8,9 @@ Before running this demo, please ensure your system meets the following requirem
 
 * Docker Engine 20.x or later installed for [Mac](https://docs.docker.com/docker-for-mac/install/), [Windows](https://docs.docker.com/docker-for-windows/install/), or [Linux](https://docs.docker.com/engine/install/#server)
 * [Docker Compose](https://docs.docker.com/compose/install/) installed
-* make installed for [Mac](https://formulae.brew.sh/formula/make), [Windows](https://sourceforge.net/projects/ezwinports/files/make-4.3-without-guile-w32-bin.zip/download), or Linux (using suitable package-management utilities)
+* **make** installed for [Mac](https://formulae.brew.sh/formula/make), [Windows](https://sourceforge.net/projects/ezwinports/files/make-4.3-without-guile-w32-bin.zip/download), or Linux (using suitable package-management utilities)
 
-Deploying Kubernetes can be resource-intensive. Please ensure you have the following resources available:
+Running this demo environment can be resource-intensive. Please ensure you have the following resources available:
 
 * At least 2 CPU cores
 * At least 6GB volatile memory
@@ -36,10 +36,10 @@ The demo deployment is configured via the following directories/files:
 * `Makefile` is the configuration file defining Docker routines.
 * `docker-compose.yml` is the file defining the following configuration for running the temporary Kubernetes cluster:
 
-    * The [**kind**](https://kind.sigs.k8s.io/) node building based on [this Dockerfile](https://github.com/wallarm/api-firewall/blob/main/demo/kubernetes/docker/Dockerfile).
+    * The [**kind**](https://kind.sigs.k8s.io/) node building based on [`docker/Dockerfile`](https://github.com/wallarm/api-firewall/blob/main/demo/kubernetes/docker/Dockerfile).
     * Deployment of the DNS server providing simultaneous Kubernetes ad Docker service discovery.
     * Local Docker registry and the `dind` service deployment.
-    * **httpbin** and [API Firewall Docker](https://docs.wallarm.com/api-firewall/installation-guides/docker-container/) images configuration
+    * **httpbin** and [API Firewall Docker](https://docs.wallarm.com/api-firewall/installation-guides/docker-container/) images configuration.
 
 ## Step 1: Running the demo code
 
@@ -55,7 +55,7 @@ To run the demo code:
     ```bash
     cd api-firewall/demo/kubernetes
     ```
-3. Run the demo code by using the command below. Please note that running this demo can be resource-intensive. It takes up to 3 minutes to start this demo environment.
+3. Run the demo code by using the command below. Please note that running this demo can be resource-intensive. It takes up to 3 minutes to start the demo environment.
 
     ```bash
     make start
@@ -67,7 +67,7 @@ To run the demo code:
 
 ## Step 2: Testing the demo
 
-Using the following checks, you can test deployed API Firewall:
+Using the following request, you can test deployed API Firewall:
 
 * Check that API Firewall blocks requests sent to the unexposed path:
 
