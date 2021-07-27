@@ -10,4 +10,4 @@ To download, install, and start Wallarm API Firewall on Docker, see [our officia
 
 ## Documentation
 
-To learn more API Firewall features, installation options and try tthe product, please use [our official documentation](https://docs.wallarm.com/api-firewall/).
+To learn more API Firewall features, installation options and try the product, please use [our official documentation](https://docs.wallarm.com/api-firewall/).
