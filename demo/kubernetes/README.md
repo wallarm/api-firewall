@@ -26,7 +26,7 @@ The following resources are used in this demo:
 
 The [demo code](https://github.com/wallarm/api-firewall/tree/main/demo/kubernetes) runs the Kubernetes cluster with deployed **httpbin** and API Firewall.
 
-To run the Kubernetes cluster, this demo uses the tool [**kind**](https://kind.sigs.k8s.io/) which allows runninng K8s cluster in minutes using Docker containers as nodes. By using several abstraction layers, **kind** and its dependencies are packed into the Docker image which starts the Kubernetes cluster.
+To run the Kubernetes cluster, this demo uses the tool [**kind**](https://kind.sigs.k8s.io/) which allows running K8s cluster in minutes using Docker containers as nodes. By using several abstraction layers, **kind** and its dependencies are packed into the Docker image which starts the Kubernetes cluster.
 
 The demo deployment is configured via the following directories/files:
 
