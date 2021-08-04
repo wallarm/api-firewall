@@ -37,7 +37,7 @@ The demo deployment is configured via the following directories/files:
 * `docker-compose.yml` is the file defining the following configuration for running the temporary Kubernetes cluster:
 
     * The [**kind**](https://kind.sigs.k8s.io/) node building based on [`docker/Dockerfile`](https://github.com/wallarm/api-firewall/blob/main/demo/kubernetes/docker/Dockerfile).
-    * Deployment of the DNS server providing simultaneous Kubernetes ad Docker service discovery.
+    * Deployment of the DNS server providing simultaneous Kubernetes and Docker service discovery.
     * Local Docker registry and the `dind` service deployment.
     * **httpbin** and [API Firewall Docker](https://docs.wallarm.com/api-firewall/installation-guides/docker-container/) images configuration.
 

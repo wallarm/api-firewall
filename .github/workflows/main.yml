@@ -9,6 +9,7 @@ on:
     paths:
       - demo/docker-compose/README.md
       - demo/kubernetes/README.md
+      - README.md
 
   workflow_dispatch:
 
