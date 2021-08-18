@@ -16,6 +16,21 @@ spec:
     name: {{ template "api-firewall.fullname" . }}
   minReplicas: {{ .Values.apiFirewall.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.apiFirewall.autoscaling.maxReplicas }}
+  {{ if .Capabilities.APIVersions.Has "autoscaling/v2beta2/HorizontalPodAutoscaler" -}}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.apiFirewall.autoscaling.targetCPUUtilizationPercentage }}
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.apiFirewall.autoscaling.targetMemoryUtilizationPercentage }}
+  {{ else -}}
+  {{ if .Capabilities.APIVersions.Has "autoscaling/v2beta1/HorizontalPodAutoscaler" -}}
   metrics:
   - type: Resource
     resource:
@@ -25,4 +40,6 @@ spec:
     resource:
       name: memory
       targetAverageUtilization: {{ .Values.apiFirewall.autoscaling.targetMemoryUtilizationPercentage }}
+  {{ end -}}
+  {{ end -}}
 {{- end }}

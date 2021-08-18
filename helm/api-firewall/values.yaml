@@ -56,7 +56,7 @@ apiFirewall:
   image:
     registry: ""
     name: "wallarm/api-firewall"
-    tag: "v0.6.2"
+    tag: "v0.6.4"
     pullPolicy: IfNotPresent
 
   ## Array of private container registry credentials
