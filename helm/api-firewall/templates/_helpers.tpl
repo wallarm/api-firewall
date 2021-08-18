@@ -132,3 +132,18 @@ Return the appropriate apiVersion for Ingress kind of objects.
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Return the appropriate apiVersion for HorizontalPodAutoscaler kind of objects.
+*/}}
+{{- define "horizontalPodAutoscaler.apiVersion" -}}
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2beta2/HorizontalPodAutoscaler" -}}
+{{- print "autoscaling/v2beta2" -}}
+{{- else -}}
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2beta1/HorizontalPodAutoscaler" -}}
+{{- print "autoscaling/v2beta1" -}}
+{{- else -}}
+{{- fail "Kubernetes Autoscaling API ti old. You need to upgrade your cluster for using this feature" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
