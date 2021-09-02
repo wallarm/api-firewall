@@ -4,7 +4,9 @@ Light-weighted Wallarm API Firewall protects your API endpoints in cloud-native 
 
 ## API schema validation and positive security model
 
-When starting API Firewall, you should provide the [OpenAPI 3.0 specification](https://swagger.io/specification/) of the application to be protected with API Firewall. The started API Firewall will operate as a reverse proxy and validate whether requests and responses match the schema defined in the specification. The traffic that does not match the schema will be blocked or logged (depending on the configured API Firewall operation mode).
+When starting API Firewall, you should provide the [OpenAPI 3.0 specification](https://swagger.io/specification/) of the application to be protected with API Firewall. The started API Firewall will operate as a reverse proxy and validate whether requests and responses match the schema defined in the specification.
+
+The traffic that does not match the schema will be logged using the [`STDOUT` and `STDERR` Docker services](https://docs.docker.com/config/containers/logging/) or blocked (depending on the configured API Firewall operation mode). If operating in the logging mode and detecting the traffic on endpoints that are not included in the specification, API Firewall also logs these endpoints as the shadow ones (except for endpoints returning the code `404`).
 
 ![API Firewall scheme](images/firewall-as-proxy.png)
 
