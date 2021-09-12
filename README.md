@@ -1,6 +1,10 @@
-# Wallarm API Firewall
+# Wallarm Free API Firewall
 
 Light-weighted Wallarm API Firewall protects your API endpoints in cloud-native environments with API schema validation. Wallarm API Firewall relies on a positive security model allowing calls that match a predefined API specification, while rejecting everything else.
+
+The product is completely free, available at DockerHub and already got 10M pulls. 
+
+Please star repository to support this project https://hub.docker.com/r/wallarm/api-firewall
 
 ## API schema validation and positive security model
 
