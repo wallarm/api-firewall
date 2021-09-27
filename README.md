@@ -4,7 +4,7 @@ Light-weighted Wallarm API Firewall protects your API endpoints in cloud-native 
 
 The product is completely free, available at DockerHub and already got 10M pulls. 
 
-Please star repository to support this project https://hub.docker.com/r/wallarm/api-firewall
+Please star the [repository](https://hub.docker.com/r/wallarm/api-firewall) to support this project.
 
 ## API schema validation and positive security model
 
