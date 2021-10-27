@@ -1,0 +1,28 @@
+name: release
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      -
+        name: Extract tag name
+        run: echo "X_TAG=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
+      -
+        name: Publish Helm charts
+        uses: stefanprodan/helm-gh-pages@master
+        with:
+          token: ${{ secrets.HELM_PUBLISH_TOKEN }}
+          charts_dir: .
+          charts_url: https://charts.wallarm.com
+          linting: off
+          repository: helm-charts
+          branch: main
+          target_dir: api-firewall
+          index_dir: .
+          app_version: "${{ env.X_TAG }}"
+          chart_version: "${{ env.X_TAG }}"
