@@ -2,9 +2,14 @@
 
 Light-weighted Wallarm API Firewall protects your API endpoints in cloud-native environments with API schema validation. Wallarm API Firewall relies on a positive security model allowing calls that match a predefined API specification, while rejecting everything else.
 
-The product is completely free, available at DockerHub and already got 10M pulls. 
+The **key features** of API Firewall are:
 
-Please star the [repository](https://hub.docker.com/r/wallarm/api-firewall) to support this project.
+* Protect your APIs by blocking requests that do not match the API schema
+* Discover Shadow API endpoints
+* Quick and easy deployment and configuration
+* Customization of request and response processing modes, response codes and log format
+
+The product is completely **free**, available at DockerHub and already got 10M pulls. To support this project, you can star the [repository](https://hub.docker.com/r/wallarm/api-firewall).
 
 ## API schema validation and positive security model
 
@@ -22,56 +27,9 @@ By allowing you to set the traffic requirements with the OpenAPI 3.0 specificati
 
 API Firewall works as a reverse proxy with a built-in OpenAPI 3.0 request and response validator. The validator is written in Go and optimized for extreme performance and near-zero added latency.
 
-## Quick start with Docker
+## Starting API Firewall
 
-This quick start guide walks through downloading and starting Wallarm API Firewall with minimal configuration on Docker.
-
-### Requirements
-
-* [Installed and configured Docker](https://docs.docker.com/get-docker/)
-* [OpenAPI 3.0 specification](https://swagger.io/specification/) developed for the REST API of the application that should be protected with Wallarm API Firewall
-
-### Up and running
-
-To run Wallarm API Firewall with minimal configuration on Docker:
-
-1. Create the Docker network to connect your application and Wallarm API Firewall (e.g. `api-firewall-network`):
-
-    ```bash
-    docker network create api-firewall-network
-    ```
-2. Start the containerized application to be protected with API Firewall (e.g. [kennethreitz/httpbin](https://hub.docker.com/r/kennethreitz/httpbin/)):
-
-    ```bash
-    docker run --rm -it --network api-firewall-network \
-        --network-alias backend -p 8090:8090 kennethreitz/httpbin
-    ```
-3. Start the API Firewall image:
-
-    ```bash
-    docker run --rm -it --network api-firewall-network --network-alias api-firewall \
-        -v <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC> -e APIFW_API_SPECS=<PATH_TO_MOUNTED_SPEC> \
-        -e APIFW_URL=<API_FIREWALL_URL> -e APIFW_SERVER_URL=<PROTECTED_APP_URL> \
-        -e APIFW_REQUEST_VALIDATION=<REQUEST_VALIDATION_MODE> -e APIFW_RESPONSE_VALIDATION=<RESPONSE_VALIDATION_MODE> \
-        -p 8088:8088 wallarm/api-firewall:v0.6.5
-    ```
-
-    | Variables              | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 
-    |-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | **For the `-v` option**                 |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |           |
-    | `<HOST_PATH_TO_SPEC>` | The path to the OpenAPI 3.0 specification for your application REST API located on the host machine. The accepted file formats are YAML and JSON (`.yaml`, `.yml`, `.json` file extensions). For example: `/opt/my-api/openapi3/swagger.json`. | 
-    `<CONTAINER_PATH_TO_SPEC>` | The path to the container directory to mount the OpenAPI 3.0 specification to. For example: `/api-firewall/resources/swagger.json`. | 
-    | **For the `-e` option**                 |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |           |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |           |
-    | `APIFW_API_SPECS`                 | Path to the OpenAPI 3.0 specification mounted to the container. For example: `/api-firewall/resources/swagger.json`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 
-    | `APIFW_URL`                       | URL for API Firewall. For example: `http://0.0.0.0:8088/`. The port value should correspond to the container port published to the host.                                                                                                                                                                                                                                                   | 
-    | `APIFW_SERVER_URL`                | URL of the application described in the mounted OpenAPI specification that should be protected with API Firewall. For example: `http://backend:80`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 
-    | `APIFW_REQUEST_VALIDATION`        | API Firewall mode when validating requests sent to the application URL:<ul><li>`BLOCK` to block and log the requests that do not match the schema provided in the mounted OpenAPI 3.0 specification (the `403 Forbidden` response will be returned to the blocked requests). Logs are sent to the [`STDOUT` and `STDERR` Docker services](https://docs.docker.com/config/containers/logging/).</li><li>`LOG_ONLY` to log but not block the requests that do not match the schema provided in the mounted OpenAPI 3.0 specification. Logs are sent to the [`STDOUT` and `STDERR` Docker services](https://docs.docker.com/config/containers/logging/).</li><li>`DISABLE` to disable request validation.</li></ul>                                                                                                                           | 
-    | `APIFW_RESPONSE_VALIDATION`       | API Firewall mode when validating application responses to incoming requests:<ul><li>`BLOCK` to block and log the request if the application response to this request does not match the schema provided in the mounted OpenAPI 3.0 specification. This request will be proxied to the application URL but the client will receive the `403 Forbidden` response. Logs are sent to the [`STDOUT` and `STDERR` Docker services](https://docs.docker.com/config/containers/logging/).</li><li>`LOG_ONLY` to log but not block the request if the application response to this request does not match the schema provided in the mounted OpenAPI 3.0 specification. Logs are sent to the [`STDOUT` and `STDERR` Docker services](https://docs.docker.com/config/containers/logging/).</li><li>`DISABLE` to disable request validation.</li></ul> |  
-4. Test API Firewall operation by sending the request that does not match the mounted Open API 3.0 specification to the API Firewall Docker container address. For example, you can pass the string value in the parameter that requires the integer value.
-
-    If the request does not match the provided API schema, the appropriate ERROR message will be added to the API Firewall Docker container logs.
-
-You have successfully started Wallarm API Firewall with minimal configuration. To learn advanced configuration options, please use the [separate instructions on running Wallarm API Firewall with Docker](https://docs.wallarm.com/api-firewall/installation-guides/docker-container/).
+To download, install, and start Wallarm API Firewall on Docker, see the [instructions](https://docs.wallarm.com/api-firewall/installation-guides/docker-container/).
 
 ## Demos
 
@@ -79,3 +37,53 @@ You can try API Firewall by running the demo environment that deploys an example
 
 * [Wallarm API Firewall demo with Docker Compose](https://github.com/wallarm/api-firewall/tree/main/demo/docker-compose)
 * [Wallarm API Firewall demo with Kubernetes](https://github.com/wallarm/api-firewall/tree/main/demo/kubernetes)
+
+## Wallarm's blog articles related to API Firewall
+
+* [Discovering Shadow APIs with API Firewall](https://lab.wallarm.com/discovering-shadow-apis-with-a-api-firewall/)
+* [Wallarm API Firewall outperforms NGINX in a production environment](https://lab.wallarm.com/wallarm-api-firewall-outperforms-nginx-in-a-production-environment/)
+
+## Performance
+
+When creating API Firewall, we prioritized speed and efficiency to ensure that our customers would have the fastest APIs possible. Our latest tests demonstrate that the average time required for API Firewall to process one request is 1.339 ms:
+
+```
+$ ab -c 200 -n 10000 -p ./large.json -T application/json http://127.0.0.1:8282/test/signup
+
+Document Path:          /test/signup
+Document Length:        20 bytes
+
+Concurrency Level:      200
+Time taken for tests:   0.769 seconds
+Complete requests:      10000
+Failed requests:        0
+Total transferred:      2150000 bytes
+Total body sent:        283770000
+HTML transferred:       200000 bytes
+Requests per second:    13005.81 [#/sec] (mean)
+Time per request:       15.378 [ms] (mean)
+Time per request:       0.077 [ms] (mean, across all concurrent requests)
+Transfer rate:          2730.71 [Kbytes/sec] received
+                        360415.95 kb/s sent
+                        363146.67 kb/s total
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    5   1.6      5      12
+Processing:     2   10   5.4      9      59
+Waiting:        2    8   5.2      7      56
+Total:          3   15   5.7     14      68
+
+Percentage of the requests served within a certain time (ms)
+  50%     14
+  66%     15
+  75%     16
+  80%     17
+  90%     18
+  95%     23
+  98%     36
+  99%     44
+ 100%     68 (longest request)
+```
+
+These performance results are not the only ones we have got during API Firewall testing. Other results along with the methods used to improve API Firewall performance are described in this [Wallarm's blog article](https://lab.wallarm.com/wallarm-api-firewall-outperforms-nginx-in-a-production-environment/).
