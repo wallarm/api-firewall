@@ -11,6 +11,12 @@ The **key features** of API Firewall are:
 
 The product is completely **free**, available at DockerHub and already got 10M pulls. To support this project, you can star the [repository](https://hub.docker.com/r/wallarm/api-firewall).
 
+## Use cases
+
+* Block abnormal requests and responses that do not match the OpenAPI 3.0 specification (if running API Firewall in the blocking mode)
+* Discover Shadow APIs and undocumented endpoints (if running API Firewall in the logging mode)
+* Log abnormal requests and responses that do not match the OpenAPI 3.0 specification (if running API Firewall in the logging mode)
+
 ## API schema validation and positive security model
 
 When starting API Firewall, you should provide the [OpenAPI 3.0 specification](https://swagger.io/specification/) of the application to be protected with API Firewall. The started API Firewall will operate as a reverse proxy and validate whether requests and responses match the schema defined in the specification.
