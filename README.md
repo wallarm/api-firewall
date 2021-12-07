@@ -9,7 +9,7 @@ The **key features** of API Firewall are:
 * Quick and easy deployment and configuration
 * Customization of request and response processing modes, response codes and log format
 
-The product is completely **free**, available at DockerHub and already got 10M pulls. To support this project, you can star the [repository](https://hub.docker.com/r/wallarm/api-firewall).
+The product is completely **free**, available at DockerHub and already got 1 billion (!!!) pulls. To support this project, you can star the [repository](https://hub.docker.com/r/wallarm/api-firewall).
 
 ## Use cases
 
