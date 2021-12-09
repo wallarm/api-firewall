@@ -3,9 +3,9 @@ FROM alpine:3.14
 RUN set -eux; \
 	adduser -u 1000 -H -h /opt -D -s /bin/sh api-firewall
 
-ENV APIFIREWALL_VERSION 0.6.5
-ENV APIFIREWALL_URL https://github.com/wallarm/api-firewall/releases/download/v0.6.5/api-firewall_linux-amd64
-ENV APIFIREWALL_SHA256 599f3e3bb385742cc978da85d359c81bfc02d8d1a9cacef551b9bfe8b3a4603a
+ENV APIFIREWALL_VERSION 0.6.6
+ENV APIFIREWALL_URL https://github.com/wallarm/api-firewall/releases/download/v0.6.6/api-firewall_linux-amd64
+ENV APIFIREWALL_SHA256 13de55efc9045ffc3dbf2e31d20e4844d8501283b3b431dbeca4fad87f8ed322
 
 RUN set -eux; \	
 	\
