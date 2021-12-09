@@ -6,6 +6,7 @@ The **key features** of API Firewall are:
 
 * Protect your APIs by blocking requests that do not match the API schema
 * Discover Shadow API endpoints
+* If using OAuth 2.0 protocol-based authentication, validate access tokens
 * Quick and easy deployment and configuration
 * Customization of request and response processing modes, response codes and log format
 
