@@ -1,0 +1,397 @@
+name: Binaries
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+jobs:
+  draft-release:
+    name: Draft release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      -
+        name: Extract tag name
+        run: echo "X_TAG=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
+      -
+        name: Fill release body
+        run: |-
+          set -e
+
+          cat <<EOF | tee RELEASE.md
+          # ${{ env.X_TAG }} ($(date "+%B %d, %Y"))
+
+          ## Changelog
+
+          $(git log --pretty="- %s" $(git tag --sort=-creatordate | sed -n 2p)..${{ github.ref }} | egrep -v "^.{1,7}$")
+
+          And also see new versions of other assets:
+
+          - https://hub.docker.com/r/wallarm/api-firewall
+          - https://charts.wallarm.com
+
+          EOF
+      -
+        name: Draft Release
+        id: draft_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ env.X_TAG }}
+          body_path: RELEASE.md
+          draft: true
+          prerelease: false
+    outputs:
+      upload_url: ${{ steps.draft_release.outputs.upload_url }}
+      release_id: ${{ steps.draft_release.outputs.id }}
+
+  build-x86:
+    name: Build ${{ matrix.artifact }} binary
+    runs-on: ubuntu-latest
+    needs:
+      - draft-release
+    env:
+      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.17.6.linux-amd64.tar.gz"
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            distro: debian
+            artifact: amd64-libc
+          - arch: "386"
+            distro: debian
+            artifact: 386-libc
+    steps:
+      - uses: actions/checkout@v2
+      -
+        name: Extract tag name
+        run: echo "X_TAG=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
+      -
+        uses: addnab/docker-run-action@v3
+        with:
+          image: debian:bullseye
+          options: >
+            --volume ${{ github.workspace }}:/build
+            --workdir /build
+          run: |-
+            set -e
+
+            apt-get update -y                               && \
+            apt-get install --no-install-recommends -y         \
+                ca-certificates                                \
+                curl                                           \
+                gcc                                            \
+                git                                            \
+                gzip                                           \
+                make                                        && \
+            curl -sLo go.tar.gz ${{ env.X_GO_DISTRIBUTION }} && \
+            mkdir -p /usr/local/go                          && \
+            tar -x -C /usr/local -f go.tar.gz               && \
+            rm go.tar.gz                                    && \
+            export PATH=${PATH}:/usr/local/go/bin
+
+            go version
+
+            case "${{ matrix.arch }}" in
+              "386")
+                export GOARCH=386
+                export GOHOSTARCH=amd64
+                export GOHOSTOS=linux
+                export GOOS=linux
+                ;;
+            esac
+
+            mkdir -p /tmp/api-firewall-${{ matrix.artifact }} && \
+            go mod download -x                                && \
+            go build                                             \
+                -ldflags="-X main.build=${{ env.X_TAG }} -extldflags=-static -s -w" \
+                -o /tmp/api-firewall-${{ matrix.artifact }}/api-firewall \
+                ./cmd/api-firewall                            && \
+            /tmp/api-firewall-${{ matrix.artifact }}/api-firewall -v && \
+            cp LICENSE /tmp/api-firewall-${{ matrix.artifact }}/ && \
+            mkdir -p ./artifacts                              && \
+            tar -c                                               \
+              -C /tmp/api-firewall-${{ matrix.artifact }} .      \
+              | gzip -9                                          \
+              > ./artifacts/api-firewall-${{ matrix.artifact }}.tar.gz
+      -
+        name: Show the artifact
+        id: artifact
+        run: |-
+          export FILENAME=$(realpath --relative-to=. ${PWD}/artifacts/*)
+          export O_ARTIFACT="$(basename ${FILENAME})"
+          export O_MD5="$(md5sum ${FILENAME} | awk '{print $1}')"
+          export O_SHA1="$(sha1sum ${FILENAME} | awk '{print $1}')"
+          export O_SHA256="$(sha256sum ${FILENAME} | awk '{print $1}')"
+
+          echo "::set-output name=filepath::${FILENAME}"
+          echo "::set-output name=filename::${O_ARTIFACT}"
+          echo "::set-output name=md5::${O_MD5}"
+          echo "::set-output name=sha1::${O_SHA1}"
+          echo "::set-output name=sha256::${O_SHA256}"
+
+          cat <<EOF
+          ARTIFACT: ${O_ARTIFACT}
+          MD5: ${O_MD5}
+          SHA1: ${O_SHA1}
+          SHA256: ${O_SHA256}
+          EOF
+      -
+        name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.draft-release.outputs.upload_url }}
+          asset_path: ${{ steps.artifact.outputs.filepath }}
+          asset_name: ${{ steps.artifact.outputs.filename }}
+          asset_content_type: application/gzip
+    outputs:
+      filepath: ${{ steps.artifact.outputs.filepath }}
+      filename: ${{ steps.artifact.outputs.filename }}
+      md5: ${{ steps.artifact.outputs.md5 }}
+      sha1: ${{ steps.artifact.outputs.sha1 }}
+      sha256: ${{ steps.artifact.outputs.sha256 }}
+
+  build-x86-alpine:
+    name: Build ${{ matrix.artifact }} binary
+    runs-on: ubuntu-latest
+    needs:
+      - draft-release
+    env:
+      X_GO_VERSION: "1.17.4-r0"
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            distro: alpine
+            artifact: amd64-musl
+          - arch: "386"
+            distro: alpine
+            artifact: 386-musl
+    steps:
+      - uses: actions/checkout@v2
+      -
+        name: Extract tag name
+        run: echo "X_TAG=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
+      -
+        uses: addnab/docker-run-action@v3
+        with:
+          image: alpine:3.15
+          options: >
+            --volume ${{ github.workspace }}:/build
+            --workdir /build
+          run: |-
+            set -e
+
+            apk add --no-cache                              \
+              ca-certificates                               \
+              curl                                          \
+              gcc                                           \
+              git                                           \
+              gzip                                          \
+              make                                          \
+              go=${{ env.X_GO_VERSION }}
+
+            go version
+
+            mkdir -p /tmp/api-firewall-${{ matrix.artifact }} && \
+            go mod download -x                                && \
+            go build                                             \
+                -ldflags="-X main.build=${{ env.X_TAG }} -extldflags=-static -s -w" \
+                -o /tmp/api-firewall-${{ matrix.artifact }}/api-firewall \
+                ./cmd/api-firewall                            && \
+            /tmp/api-firewall-${{ matrix.artifact }}/api-firewall -v && \
+            cp LICENSE /tmp/api-firewall-${{ matrix.artifact }}/ && \
+            mkdir -p ./artifacts                              && \
+            tar -c                                               \
+              -C /tmp/api-firewall-${{ matrix.artifact }} .      \
+              | gzip -9                                          \
+              > ./artifacts/api-firewall-${{ matrix.artifact }}.tar.gz
+      -
+        name: Show the artifact
+        id: artifact
+        run: |-
+          export FILENAME=$(realpath --relative-to=. ${PWD}/artifacts/*)
+          export O_ARTIFACT="$(basename ${FILENAME})"
+          export O_MD5="$(md5sum ${FILENAME} | awk '{print $1}')"
+          export O_SHA1="$(sha1sum ${FILENAME} | awk '{print $1}')"
+          export O_SHA256="$(sha256sum ${FILENAME} | awk '{print $1}')"
+
+          echo "::set-output name=filepath::${FILENAME}"
+          echo "::set-output name=filename::${O_ARTIFACT}"
+          echo "::set-output name=md5::${O_MD5}"
+          echo "::set-output name=sha1::${O_SHA1}"
+          echo "::set-output name=sha256::${O_SHA256}"
+
+          cat <<EOF
+          ARTIFACT: ${O_ARTIFACT}
+          MD5: ${O_MD5}
+          SHA1: ${O_SHA1}
+          SHA256: ${O_SHA256}
+          EOF
+      -
+        name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.draft-release.outputs.upload_url }}
+          asset_path: ${{ steps.artifact.outputs.filepath }}
+          asset_name: ${{ steps.artifact.outputs.filename }}
+          asset_content_type: application/gzip
+    outputs:
+      filepath: ${{ steps.artifact.outputs.filepath }}
+      filename: ${{ steps.artifact.outputs.filename }}
+      md5: ${{ steps.artifact.outputs.md5 }}
+      sha1: ${{ steps.artifact.outputs.sha1 }}
+      sha256: ${{ steps.artifact.outputs.sha256 }}
+
+  build-arm:
+    name: Build ${{ matrix.artifact }} binary
+    runs-on: ubuntu-latest
+    needs:
+      - draft-release
+    env:
+      X_GO_VERSION: "1.17.4-r0"
+    strategy:
+      matrix:
+        include:
+          - arch: armv6
+            distro: bullseye
+            go_distribution: https://go.dev/dl/go1.17.6.linux-armv6l.tar.gz
+            artifact: armv6-libc
+          - arch: aarch64
+            distro: bullseye
+            go_distribution: https://go.dev/dl/go1.17.6.linux-arm64.tar.gz
+            artifact: arm64-libc
+          - arch: armv6
+            distro: alpine_latest
+            artifact: armv6-musl
+          - arch: aarch64
+            distro: alpine_latest
+            artifact: arm64-musl
+    steps:
+      - uses: actions/checkout@v2.1.0
+      -
+        name: Extract tag name
+        run: echo "X_TAG=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
+      -
+        uses: uraimo/run-on-arch-action@v2.1.1
+        name: Build artifact
+        id: build
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
+          githubToken: ${{ github.token }}
+          setup: |-
+            mkdir -p "${PWD}/artifacts"
+          dockerRunArgs: |-
+            --volume "${PWD}/artifacts:/artifacts"
+          shell: /bin/sh
+          install: |-
+            set -e
+
+            case "${{ matrix.distro }}" in
+              bullseye)
+                apt-get update -y                            && \
+                apt-get install --no-install-recommends -y      \
+                    ca-certificates                             \
+                    curl                                        \
+                    gcc                                         \
+                    git                                         \
+                    gzip                                        \
+                    libc6-dev                                   \
+                    make                                     && \
+                curl -sLo go.tar.gz ${{ matrix.go_distribution }} && \
+                mkdir -p /usr/local/go                       && \
+                tar -x -C /usr/local -f go.tar.gz            && \
+                rm go.tar.gz                                 && \
+                export PATH=${PATH}:/usr/local/go/bin
+                ;;
+              alpine*)
+                apk add --no-cache                              \
+                  ca-certificates                               \
+                  curl                                          \
+                  gcc                                           \
+                  git                                           \
+                  gzip                                          \
+                  make                                          \
+                  go=${{ env.X_GO_VERSION }}
+                ;;
+            esac
+
+            go version
+          run: |-
+            export PATH=${PATH}:/usr/local/go/bin             && \
+            mkdir -p /tmp/api-firewall-${{ matrix.artifact }} && \
+            go mod download -x                                && \
+            go build                                             \
+                -ldflags="-X main.build=${{ env.X_TAG }} -extldflags=-static -s -w" \
+                -o /tmp/api-firewall-${{ matrix.artifact }}/api-firewall \
+                ./cmd/api-firewall                            && \
+            /tmp/api-firewall-${{ matrix.artifact }}/api-firewall -v && \
+            cp LICENSE /tmp/api-firewall-${{ matrix.artifact }}/ && \
+            tar -c                                               \
+              -C /tmp/api-firewall-${{ matrix.artifact }} .      \
+              | gzip -9                                          \
+              > /artifacts/api-firewall-${{ matrix.artifact }}.tar.gz
+      -
+        name: Show the artifact
+        id: artifact
+        run: |-
+          export FILENAME=$(realpath --relative-to=. ${PWD}/artifacts/*)
+          export O_ARTIFACT="$(basename ${FILENAME})"
+          export O_MD5="$(md5sum ${FILENAME} | awk '{print $1}')"
+          export O_SHA1="$(sha1sum ${FILENAME} | awk '{print $1}')"
+          export O_SHA256="$(sha256sum ${FILENAME} | awk '{print $1}')"
+
+          echo "::set-output name=filepath::${FILENAME}"
+          echo "::set-output name=filename::${O_ARTIFACT}"
+          echo "::set-output name=md5::${O_MD5}"
+          echo "::set-output name=sha1::${O_SHA1}"
+          echo "::set-output name=sha256::${O_SHA256}"
+
+          cat <<EOF
+          ARTIFACT: ${O_ARTIFACT}
+          MD5: ${O_MD5}
+          SHA1: ${O_SHA1}
+          SHA256: ${O_SHA256}
+          EOF
+      -
+        name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.draft-release.outputs.upload_url }}
+          asset_path: ${{ steps.artifact.outputs.filepath }}
+          asset_name: ${{ steps.artifact.outputs.filename }}
+          asset_content_type: application/gzip
+    outputs:
+      filepath: ${{ steps.artifact.outputs.filepath }}
+      filename: ${{ steps.artifact.outputs.filename }}
+      md5: ${{ steps.artifact.outputs.md5 }}
+      sha1: ${{ steps.artifact.outputs.sha1 }}
+      sha256: ${{ steps.artifact.outputs.sha256 }}
+
+  commit-release:
+    name: Commit release
+    runs-on: ubuntu-latest
+    needs:
+      - draft-release
+      - build-x86
+      - build-x86-alpine
+      - build-arm
+    steps:
+      - uses: actions/checkout@v2
+      -
+        uses: eregon/publish-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          release_id: ${{ needs.draft-release.outputs.release_id }}
