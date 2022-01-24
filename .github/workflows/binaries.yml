@@ -21,7 +21,7 @@ jobs:
           set -e
 
           cat <<EOF | tee RELEASE.md
-          # ${{ env.X_TAG }} ($(date "+%B %d, %Y"))
+          # v${{ env.X_TAG }} ($(date "+%B %d, %Y"))
 
           ## Changelog
 
@@ -41,7 +41,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: ${{ env.X_TAG }}
+          release_name: v${{ env.X_TAG }}
           body_path: RELEASE.md
           draft: true
           prerelease: false
