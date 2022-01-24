@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: 'Notify docs about api-firewall demo docs changes'
+name: 'Notify (DOCS)'
 
 on:
   push:
@@ -29,5 +29,11 @@ jobs:
         PARENT_REPO: wallarm/product-docs-en
         PARENT_BRANCH: master
         WORKFLOW_ID: 11686992
-      run: |
-        curl -fL --retry 3 -X POST -H "Accept: application/vnd.github.v3+json" -H "Authorization: token ${{ env.FIREWALL_DOCS_TOKEN }}" https://api.github.com/repos/${{ env.PARENT_REPO }}/actions/workflows/${{ env.WORKFLOW_ID }}/dispatches -d '{"ref":"${{ env.PARENT_BRANCH }}"}'
+      run: |-
+        curl                                                         \
+            -fL --retry 3                                            \
+            -X POST                                                  \
+            -H "Accept: application/vnd.github.v3+json"              \
+            -H "Authorization: token ${{ env.FIREWALL_DOCS_TOKEN }}" \
+          https://api.github.com/repos/${{ env.PARENT_REPO }}/actions/workflows/${{ env.WORKFLOW_ID }}/dispatches \
+            -d '{"ref":"${{ env.PARENT_BRANCH }}"}'

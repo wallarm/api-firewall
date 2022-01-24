@@ -54,10 +54,12 @@ apiFirewall:
   ## https://kubernetes.io/docs/concepts/containers/images/
   ##
   image:
+    pullPolicy: IfNotPresent
     registry: ""
     name: "wallarm/api-firewall"
-    tag: "v0.6.5"
-    pullPolicy: IfNotPresent
+    ### You can set a specific version or set it automaticaly from appVersion
+    ###
+    tag: ""
 
   ## Array of private container registry credentials
   ## (If you forked the official API Firewall image and pushed it to a private registry)

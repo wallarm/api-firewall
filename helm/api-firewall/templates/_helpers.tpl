@@ -33,10 +33,18 @@ Create the name of the service account to use
 Contruct and return the image to use
 */}}
 {{- define "api-firewall.image" -}}
+{{- if .Values.apiFirewall.image.tag -}}
 {{- if not .Values.apiFirewall.image.registry -}}
 {{ printf "%s:%s" .Values.apiFirewall.image.name .Values.apiFirewall.image.tag }}
 {{- else -}}
 {{ printf "%s/%s:%s" .Values.apiFirewall.image.registry .Values.apiFirewall.image.name .Values.apiFirewall.image.tag }}
+{{- end -}}
+{{- else -}}
+{{- if not .Values.apiFirewall.image.registry -}}
+{{ printf "%s:v%s" .Values.apiFirewall.image.name .Chart.AppVersion }}
+{{- else -}}
+{{ printf "%s/%s:v%s" .Values.apiFirewall.image.registry .Values.apiFirewall.image.name .Chart.AppVersion }}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 

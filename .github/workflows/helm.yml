@@ -1,11 +1,11 @@
-name: release
+name: Helm
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
-  release:
+  helm:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -17,7 +17,7 @@ jobs:
         uses: stefanprodan/helm-gh-pages@master
         with:
           token: ${{ secrets.HELM_PUBLISH_TOKEN }}
-          charts_dir: .
+          charts_dir: ./helm
           charts_url: https://charts.wallarm.com
           linting: off
           repository: helm-charts
