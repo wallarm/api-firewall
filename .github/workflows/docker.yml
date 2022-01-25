@@ -36,4 +36,4 @@ jobs:
             APIFIREWALL_VERSION=${{ env.X_TAG }}
           tags: |
             wallarm/api-firewall:latest
-            wallarm/api-firewall:${{ env.X_TAG }}
+            wallarm/api-firewall:v${{ env.X_TAG }}
