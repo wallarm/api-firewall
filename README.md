@@ -1,6 +1,6 @@
-# Wallarm Free API Firewall
+# Wallarm Open Source API Firewall
 
-Wallarm API Firewall is an Open Source light-weight proxy designed to protect REST API endpoints in cloud-native environments by hardening based on a strict OpenAPI/Swagger schema validation. Wallarm API Firewall relies on a positive security model allowing calls that match a predefined API specification for requests and responses, while rejecting everything else.
+Wallarm API Firewall is an open-source light-weighted proxy designed to protect REST API endpoints in cloud-native environments by hardening based on a strict OpenAPI/Swagger schema validation. Wallarm API Firewall relies on a positive security model allowing calls that match a predefined API specification for requests and responses, while rejecting everything else.
 
 The **key features** of API Firewall are:
 
@@ -10,7 +10,7 @@ The **key features** of API Firewall are:
 * Quick and easy deployment and configuration
 * Customization of request and response processing modes, response codes and log format
 
-The product is completely **free**, available at DockerHub and already got 1 billion (!!!) pulls. To support this project, you can star the [repository](https://hub.docker.com/r/wallarm/api-firewall).
+The product is **open source**, available at DockerHub and already got 1 billion (!!!) pulls. To support this project, you can star the [repository](https://hub.docker.com/r/wallarm/api-firewall).
 
 ## Use cases
 
