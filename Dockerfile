@@ -25,7 +25,7 @@ FROM alpine:3.15 AS composer
 WORKDIR /output
 
 COPY --from=build /build/api-firewall ./usr/local/bin/
-COPY ./docker/docker-entrypoint.sh ./usr/local/bin/docker-entrypoint.sh
+COPY ./docker-entrypoint.sh ./usr/local/bin/docker-entrypoint.sh
 
 RUN chmod 755 ./usr/local/bin/*           && \
     chown root:root ./usr/local/bin/*
