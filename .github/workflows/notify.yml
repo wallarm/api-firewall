@@ -37,3 +37,17 @@ jobs:
             -H "Authorization: token ${{ env.FIREWALL_DOCS_TOKEN }}" \
           https://api.github.com/repos/${{ env.PARENT_REPO }}/actions/workflows/${{ env.WORKFLOW_ID }}/dispatches \
             -d '{"ref":"${{ env.PARENT_BRANCH }}"}'
+  dockerHubDescription:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Modify Docker Hub Readme
+        run: |
+          sed -i 's/# Docker Hub Description/# [Docker Hub Description](https:\/\/github.com\/wallarm\/api-firewall)/' README.md
+      - name: Docker Hub Description
+        uses: ./
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          repository: wallarm/api-firewall
+          short-description: ${{ github.event.repository.description }}
