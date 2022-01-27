@@ -37,3 +37,14 @@ jobs:
             -H "Authorization: token ${{ env.FIREWALL_DOCS_TOKEN }}" \
           https://api.github.com/repos/${{ env.PARENT_REPO }}/actions/workflows/${{ env.WORKFLOW_ID }}/dispatches \
             -d '{"ref":"${{ env.PARENT_BRANCH }}"}'
+  dockerHubDescription:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: wallarm/api-firewall
+          short-description: ${{ github.event.repository.description }}
