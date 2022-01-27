@@ -21,13 +21,9 @@ jobs:
           set -e
 
           cat <<EOF | tee RELEASE.md
-          # v${{ env.X_TAG }} ($(date "+%B %d, %Y"))
-
-          ## Changelog
-
           $(git log --pretty="- %s" $(git tag --sort=-creatordate | sed -n 2p)..${{ github.ref }} | egrep -v "^.{1,7}$")
 
-          And also see new versions of other assets:
+          Other upgraded assets:
 
           - https://hub.docker.com/r/wallarm/api-firewall
           - https://charts.wallarm.com
