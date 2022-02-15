@@ -78,6 +78,7 @@ jobs:
 
             apt-get update -y                               && \
             apt-get install --no-install-recommends -y         \
+                binutils                                       \
                 ca-certificates                                \
                 curl                                           \
                 gcc                                            \
@@ -95,8 +96,6 @@ jobs:
             case "${{ matrix.arch }}" in
               "386")
                 export GOARCH=386
-                export GOHOSTARCH=amd64
-                export GOHOSTOS=linux
                 export GOOS=linux
                 ;;
             esac
@@ -108,6 +107,7 @@ jobs:
                 -o /tmp/api-firewall-${{ matrix.artifact }}/api-firewall \
                 ./cmd/api-firewall                            && \
             /tmp/api-firewall-${{ matrix.artifact }}/api-firewall -v && \
+            readelf -h /tmp/api-firewall-${{ matrix.artifact }}/api-firewall && \
             cp LICENSE /tmp/api-firewall-${{ matrix.artifact }}/ && \
             mkdir -p ./artifacts                              && \
             tar -c                                               \
@@ -185,6 +185,7 @@ jobs:
             set -e
 
             apk add --no-cache                              \
+              binutils                                      \
               ca-certificates                               \
               curl                                          \
               gcc                                           \
@@ -195,6 +196,13 @@ jobs:
 
             go version
 
+            case "${{ matrix.arch }}" in
+              "386")
+                export GOARCH=386
+                export GOOS=linux
+                ;;
+            esac
+
             mkdir -p /tmp/api-firewall-${{ matrix.artifact }} && \
             go mod download -x                                && \
             go build                                             \
@@ -202,6 +210,7 @@ jobs:
                 -o /tmp/api-firewall-${{ matrix.artifact }}/api-firewall \
                 ./cmd/api-firewall                            && \
             /tmp/api-firewall-${{ matrix.artifact }}/api-firewall -v && \
+            readelf -h /tmp/api-firewall-${{ matrix.artifact }}/api-firewall && \
             cp LICENSE /tmp/api-firewall-${{ matrix.artifact }}/ && \
             mkdir -p ./artifacts                              && \
             tar -c                                               \
@@ -296,6 +305,7 @@ jobs:
               bullseye)
                 apt-get update -y                            && \
                 apt-get install --no-install-recommends -y      \
+                    binutils                                    \
                     ca-certificates                             \
                     curl                                        \
                     gcc                                         \
@@ -311,6 +321,7 @@ jobs:
                 ;;
               alpine*)
                 apk add --no-cache                              \
+                  binutils                                      \
                   ca-certificates                               \
                   curl                                          \
                   gcc                                           \
@@ -331,6 +342,7 @@ jobs:
                 -o /tmp/api-firewall-${{ matrix.artifact }}/api-firewall \
                 ./cmd/api-firewall                            && \
             /tmp/api-firewall-${{ matrix.artifact }}/api-firewall -v && \
+            readelf -h /tmp/api-firewall-${{ matrix.artifact }}/api-firewall && \
             cp LICENSE /tmp/api-firewall-${{ matrix.artifact }}/ && \
             tar -c                                               \
               -C /tmp/api-firewall-${{ matrix.artifact }} .      \
