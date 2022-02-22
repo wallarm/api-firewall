@@ -1,22 +1,25 @@
-# Wallarm Open Source API Firewall
+# Open Source API Firewall
 
-Wallarm API Firewall is an open-source light-weighted proxy designed to protect REST API endpoints in cloud-native environments by hardening based on a strict OpenAPI/Swagger schema validation. Wallarm API Firewall relies on a positive security model allowing calls that match a predefined API specification for requests and responses, while rejecting everything else.
+API Firewall is a high-performance proxy with request and response validation capabilities based on OpenAPI/Swagger schema. It designed to protect REST API endpoints in cloud-native environments by hardening. API Firewall relies on a positive security model allowing calls that match a predefined API specification for requests and responses, while rejecting everything else.
 
 The **key features** of API Firewall are:
 
-* Protect REST API endpoints by blocking requests and responses that do not match the OAS/Swagger schema
+* Secure REST API endpoints by blocking maliscous requests
+* Stop API data breaches by blocking malformed API responses
 * Discover Shadow API endpoints
-* If using OAuth 2.0 protocol-based authentication, validate access tokens
-* Quick and easy deployment and configuration
-* Customization of request and response processing modes, response codes and log format
+* Validate JWT access tokens for OAuth 2.0 protocol-based authentication
 
 The product is **open source**, available at DockerHub and already got 1 billion (!!!) pulls. To support this project, you can star the [repository](https://hub.docker.com/r/wallarm/api-firewall).
 
 ## Use cases
 
-* Block abnormal requests and responses that do not match the OpenAPI 3.0 specification (if running API Firewall in the blocking mode)
-* Discover Shadow APIs and undocumented endpoints (if running API Firewall in the logging mode)
-* Log abnormal requests and responses that do not match the OpenAPI 3.0 specification (if running API Firewall in the logging mode)
+### Running in blocking mode
+* Block malicious requests that do not match the OpenAPI 3.0 specification
+* Block malformed API responses to stop data breaches and sensitive infofrmation exposure
+
+### Running in monitoring mode
+* Discover Shadow APIs and undocumented API endpoints
+* Log malformed requests and responses that do not match the OpenAPI 3.0 specification
 
 ## API schema validation and positive security model
 
@@ -30,20 +33,20 @@ Provided API schema should be described using the [OpenAPI 3.0 specification](ht
 
 By allowing you to set the traffic requirements with the OpenAPI 3.0 specification, Wallarm API Firewall relies on a positive security model.
 
-## Technical characteristics
+## Technical data
 
-API Firewall works as a reverse proxy with a built-in OpenAPI 3.0 request and response validator. The validator is written in Go and optimized for extreme performance and near-zero added latency.
+API Firewall works as a reverse proxy with a built-in OpenAPI 3.0 request and response validator. It's written in Golang and using fasthttp proxy. The project optimized for extreme performance and near-zero added latency.
 
 ## Starting API Firewall
 
-To download, install, and start Wallarm API Firewall on Docker, see the [instructions](https://docs.wallarm.com/api-firewall/installation-guides/docker-container/).
+To download, install, and start API Firewall on Docker, see the [instructions](https://docs.wallarm.com/api-firewall/installation-guides/docker-container/).
 
 ## Demos
 
-You can try API Firewall by running the demo environment that deploys an example application protected with Wallarm API Firewall. There are two available demo environments:
+You can try API Firewall by running the demo environment that deploys an example application protected with API Firewall. There are two available demo environments:
 
-* [Wallarm API Firewall demo with Docker Compose](https://github.com/wallarm/api-firewall/tree/main/demo/docker-compose)
-* [Wallarm API Firewall demo with Kubernetes](https://github.com/wallarm/api-firewall/tree/main/demo/kubernetes)
+* [API Firewall demo with Docker Compose](https://github.com/wallarm/api-firewall/tree/main/demo/docker-compose)
+* [API Firewall demo with Kubernetes](https://github.com/wallarm/api-firewall/tree/main/demo/kubernetes)
 
 ## Wallarm's blog articles related to API Firewall
 
@@ -52,7 +55,7 @@ You can try API Firewall by running the demo environment that deploys an example
 
 ## Performance
 
-When creating API Firewall, we prioritized speed and efficiency to ensure that our customers would have the fastest APIs possible. Our latest tests demonstrate that the average time required for API Firewall to process one request is 1.339 ms:
+When creating API Firewall, we prioritized speed and efficiency to ensure that our customers would have the fastest APIs possible. Our latest tests demonstrate that the average time required for API Firewall to process one request is 1.339 ms which is 66% faster than Nginx:
 
 ```
 $ ab -c 200 -n 10000 -p ./large.json -T application/json http://127.0.0.1:8282/test/signup
