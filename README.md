@@ -1,10 +1,10 @@
 # Open Source API Firewall
 
-API Firewall is a high-performance proxy with request and response validation capabilities based on OpenAPI/Swagger schema. It designed to protect REST API endpoints in cloud-native environments by hardening. API Firewall relies on a positive security model allowing calls that match a predefined API specification for requests and responses, while rejecting everything else.
+API Firewall is a high-performance proxy with API request and response validation based on OpenAPI/Swagger schema. It is designed to protect REST API endpoints in cloud-native environments. API Firewall provides API hardening with the use of a positive security model allowing calls that match a predefined API specification for requests and responses, while rejecting everything else.
 
 The **key features** of API Firewall are:
 
-* Secure REST API endpoints by blocking maliscous requests
+* Secure REST API endpoints by blocking malicious requests
 * Stop API data breaches by blocking malformed API responses
 * Discover Shadow API endpoints
 * Validate JWT access tokens for OAuth 2.0 protocol-based authentication
@@ -15,7 +15,7 @@ The product is **open source**, available at DockerHub and already got 1 billion
 
 ### Running in blocking mode
 * Block malicious requests that do not match the OpenAPI 3.0 specification
-* Block malformed API responses to stop data breaches and sensitive infofrmation exposure
+* Block malformed API responses to stop data breaches and sensitive information exposure
 
 ### Running in monitoring mode
 * Discover Shadow APIs and undocumented API endpoints
@@ -25,17 +25,17 @@ The product is **open source**, available at DockerHub and already got 1 billion
 
 When starting API Firewall, you should provide the [OpenAPI 3.0 specification](https://swagger.io/specification/) of the application to be protected with API Firewall. The started API Firewall will operate as a reverse proxy and validate whether requests and responses match the schema defined in the specification.
 
-The traffic that does not match the schema will be logged using the [`STDOUT` and `STDERR` Docker services](https://docs.docker.com/config/containers/logging/) or blocked (depending on the configured API Firewall operation mode). If operating in the logging mode and detecting the traffic on endpoints that are not included in the specification, API Firewall also logs these endpoints as the shadow ones (except for endpoints returning the code `404`).
+The traffic that does not match the schema will be logged using the [`STDOUT` and `STDERR` Docker services](https://docs.docker.com/config/containers/logging/) or blocked (depending on the configured API Firewall operation mode). When operating in the logging mode, API Firewall also logs so-called shadow API endpoints, those that are not covered in API specification but respond to requests (except for endpoints returning the code `404`).
 
 ![API Firewall scheme](https://github.com/wallarm/api-firewall/blob/2ace2714ac5777694bde85c8cdbb1308e98a7fea/images/firewall-as-proxy.png?raw=true)
 
-Provided API schema should be described using the [OpenAPI 3.0 specification](https://swagger.io/specification/) in the YAML or JSON file (`.yaml`, `.yml`, `.json` file extensions).
+[OpenAPI 3.0 specification](https://swagger.io/specification/) is supported and should be provided as a YAML or JSON file (`.yaml`, `.yml`, `.json` file extensions).
 
-By allowing you to set the traffic requirements with the OpenAPI 3.0 specification, Wallarm API Firewall relies on a positive security model.
+By allowing you to set the traffic requirements with the OpenAPI 3.0 specification, API Firewall relies on a positive security model.
 
 ## Technical data
 
-API Firewall works as a reverse proxy with a built-in OpenAPI 3.0 request and response validator. It's written in Golang and using fasthttp proxy. The project optimized for extreme performance and near-zero added latency.
+API Firewall works as a reverse proxy with a built-in OpenAPI 3.0 request and response validator. It's written in Golang and using fasthttp proxy. The project is optimized for extreme performance and near-zero added latency.
 
 ## Starting API Firewall
 
