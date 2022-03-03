@@ -106,8 +106,8 @@ func getValidationHeader(ctx *fasthttp.RequestCtx, err error) *string {
 func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	s.logger.Debugf("New Request: #%016X : %s -> %s %s (%s)",
 		ctx.ID(),
-		ctx.RemoteAddr(),
-		ctx.Request.Header.Method(), ctx.Path(),
+		ctx.Request.Header.Method(),
+		ctx.RemoteAddr(), ctx.Path(),
 		time.Since(ctx.Time()),
 	)
 
