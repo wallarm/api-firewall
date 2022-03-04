@@ -35,6 +35,7 @@ type Introspection struct {
 	Endpoint              string        `conf:""`
 	EndpointParams        string        `conf:""`
 	TokenParamName        string        `conf:""`
+	ContentType           string        `conf:""`
 	EndpointMethod        string        `conf:"default:GET"`
 	RefreshInterval       time.Duration `conf:"default:10m"`
 }

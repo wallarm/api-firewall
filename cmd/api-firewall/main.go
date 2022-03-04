@@ -3,6 +3,7 @@ package main
 import (
 	"expvar" // Register the expvar handlers
 	"fmt"
+	"mime"
 	"net/url"
 	"os"
 	"os/signal"
@@ -97,6 +98,14 @@ func run(logger *logrus.Logger) error {
 		return errors.Wrap(err, "configuration validation error")
 	}
 
+	// oauth introspection endpoint: validate format of configured content-type
+	if cfg.Server.Oauth.Introspection.ContentType != "" {
+		_, _, err := mime.ParseMediaType(cfg.Server.Oauth.Introspection.ContentType)
+		if err != nil {
+			return errors.Wrap(err, "configuration validation error")
+		}
+	}
+
 	// =========================================================================
 	// Init Logger
 
@@ -135,9 +144,24 @@ func run(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Swagger
 
-	swagger, err := openapi3.NewSwaggerLoader().LoadSwaggerFromFile(cfg.APISpecs)
+	var swagger *openapi3.Swagger
+
+	apiSpecUrl, err := url.ParseRequestURI(cfg.APISpecs)
 	if err != nil {
-		return errors.Wrap(err, "loading swagwaf file")
+		logger.Debugf("%s: Trying to parse API Spec value as URL : %v\n", logPrefix, err.Error())
+	}
+
+	switch apiSpecUrl {
+	case nil:
+		swagger, err = openapi3.NewSwaggerLoader().LoadSwaggerFromFile(cfg.APISpecs)
+		if err != nil {
+			return errors.Wrap(err, "loading swagwaf file")
+		}
+	default:
+		swagger, err = openapi3.NewSwaggerLoader().LoadSwaggerFromURI(apiSpecUrl)
+		if err != nil {
+			return errors.Wrap(err, "loading swagwaf url")
+		}
 	}
 
 	swagRouter, err := router.NewRouter(swagger)
