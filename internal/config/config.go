@@ -30,6 +30,24 @@ type JWT struct {
 	SecretKey          string `conf:""`
 }
 
+type Cache struct {
+	NumCounters int64 `conf:"default:100000000"`
+	MaxCost     int64 `conf:"default:2147483648"`
+	BufferItems int64 `conf:"default:64"`
+}
+
+type Token struct {
+	CookieName       string `conf:""`
+	HeaderName       string `conf:""`
+	TrimBearerPrefix bool   `conf:"default:true"`
+	File             string `conf:""`
+}
+
+type Blacklist struct {
+	Tokens Token
+	Cache  Cache
+}
+
 type Introspection struct {
 	ClientAuthBearerToken string        `conf:""`
 	Endpoint              string        `conf:""`
@@ -67,4 +85,5 @@ type APIFWConfiguration struct {
 	AddValidationStatusHeader bool          `conf:"default:false"`
 	APISpecs                  string        `conf:"default:swagger.json,env:API_SPECS"`
 	ShadowAPI                 ShadowAPI
+	Blacklist                 Blacklist
 }

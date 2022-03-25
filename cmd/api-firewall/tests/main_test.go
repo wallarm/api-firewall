@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+	"github.com/wallarm/api-firewall/internal/platform/blacklist"
 	"io"
 	"net"
 	"net/url"
@@ -166,6 +167,9 @@ const (
 	testOauthJWTTokenHS  = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE2Mzg1MDU4OTYsImV4cCI6MTY3MDA0MTg5NiwiYXVkIjoid3d3LmV4YW1wbGUuY29tIiwic3ViIjoianJvY2tldEBleGFtcGxlLmNvbSIsIkdpdmVuTmFtZSI6IkpvaG5ueSIsIlN1cm5hbWUiOiJSb2NrZXQiLCJFbWFpbCI6Impyb2NrZXRAZXhhbXBsZS5jb20iLCJSb2xlIjoiTWFuYWdlciIsInNjb3BlIjoicmVhZCB3cml0ZSJ9.gMiRZvNgvVeyB4JXiz9TZyXWwzJHr1bUDzVEyhtcmjY"
 	testOauthJWTKeyHS    = "qwertyuiopasdfghjklzxcvbnm123456"
 	testContentType      = "test"
+
+	testBlacklistedCookieName = "testCookieName"
+	testBlacklistedToken      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzb21lIjoicGF5bG9hZDk5OTk5ODUifQ.S9P-DEiWg7dlI81rLjnJWCA6h9Q4ewTizxrsxOPGmNA"
 )
 
 type ServiceTests struct {
@@ -223,6 +227,8 @@ func TestBasic(t *testing.T) {
 	t.Run("basicDisableMode", apifwTests.testDisableMode)
 	t.Run("commonParamters", apifwTests.testCommonParameters)
 
+	t.Run("basicBlacklist", apifwTests.testBlacklist)
+
 	t.Run("oauthIntrospectionReadSuccess", apifwTests.testOauthIntrospectionReadSuccess)
 	t.Run("oauthIntrospectionReadUnsuccessful", apifwTests.testOauthIntrospectionReadUnsuccessful)
 	t.Run("oauthIntrospectionInvalidResponse", apifwTests.testOauthIntrospectionInvalidResponse)
@@ -250,7 +256,7 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -316,6 +322,97 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 
 }
 
+func (s *ServiceTests) testBlacklist(t *testing.T) {
+
+	cacheCfg := config.Cache{
+		NumCounters: 100000000,
+		MaxCost:     2147483648,
+		BufferItems: 64,
+	}
+
+	tokensCfg := config.Token{
+		CookieName: testBlacklistedCookieName,
+		HeaderName: "",
+		File:       "../../../resources/test/tokens/test.db",
+	}
+
+	var cfg = config.APIFWConfiguration{
+		RequestValidation:         "BLOCK",
+		ResponseValidation:        "BLOCK",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+		Blacklist: struct {
+			Tokens config.Token
+			Cache  config.Cache
+		}{Tokens: tokensCfg, Cache: cacheCfg},
+	}
+
+	logger := logrus.New()
+
+	blacklistedTokens, err := blacklist.New(&cfg, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, blacklistedTokens)
+
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signup")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	// add blacklisted token to the Cookie header of the successful HTTP request (200)
+	req.Header.SetCookie(testBlacklistedCookieName, testBlacklistedToken)
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+}
+
 func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 	var cfg = config.APIFWConfiguration{
 		RequestValidation:         "LOG_ONLY",
@@ -327,7 +424,7 @@ func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -402,7 +499,7 @@ func (s *ServiceTests) testDisableMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"email": "wallarm.com",
@@ -453,7 +550,7 @@ func (s *ServiceTests) testCommonParameters(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/users/1/1")
@@ -587,7 +684,7 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -672,7 +769,7 @@ func (s *ServiceTests) testOauthIntrospectionReadUnsuccessful(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -739,7 +836,7 @@ func (s *ServiceTests) testOauthIntrospectionInvalidResponse(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -807,7 +904,7 @@ func (s *ServiceTests) testOauthIntrospectionReadWriteSuccess(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -876,7 +973,7 @@ func (s *ServiceTests) testOauthIntrospectionContentTypeRequest(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -937,7 +1034,7 @@ func (s *ServiceTests) testOauthJWTRS256(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1015,7 +1112,7 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
