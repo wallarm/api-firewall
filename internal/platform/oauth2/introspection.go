@@ -116,6 +116,11 @@ func (i *Introspection) getTokenMetaInfo(token string) (map[string]interface{}, 
 		req.Header.Set("Authorization", "Bearer "+i.Cfg.Introspection.ClientAuthBearerToken)
 	}
 
+	// use default Content-Type in case of it's not set in configuration
+	if i.Cfg.Introspection.ContentType != "" {
+		req.Header.SetContentType(i.Cfg.Introspection.ContentType)
+	}
+
 	res := fasthttp.AcquireResponse()
 	if err := fasthttp.Do(req, res); err != nil {
 		return nil, fmt.Errorf("failed to send introspection request: %v", err)

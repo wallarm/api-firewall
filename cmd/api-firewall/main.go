@@ -3,6 +3,8 @@ package main
 import (
 	"expvar" // Register the expvar handlers
 	"fmt"
+	"github.com/wallarm/api-firewall/internal/platform/blacklist"
+	"mime"
 	"net/url"
 	"os"
 	"os/signal"
@@ -97,6 +99,14 @@ func run(logger *logrus.Logger) error {
 		return errors.Wrap(err, "configuration validation error")
 	}
 
+	// oauth introspection endpoint: validate format of configured content-type
+	if cfg.Server.Oauth.Introspection.ContentType != "" {
+		_, _, err := mime.ParseMediaType(cfg.Server.Oauth.Introspection.ContentType)
+		if err != nil {
+			return errors.Wrap(err, "configuration validation error")
+		}
+	}
+
 	// =========================================================================
 	// Init Logger
 
@@ -135,9 +145,24 @@ func run(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Swagger
 
-	swagger, err := openapi3.NewSwaggerLoader().LoadSwaggerFromFile(cfg.APISpecs)
+	var swagger *openapi3.Swagger
+
+	apiSpecUrl, err := url.ParseRequestURI(cfg.APISpecs)
 	if err != nil {
-		return errors.Wrap(err, "loading swagwaf file")
+		logger.Debugf("%s: Trying to parse API Spec value as URL : %v\n", logPrefix, err.Error())
+	}
+
+	switch apiSpecUrl {
+	case nil:
+		swagger, err = openapi3.NewSwaggerLoader().LoadSwaggerFromFile(cfg.APISpecs)
+		if err != nil {
+			return errors.Wrap(err, "loading swagwaf file")
+		}
+	default:
+		swagger, err = openapi3.NewSwaggerLoader().LoadSwaggerFromURI(apiSpecUrl)
+		if err != nil {
+			return errors.Wrap(err, "loading swagwaf url")
+		}
 	}
 
 	swagRouter, err := router.NewRouter(swagger)
@@ -174,6 +199,18 @@ func run(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
+	// Init Cache
+
+	logger.Infof("%s: Initializing Cache", logPrefix)
+
+	blacklistedTokens, err := blacklist.New(&cfg, logger)
+	if err != nil {
+		return errors.Wrap(err, "blacklist init error")
+	}
+
+	logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, blacklistedTokens.ElementsNum)
+
+	// =========================================================================
 	// Start API Service
 
 	logger.Infof("%s: Initializing API support", logPrefix)
@@ -198,7 +235,7 @@ func run(logger *logrus.Logger) error {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{
-		Handler:               handlers.OpenapiProxy(&cfg, serverUrl, shutdown, logger, pool, swagRouter),
+		Handler:               handlers.OpenapiProxy(&cfg, serverUrl, shutdown, logger, pool, swagRouter, blacklistedTokens),
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
 		Logger:                logger,

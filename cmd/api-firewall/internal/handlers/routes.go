@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"crypto/rsa"
+	"github.com/wallarm/api-firewall/internal/platform/blacklist"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -23,7 +24,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func OpenapiProxy(cfg *config.APIFWConfiguration, serverUrl *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router) fasthttp.RequestHandler {
+func OpenapiProxy(cfg *config.APIFWConfiguration, serverUrl *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, blacklistedTokens *blacklist.BlacklistedTokens) fasthttp.RequestHandler {
 
 	var parserPool fastjson.ParserPool
 
@@ -63,7 +64,7 @@ func OpenapiProxy(cfg *config.APIFWConfiguration, serverUrl *url.URL, shutdown c
 		}
 	}
 	// Construct the web.App which holds all routes as well as common Middleware.
-	app := web.NewApp(shutdown, cfg, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(cfg, serverUrl))
+	app := web.NewApp(shutdown, cfg, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(cfg, serverUrl), mid.Blacklist(cfg, blacklistedTokens, logger))
 
 	for _, route := range swagRouter.Routes {
 		pathParamLength := 0

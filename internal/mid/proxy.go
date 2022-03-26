@@ -39,7 +39,6 @@ func Proxy(cfg *config.APIFWConfiguration, serverUrl *url.URL) web.Middleware {
 		// Create the handler that will be attached in the middleware chain.
 		h := func(ctx *fasthttp.RequestCtx) error {
 
-			//ctx.Request.Header.Del("Connection")
 			for _, h := range hopHeaders {
 				ctx.Request.Header.Del(h)
 			}
@@ -69,7 +68,6 @@ func Proxy(cfg *config.APIFWConfiguration, serverUrl *url.URL) web.Middleware {
 
 			err := before(ctx)
 
-			//ctx.Response.Header.Del("Connection")
 			for _, h := range hopHeaders {
 				ctx.Response.Header.Del(h)
 			}
