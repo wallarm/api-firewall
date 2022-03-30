@@ -59,42 +59,21 @@ You can try API Firewall by running the demo environment that deploys an example
 When creating API Firewall, we prioritized speed and efficiency to ensure that our customers would have the fastest APIs possible. Our latest tests demonstrate that the average time required for API Firewall to process one request is 1.339 ms which is 66% faster than Nginx:
 
 ```
+API Firewall 0.6.2 with JSON validation
+
 $ ab -c 200 -n 10000 -p ./large.json -T application/json http://127.0.0.1:8282/test/signup
 
-Document Path:          /test/signup
-Document Length:        20 bytes
-
-Concurrency Level:      200
-Time taken for tests:   0.769 seconds
-Complete requests:      10000
-Failed requests:        0
-Total transferred:      2150000 bytes
-Total body sent:        283770000
-HTML transferred:       200000 bytes
 Requests per second:    13005.81 [#/sec] (mean)
 Time per request:       15.378 [ms] (mean)
 Time per request:       0.077 [ms] (mean, across all concurrent requests)
-Transfer rate:          2730.71 [Kbytes/sec] received
-                        360415.95 kb/s sent
-                        363146.67 kb/s total
 
-Connection Times (ms)
-              min  mean[+/-sd] median   max
-Connect:        0    5   1.6      5      12
-Processing:     2   10   5.4      9      59
-Waiting:        2    8   5.2      7      56
-Total:          3   15   5.7     14      68
+NGINX 1.18.0 without JSON validation
 
-Percentage of the requests served within a certain time (ms)
-  50%     14
-  66%     15
-  75%     16
-  80%     17
-  90%     18
-  95%     23
-  98%     36
-  99%     44
- 100%     68 (longest request)
+$ ab -c 200 -n 10000 -p ./large.json -T application/json http://127.0.0.1/test/signup
+
+Requests per second:    7887.76 [#/sec] (mean)
+Time per request:       25.356 [ms] (mean)
+Time per request:       0.127 [ms] (mean, across all concurrent requests)
 ```
 
 These performance results are not the only ones we have got during API Firewall testing. Other results along with the methods used to improve API Firewall performance are described in this [Wallarm's blog article](https://lab.wallarm.com/wallarm-api-firewall-outperforms-nginx-in-a-production-environment/).
