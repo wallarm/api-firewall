@@ -28,7 +28,7 @@ When starting API Firewall, you should provide the [OpenAPI 3.0 specification](h
 
 The traffic that does not match the schema will be logged using the [`STDOUT` and `STDERR` Docker services](https://docs.docker.com/config/containers/logging/) or blocked (depending on the configured API Firewall operation mode). When operating in the logging mode, API Firewall also logs so-called shadow API endpoints, those that are not covered in API specification but respond to requests (except for endpoints returning the code `404`).
 
-![API Firewall scheme](https://github.com/wallarm/api-firewall/blob/2ace2714ac5777694bde85c8cdbb1308e98a7fea/images/firewall-as-proxy.png?raw=true)
+![API Firewall scheme](https://github.com/wallarm/api-firewall/blob/main/images/Firewall%20opensource%20-%20vertical.gif?raw=true)
 
 [OpenAPI 3.0 specification](https://swagger.io/specification/) is supported and should be provided as a YAML or JSON file (`.yaml`, `.yml`, `.json` file extensions).
 
