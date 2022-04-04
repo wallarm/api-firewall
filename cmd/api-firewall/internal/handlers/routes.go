@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"crypto/rsa"
-	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -14,9 +13,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
-
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/mid"
+	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/openapi3"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
