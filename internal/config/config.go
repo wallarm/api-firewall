@@ -43,7 +43,7 @@ type Token struct {
 	File             string `conf:""`
 }
 
-type Blacklist struct {
+type Denylist struct {
 	Tokens Token
 	Cache  Cache
 }
@@ -85,5 +85,5 @@ type APIFWConfiguration struct {
 	AddValidationStatusHeader bool          `conf:"default:false"`
 	APISpecs                  string        `conf:"default:swagger.json,env:API_SPECS"`
 	ShadowAPI                 ShadowAPI
-	Blacklist                 Blacklist
+	Denylist                  Denylist
 }

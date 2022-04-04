@@ -15,15 +15,15 @@ services:
       APIFW_SERVER_DIAL_TIMEOUT: "200ms"
       APIFW_REQUEST_VALIDATION: "BLOCK"
       APIFW_RESPONSE_VALIDATION: "BLOCK"
-      # Blacklist: Token
-      APIFW_BLACKLIST_TOKENS_FILE: "/opt/resources/tokens.blacklist.db"
-      APIFW_BLACKLIST_TOKENS_COOKIE_NAME: "test"
-      APIFW_BLACKLIST_TOKENS_HEADER_NAME: ""
-      APIFW_BLACKLIST_TOKENS_TRIM_BEARER_PREFIX: "true"
-      # Blacklist: Cache
-      APIFW_BLACKLIST_CACHE_NUM_COUNTERS: "10000000"
-      APIFW_BLACKLIST_CACHE_MAX_COST: "2147483648"
-      APIFW_BLACKLIST_CACHE_BUFFER_ITEMS: "64"
+      # Denylist: Token
+      APIFW_DENYLIST_TOKENS_FILE: "/opt/resources/tokens.denylist.db"
+      APIFW_DENYLIST_TOKENS_COOKIE_NAME: "test"
+      APIFW_DENYLIST_TOKENS_HEADER_NAME: ""
+      APIFW_DENYLIST_TOKENS_TRIM_BEARER_PREFIX: "true"
+      # Denylist: Cache
+      APIFW_DENYLIST_CACHE_NUM_COUNTERS: "10000000"
+      APIFW_DENYLIST_CACHE_MAX_COST: "2147483648"
+      APIFW_DENYLIST_CACHE_BUFFER_ITEMS: "64"
     volumes:
       - ./volumes/api-firewall:/opt/resources:ro
     ports:

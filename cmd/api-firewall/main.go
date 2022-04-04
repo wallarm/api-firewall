@@ -3,7 +3,6 @@ package main
 import (
 	"expvar" // Register the expvar handlers
 	"fmt"
-	"github.com/wallarm/api-firewall/internal/platform/blacklist"
 	"mime"
 	"net/url"
 	"os"
@@ -17,9 +16,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-
 	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/openapi3"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
@@ -203,12 +202,12 @@ func run(logger *logrus.Logger) error {
 
 	logger.Infof("%s: Initializing Cache", logPrefix)
 
-	blacklistedTokens, err := blacklist.New(&cfg, logger)
+	deniedTokens, err := denylist.New(&cfg, logger)
 	if err != nil {
-		return errors.Wrap(err, "blacklist init error")
+		return errors.Wrap(err, "denylist init error")
 	}
 
-	logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, blacklistedTokens.ElementsNum)
+	logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
 
 	// =========================================================================
 	// Start API Service
@@ -235,7 +234,7 @@ func run(logger *logrus.Logger) error {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{
-		Handler:               handlers.OpenapiProxy(&cfg, serverUrl, shutdown, logger, pool, swagRouter, blacklistedTokens),
+		Handler:               handlers.OpenapiProxy(&cfg, serverUrl, shutdown, logger, pool, swagRouter, deniedTokens),
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
 		Logger:                logger,
