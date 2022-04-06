@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/platform/blacklist"
+	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"io"
 	"net"
 	"net/url"
@@ -168,8 +168,8 @@ const (
 	testOauthJWTKeyHS    = "qwertyuiopasdfghjklzxcvbnm123456"
 	testContentType      = "test"
 
-	testBlacklistedCookieName = "testCookieName"
-	testBlacklistedToken      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzb21lIjoicGF5bG9hZDk5OTk5ODUifQ.S9P-DEiWg7dlI81rLjnJWCA6h9Q4ewTizxrsxOPGmNA"
+	testDeniedCookieName = "testCookieName"
+	testDeniedToken      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzb21lIjoicGF5bG9hZDk5OTk5ODUifQ.S9P-DEiWg7dlI81rLjnJWCA6h9Q4ewTizxrsxOPGmNA"
 )
 
 type ServiceTests struct {
@@ -227,7 +227,7 @@ func TestBasic(t *testing.T) {
 	t.Run("basicDisableMode", apifwTests.testDisableMode)
 	t.Run("commonParamters", apifwTests.testCommonParameters)
 
-	t.Run("basicBlacklist", apifwTests.testBlacklist)
+	t.Run("basicDenylist", apifwTests.testDenylist)
 
 	t.Run("oauthIntrospectionReadSuccess", apifwTests.testOauthIntrospectionReadSuccess)
 	t.Run("oauthIntrospectionReadUnsuccessful", apifwTests.testOauthIntrospectionReadUnsuccessful)
@@ -322,7 +322,7 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 
 }
 
-func (s *ServiceTests) testBlacklist(t *testing.T) {
+func (s *ServiceTests) testDenylist(t *testing.T) {
 
 	cacheCfg := config.Cache{
 		NumCounters: 100000000,
@@ -331,7 +331,7 @@ func (s *ServiceTests) testBlacklist(t *testing.T) {
 	}
 
 	tokensCfg := config.Token{
-		CookieName: testBlacklistedCookieName,
+		CookieName: testDeniedCookieName,
 		HeaderName: "",
 		File:       "../../../resources/test/tokens/test.db",
 	}
@@ -344,7 +344,7 @@ func (s *ServiceTests) testBlacklist(t *testing.T) {
 		ShadowAPI: config.ShadowAPI{
 			ExcludeList: []int{404, 401},
 		},
-		Blacklist: struct {
+		Denylist: struct {
 			Tokens config.Token
 			Cache  config.Cache
 		}{Tokens: tokensCfg, Cache: cacheCfg},
@@ -352,12 +352,12 @@ func (s *ServiceTests) testBlacklist(t *testing.T) {
 
 	logger := logrus.New()
 
-	blacklistedTokens, err := blacklist.New(&cfg, logger)
+	deniedTokens, err := denylist.New(&cfg, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, blacklistedTokens)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, deniedTokens)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -397,8 +397,8 @@ func (s *ServiceTests) testBlacklist(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	// add blacklisted token to the Cookie header of the successful HTTP request (200)
-	req.Header.SetCookie(testBlacklistedCookieName, testBlacklistedToken)
+	// add denied token to the Cookie header of the successful HTTP request (200)
+	req.Header.SetCookie(testDeniedCookieName, testDeniedToken)
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
