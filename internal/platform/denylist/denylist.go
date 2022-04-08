@@ -10,6 +10,8 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 )
 
+const BufferItems = 64
+
 type DeniedTokens struct {
 	Cache       *ristretto.Cache
 	ElementsNum int
@@ -18,9 +20,9 @@ type DeniedTokens struct {
 func New(cfg *config.APIFWConfiguration, logger *logrus.Logger) (*DeniedTokens, error) {
 
 	cache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: cfg.Denylist.Cache.NumCounters,
-		MaxCost:     cfg.Denylist.Cache.MaxCost,
-		BufferItems: cfg.Denylist.Cache.BufferItems,
+		NumCounters: cfg.Denylist.Cache.MaxElements,
+		MaxCost:     cfg.Denylist.Cache.MaxElements * 10,
+		BufferItems: BufferItems,
 	})
 	if err != nil {
 		return nil, err

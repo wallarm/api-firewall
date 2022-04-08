@@ -31,9 +31,7 @@ type JWT struct {
 }
 
 type Cache struct {
-	NumCounters int64 `conf:"default:100000000"`
-	MaxCost     int64 `conf:"default:2147483648"`
-	BufferItems int64 `conf:"default:64"`
+	MaxElements int64 `conf:"default:1_000_000"`
 }
 
 type Token struct {

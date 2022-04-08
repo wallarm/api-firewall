@@ -325,9 +325,7 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 func (s *ServiceTests) testDenylist(t *testing.T) {
 
 	cacheCfg := config.Cache{
-		NumCounters: 100000000,
-		MaxCost:     2147483648,
-		BufferItems: 64,
+		MaxElements: 100_000_000,
 	}
 
 	tokensCfg := config.Token{
