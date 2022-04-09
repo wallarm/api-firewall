@@ -324,10 +324,6 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 
 func (s *ServiceTests) testDenylist(t *testing.T) {
 
-	cacheCfg := config.Cache{
-		MaxElements: 100_000_000,
-	}
-
 	tokensCfg := config.Token{
 		CookieName: testDeniedCookieName,
 		HeaderName: "",
@@ -344,8 +340,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 		},
 		Denylist: struct {
 			Tokens config.Token
-			Cache  config.Cache
-		}{Tokens: tokensCfg, Cache: cacheCfg},
+		}{Tokens: tokensCfg},
 	}
 
 	logger := logrus.New()
