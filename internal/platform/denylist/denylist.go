@@ -20,8 +20,8 @@ type DeniedTokens struct {
 func New(cfg *config.APIFWConfiguration, logger *logrus.Logger) (*DeniedTokens, error) {
 
 	cache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: cfg.Denylist.Cache.MaxElements,
-		MaxCost:     cfg.Denylist.Cache.MaxElements * 10,
+		NumCounters: cfg.Denylist.Cache.MaxElements * 10,
+		MaxCost:     cfg.Denylist.Cache.MaxElements,
 		BufferItems: BufferItems,
 	})
 	if err != nil {
