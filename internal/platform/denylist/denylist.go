@@ -59,6 +59,8 @@ func New(cfg *config.APIFWConfiguration, logger *logrus.Logger) (*DeniedTokens, 
 	// max cost = total bytes found in the storage + 5%
 	maxCost := totalCacheCapacity + totalCacheCapacity/20
 
+	logger.Debugf("Denylist: cache capacity: %d bytes", maxCost)
+
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: maxCost * 10, // recommended value
 		MaxCost:     maxCost,
