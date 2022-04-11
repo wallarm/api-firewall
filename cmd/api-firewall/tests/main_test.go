@@ -4,10 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/golang/mock/gomock"
-	"github.com/sirupsen/logrus"
-	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"io"
 	"net"
 	"net/url"
@@ -17,8 +13,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/sirupsen/logrus"
+	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/openapi3"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/tests"
@@ -324,12 +324,6 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 
 func (s *ServiceTests) testDenylist(t *testing.T) {
 
-	cacheCfg := config.Cache{
-		NumCounters: 100000000,
-		MaxCost:     2147483648,
-		BufferItems: 64,
-	}
-
 	tokensCfg := config.Token{
 		CookieName: testDeniedCookieName,
 		HeaderName: "",
@@ -346,8 +340,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 		},
 		Denylist: struct {
 			Tokens config.Token
-			Cache  config.Cache
-		}{Tokens: tokensCfg, Cache: cacheCfg},
+		}{Tokens: tokensCfg},
 	}
 
 	logger := logrus.New()

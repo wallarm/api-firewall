@@ -30,12 +30,6 @@ type JWT struct {
 	SecretKey          string `conf:""`
 }
 
-type Cache struct {
-	NumCounters int64 `conf:"default:100000000"`
-	MaxCost     int64 `conf:"default:2147483648"`
-	BufferItems int64 `conf:"default:64"`
-}
-
 type Token struct {
 	CookieName       string `conf:""`
 	HeaderName       string `conf:""`
@@ -45,7 +39,6 @@ type Token struct {
 
 type Denylist struct {
 	Tokens Token
-	Cache  Cache
 }
 
 type Introspection struct {
