@@ -27,8 +27,15 @@ spec:
       paths:
       - path: {{ $.Values.apiFirewall.ingress.path }}
         backend:
+          {{- if $.Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+          service:
+            name: {{ template "api-firewall.fullname" $ }}
+            port:
+              number: {{ $.Values.apiFirewall.service.port }}
+          {{- else }}
           serviceName: {{ template "api-firewall.fullname" $ }}
           servicePort: {{ $.Values.apiFirewall.service.port }}
+          {{- end }}
   {{ end -}}
   {{ end -}}
   {{ if .Values.apiFirewall.ingress.tls -}}
