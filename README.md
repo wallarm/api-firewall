@@ -1,4 +1,4 @@
-# Open Source API Firewall
+# Open Source API Firewall [![Black Hat Arsenal USA 2022](https://github.com/wallarm/api-firewall/blob/main/images/BHA2022.svg?raw=true)](https://www.blackhat.com/us-22/arsenal/schedule/index.html#open-source-api-firewall-new-features--functionalities-28038)
 
 API Firewall is a high-performance proxy with API request and response validation based on OpenAPI/Swagger schema. It is designed to protect REST API endpoints in cloud-native environments. API Firewall provides API hardening with the use of a positive security model allowing calls that match a predefined API specification for requests and responses, while rejecting everything else.
 
