@@ -3,6 +3,8 @@ name: api-firewall
 version: 0.6.8
 appVersion: 0.6.8
 description: Wallarm OpenAPI-based API Firewall
+home: https://github.com/wallarm/api-firewall
+icon: https://static.wallarm.com/wallarm-logo.svg
 keywords:
   - wallarm
   - ingress
