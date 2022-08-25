@@ -207,7 +207,12 @@ func run(logger *logrus.Logger) error {
 		return errors.Wrap(err, "denylist init error")
 	}
 
-	logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
+	switch deniedTokens {
+	case nil:
+		logger.Infof("%s: Denylist not configured", logPrefix)
+	default:
+		logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
+	}
 
 	// =========================================================================
 	// Start API Service

@@ -112,7 +112,10 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
 	client, err := s.proxyPool.Get()
 	if err != nil {
-		s.logger.Errorf("#%016X : error while proxying request: %s", ctx.ID(), strings.Replace(err.Error(), "\n", " ", -1))
+		s.logger.WithFields(logrus.Fields{
+			"error":      err,
+			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+		}).Error("error while proxying request")
 		return web.RespondError(ctx, fasthttp.StatusServiceUnavailable, nil)
 	}
 	defer s.proxyPool.Put(client)
@@ -121,7 +124,10 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	if s.route == nil || (s.cfg.RequestValidation == web.ValidationDisable && s.cfg.ResponseValidation == web.ValidationDisable) {
 
 		if err := client.Do(&ctx.Request, &ctx.Response); err != nil {
-			s.logger.Errorf("#%016X : error while proxying request: %s", ctx.ID(), strings.Replace(err.Error(), "\n", " ", -1))
+			s.logger.WithFields(logrus.Fields{
+				"error":      err,
+				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			}).Error("error while proxying request")
 			switch err {
 			case fasthttp.ErrDialTimeout:
 				return web.RespondError(ctx, fasthttp.StatusGatewayTimeout, nil)
@@ -205,10 +211,16 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	switch s.cfg.RequestValidation {
 	case web.ValidationBlock:
 		if err := openapi3filter.ValidateRequest(ctx, requestValidationInput); err != nil {
-			s.logger.Errorf("#%016X : request validation error: %s", ctx.ID(), strings.Replace(err.Error(), "\n", " ", -1))
+			s.logger.WithFields(logrus.Fields{
+				"error":      err,
+				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			}).Error("request validation error")
 			if s.cfg.AddValidationStatusHeader {
 				if vh := getValidationHeader(ctx, err); vh != nil {
-					s.logger.Errorf("add header %s: %s", web.ValidationStatus, *vh)
+					s.logger.WithFields(logrus.Fields{
+						"error":      err,
+						"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+					}).Errorf("add header %s: %s", web.ValidationStatus, *vh)
 					ctx.Request.Header.Add(web.ValidationStatus, *vh)
 					return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, vh)
 				}
@@ -217,12 +229,18 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		}
 	case web.ValidationLog:
 		if err := openapi3filter.ValidateRequest(ctx, requestValidationInput); err != nil {
-			s.logger.Errorf("#%016X : request validation error: %s", ctx.ID(), strings.Replace(err.Error(), "\n", " ", -1))
+			s.logger.WithFields(logrus.Fields{
+				"error":      err,
+				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			}).Error("request validation error")
 		}
 	}
 
 	if err := client.Do(&ctx.Request, &ctx.Response); err != nil {
-		s.logger.Errorf("#%016X : error while proxying request: %s", ctx.ID(), strings.Replace(err.Error(), "\n", " ", -1))
+		s.logger.WithFields(logrus.Fields{
+			"error":      err,
+			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+		}).Error("error while proxying request")
 		switch err {
 		case fasthttp.ErrDialTimeout:
 			return web.RespondError(ctx, fasthttp.StatusGatewayTimeout, nil)
@@ -251,10 +269,16 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	switch s.cfg.ResponseValidation {
 	case web.ValidationBlock:
 		if err := openapi3filter.ValidateResponse(responseValidationInput); err != nil {
-			s.logger.Errorf("#%016X : response validation error :  %s", ctx.ID(), strings.Replace(err.Error(), "\n", " ", -1))
+			s.logger.WithFields(logrus.Fields{
+				"error":      err,
+				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			}).Error("response validation error")
 			if s.cfg.AddValidationStatusHeader {
 				if vh := getValidationHeader(ctx, err); vh != nil {
-					s.logger.Errorf("add header %s: %s", web.ValidationStatus, *vh)
+					s.logger.WithFields(logrus.Fields{
+						"error":      err,
+						"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+					}).Errorf("add header %s: %s", web.ValidationStatus, *vh)
 					ctx.Response.Header.Add(web.ValidationStatus, *vh)
 					return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, vh)
 				}
@@ -263,7 +287,10 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		}
 	case web.ValidationLog:
 		if err := openapi3filter.ValidateResponse(responseValidationInput); err != nil {
-			s.logger.Errorf("#%016X : response validation error :  %s", ctx.ID(), strings.Replace(err.Error(), "\n", " ", -1))
+			s.logger.WithFields(logrus.Fields{
+				"error":      err,
+				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			}).Error("response validation error")
 		}
 	}
 

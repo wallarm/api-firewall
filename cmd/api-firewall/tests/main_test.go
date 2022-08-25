@@ -240,10 +240,6 @@ func TestBasic(t *testing.T) {
 
 }
 
-func (s *ServiceTests) test(t *testing.T) {
-
-}
-
 func (s *ServiceTests) testBlockMode(t *testing.T) {
 
 	var cfg = config.APIFWConfiguration{
