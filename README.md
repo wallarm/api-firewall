@@ -53,6 +53,7 @@ You can try API Firewall by running the demo environment that deploys an example
 
 * [Discovering Shadow APIs with API Firewall](https://lab.wallarm.com/discovering-shadow-apis-with-a-api-firewall/)
 * [Wallarm API Firewall outperforms NGINX in a production environment](https://lab.wallarm.com/wallarm-api-firewall-outperforms-nginx-in-a-production-environment/)
+* [Securing REST APIs for free with OSS APIFW](https://lab.wallarm.com/securing-rest-with-free-api-firewall-how-to-guide/)
 
 ## Performance
 
