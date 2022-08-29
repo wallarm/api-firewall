@@ -3,11 +3,11 @@ package mid
 import (
 	"bytes"
 	"fmt"
+	"net/url"
+
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/config"
-	"net/url"
-
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -72,12 +72,7 @@ func Proxy(cfg *config.APIFWConfiguration, serverUrl *url.URL) web.Middleware {
 				ctx.Response.Header.Del(h)
 			}
 
-			if cfg.ResponseValidation == web.ValidationBlock {
-				// add apifw header to the response
-				ctx.Response.Header.Add(apifwHeaderName, fmt.Sprintf("%016X", ctx.ID()))
-			}
-
-			// Return the error so it can be handled further up the chain.
+			// Return the error, so it can be handled further up the chain.
 			return err
 		}
 

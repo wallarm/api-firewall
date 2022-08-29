@@ -62,10 +62,10 @@ func (paths Paths) Validate(c context.Context) error {
 //
 // For example:
 //
-//   paths := openapi3.Paths {
-//     "/person/{personName}": &openapi3.PathItem{},
-//   }
-//   pathItem := path.Find("/person/{name}")
+//	paths := openapi3.Paths {
+//	  "/person/{personName}": &openapi3.PathItem{},
+//	}
+//	pathItem := path.Find("/person/{name}")
 //
 // would return the correct path item.
 func (paths Paths) Find(key string) *PathItem {

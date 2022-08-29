@@ -65,7 +65,7 @@ components:
             type: integer
 `
 
-//TODO: check oneOf
+// TODO: check oneOf
 func TestRequestValidationOneof(t *testing.T) {
 	loader := openapi3.NewSwaggerLoader()
 	doc, err := loader.LoadSwaggerFromData([]byte(spec))

@@ -11,7 +11,7 @@ const (
 	FormatOfStringForUUIDOfRFC4122 = `^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`
 )
 
-//FormatCallback custom check on exotic formats
+// FormatCallback custom check on exotic formats
 type FormatCallback func(Val string) error
 
 type Format struct {
@@ -19,10 +19,10 @@ type Format struct {
 	callback FormatCallback
 }
 
-//SchemaStringFormats allows for validating strings format
+// SchemaStringFormats allows for validating strings format
 var SchemaStringFormats = make(map[string]Format, 8)
 
-//DefineStringFormat Defines a new regexp pattern for a given format
+// DefineStringFormat Defines a new regexp pattern for a given format
 func DefineStringFormat(name string, pattern string) {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
