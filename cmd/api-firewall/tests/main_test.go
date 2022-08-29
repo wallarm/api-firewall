@@ -13,13 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
-	"github.com/wallarm/api-firewall/internal/platform/openapi3"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/tests"
 )
@@ -199,7 +199,7 @@ func TestBasic(t *testing.T) {
 	pool := tests.NewMockPool(mockCtrl)
 	client := tests.NewMockHTTPClient(mockCtrl)
 
-	swagger, err := openapi3.NewSwaggerLoader().LoadSwaggerFromData([]byte(openAPISpecTest))
+	swagger, err := openapi3.NewLoader().LoadFromData([]byte(openAPISpecTest))
 	if err != nil {
 		t.Fatalf("loading swagwaf file: %s", err.Error())
 	}

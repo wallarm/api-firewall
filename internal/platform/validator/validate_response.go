@@ -1,15 +1,14 @@
-// Package openapi3filter validates that requests and inputs request an OpenAPI 3 specification file.
-package openapi3filter
+package validator
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
-	"github.com/savsgio/gotils/strconv"
-
-	"github.com/wallarm/api-firewall/internal/platform/openapi3"
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 )
 
 // ValidateResponse is used to validate the given input according to previous
@@ -18,12 +17,12 @@ import (
 //
 // Note: One can tune the behavior of uniqueItems: true verification
 // by registering a custom function with openapi3.RegisterArrayUniqueItemsChecker
-func ValidateResponse(input *ResponseValidationInput) error {
-
-	if input.RequestValidationInput.RequestCtx.IsHead() {
+func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidationInput) error {
+	req := input.RequestValidationInput.Request
+	switch req.Method {
+	case "HEAD":
 		return nil
 	}
-
 	status := input.Status
 
 	// These status codes will never be validated.
@@ -38,7 +37,7 @@ func ValidateResponse(input *ResponseValidationInput) error {
 	route := input.RequestValidationInput.Route
 	options := input.Options
 	if options == nil {
-		options = DefaultOptions
+		options = openapi3filter.DefaultOptions
 	}
 
 	// Find input for the current status
@@ -55,11 +54,11 @@ func ValidateResponse(input *ResponseValidationInput) error {
 		if !options.IncludeResponseStatus {
 			return nil
 		}
-		return &ResponseError{Input: input, Reason: "status is not supported"}
+		return &openapi3filter.ResponseError{Input: input, Reason: "status is not supported"}
 	}
 	response := responseRef.Value
 	if response == nil {
-		return &ResponseError{Input: input, Reason: "response has not been resolved"}
+		return &openapi3filter.ResponseError{Input: input, Reason: "response has not been resolved"}
 	}
 
 	if options.ExcludeResponseBody {
@@ -73,13 +72,12 @@ func ValidateResponse(input *ResponseValidationInput) error {
 		return nil
 	}
 
-	inputMIME := strconv.B2S(input.ResponseHeader.Peek(headerCT))
-
+	inputMIME := input.Header.Get(headerCT)
 	contentType := content.Get(inputMIME)
 	if contentType == nil {
-		return &ResponseError{
+		return &openapi3filter.ResponseError{
 			Input:  input,
-			Reason: fmt.Sprintf("input header Content-Type has unexpected value: %q", inputMIME),
+			Reason: fmt.Sprintf("response header Content-Type has unexpected value: %q", inputMIME),
 		}
 	}
 
@@ -102,7 +100,7 @@ func ValidateResponse(input *ResponseValidationInput) error {
 	// Read all
 	data, err := ioutil.ReadAll(body)
 	if err != nil {
-		return &ResponseError{
+		return &openapi3filter.ResponseError{
 			Input:  input,
 			Reason: "failed to read response body",
 			Err:    err,
@@ -110,15 +108,12 @@ func ValidateResponse(input *ResponseValidationInput) error {
 	}
 
 	// Put the data back into the response.
-	respCT := strconv.B2S(input.ResponseHeader.ContentType())
+	input.SetBodyBytes(data)
+
 	encFn := func(name string) *openapi3.Encoding { return contentType.Encoding[name] }
-
-	parser := input.RequestValidationInput.ParserJson.Get()
-	defer input.RequestValidationInput.ParserJson.Put(parser)
-
-	value, err := decodeBody(bytes.NewBuffer(data), input.RequestValidationInput.RequestCtx.Response.Body(), respCT, contentType.Schema, encFn, parser)
+	_, value, err := decodeBody(bytes.NewBuffer(data), input.Header, contentType.Schema, encFn)
 	if err != nil {
-		return &ResponseError{
+		return &openapi3filter.ResponseError{
 			Input:  input,
 			Reason: "failed to decode response body",
 			Err:    err,
@@ -131,8 +126,9 @@ func ValidateResponse(input *ResponseValidationInput) error {
 		opts = append(opts, openapi3.MultiErrors())
 	}
 
+	// Validate data with the schema.
 	if err := contentType.Schema.Value.VisitJSON(value, opts...); err != nil {
-		return &ResponseError{
+		return &openapi3filter.ResponseError{
 			Input:  input,
 			Reason: "response body doesn't match the schema",
 			Err:    err,
