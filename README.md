@@ -36,7 +36,7 @@ By allowing you to set the traffic requirements with the OpenAPI 3.0 specificati
 
 ## Technical data
 
-API Firewall works as a reverse proxy with a built-in OpenAPI 3.0 request and response validator. It's written in Golang and using fasthttp proxy. The project is optimized for extreme performance and near-zero added latency.
+API Firewall [works](https://www.wallarm.com/what/the-concept-of-a-firewall) as a reverse proxy with a built-in OpenAPI 3.0 request and response validator. It's written in Golang and using fasthttp proxy. The project is optimized for extreme performance and near-zero added latency.
 
 ## Starting API Firewall
 
