@@ -5,20 +5,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"github.com/wallarm/api-firewall/internal/platform/validator"
+	"io"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/oauth2"
-	"github.com/wallarm/api-firewall/internal/platform/openapi3"
-	"github.com/wallarm/api-firewall/internal/platform/openapi3filter"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
-	"github.com/wallarm/api-firewall/internal/platform/routers"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -157,25 +160,35 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		})
 	}
 
+	req := http.Request{}
+
+	if err := fasthttpadaptor.ConvertRequest(ctx, &req, false); err != nil {
+		s.logger.WithFields(logrus.Fields{
+			"error":      err,
+			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+		}).Error("error while converting http request")
+		return web.RespondError(ctx, fasthttp.StatusBadRequest, nil)
+	}
+
 	// Validate request
 	requestValidationInput := &openapi3filter.RequestValidationInput{
-		RequestCtx: ctx,
+		Request:    &req,
 		PathParams: pathParams,
 		Route:      s.route,
-		ParserJson: s.parserPool,
+		//ParserJson: s.parserPool,
 		Options: &openapi3filter.Options{
 			AuthenticationFunc: func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
 				switch input.SecurityScheme.Type {
 				case "http":
 					switch input.SecurityScheme.Scheme {
 					case "basic":
-						bHeader := input.RequestValidationInput.RequestCtx.Request.Header.Peek("Authorization")
-						if bHeader == nil || !strings.HasPrefix(strings.ToLower(strconv.B2S(bHeader)), "basic ") {
+						bHeader := input.RequestValidationInput.Request.Header.Get("Authorization")
+						if bHeader == "" || !strings.HasPrefix(strings.ToLower(bHeader), "basic ") {
 							return errors.New("missing basic authorization header")
 						}
 					case "bearer":
-						bHeader := input.RequestValidationInput.RequestCtx.Request.Header.Peek("Authorization")
-						if bHeader == nil || !strings.HasPrefix(strings.ToLower(strconv.B2S(bHeader)), "bearer ") {
+						bHeader := input.RequestValidationInput.Request.Header.Get("Authorization")
+						if bHeader == "" || !strings.HasPrefix(strings.ToLower(bHeader), "bearer ") {
 							return errors.New("missing bearer authorization header")
 						}
 					}
@@ -183,22 +196,23 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 					if s.oauthValidator == nil {
 						return errors.New("oauth2 validator not configured")
 					}
-					if err := s.oauthValidator.Validate(ctx, string(input.RequestValidationInput.RequestCtx.Request.Header.Peek("Authorization")), input.Scopes); err != nil {
+					if err := s.oauthValidator.Validate(ctx, input.RequestValidationInput.Request.Header.Get("Authorization"), input.Scopes); err != nil {
 						return fmt.Errorf("oauth2 error: %s", err)
 					}
 
 				case "apiKey":
 					switch input.SecurityScheme.In {
 					case "header":
-						if input.RequestValidationInput.RequestCtx.Request.Header.Peek(input.SecurityScheme.Name) == nil {
+						if input.RequestValidationInput.Request.Header.Get(input.SecurityScheme.Name) == "" {
 							return fmt.Errorf("missing %s header", input.SecurityScheme.Name)
 						}
 					case "query":
-						if input.RequestValidationInput.RequestCtx.URI().QueryArgs().Peek(input.SecurityScheme.Name) == nil {
+						if input.RequestValidationInput.Request.URL.Query().Get(input.SecurityScheme.Name) == "" {
 							return fmt.Errorf("missing %s query parameter", input.SecurityScheme.Name)
 						}
 					case "cookie":
-						if input.RequestValidationInput.RequestCtx.Request.Header.Cookie(input.SecurityScheme.Name) == nil {
+						_, err := input.RequestValidationInput.Request.Cookie(input.SecurityScheme.Name)
+						if err != nil {
 							return fmt.Errorf("missing %s cookie", input.SecurityScheme.Name)
 						}
 					}
@@ -208,9 +222,12 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		},
 	}
 
+	jsonParser := s.parserPool.Get()
+	defer s.parserPool.Put(jsonParser)
+
 	switch s.cfg.RequestValidation {
 	case web.ValidationBlock:
-		if err := openapi3filter.ValidateRequest(ctx, requestValidationInput); err != nil {
+		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -228,7 +245,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, nil)
 		}
 	case web.ValidationLog:
-		if err := openapi3filter.ValidateRequest(ctx, requestValidationInput); err != nil {
+		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -251,11 +268,20 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		}
 	}
 
+	// prepare http response headers
+	respHeader := http.Header{}
+	ctx.Request.Header.VisitAll(func(k, v []byte) {
+		sk := string(k)
+		sv := string(v)
+
+		respHeader.Set(sk, sv)
+	})
+
 	responseValidationInput := &openapi3filter.ResponseValidationInput{
 		RequestValidationInput: requestValidationInput,
 		Status:                 ctx.Response.StatusCode(),
-		ResponseHeader:         &ctx.Response.Header,
-		Body:                   ioutil.NopCloser(bytes.NewReader(ctx.Response.Body())),
+		Header:                 respHeader,
+		Body:                   io.NopCloser(bytes.NewReader(ctx.Response.Body())),
 		Options: &openapi3filter.Options{
 			ExcludeRequestBody:    false,
 			ExcludeResponseBody:   false,
@@ -268,7 +294,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	// Validate response
 	switch s.cfg.ResponseValidation {
 	case web.ValidationBlock:
-		if err := openapi3filter.ValidateResponse(responseValidationInput); err != nil {
+		if err := validator.ValidateResponse(ctx, responseValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -286,7 +312,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, nil)
 		}
 	case web.ValidationLog:
-		if err := openapi3filter.ValidateResponse(responseValidationInput); err != nil {
+		if err := validator.ValidateResponse(ctx, responseValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),

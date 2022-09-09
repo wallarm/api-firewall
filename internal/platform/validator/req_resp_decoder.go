@@ -1,22 +1,24 @@
-package openapi3filter
+package validator
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/valyala/fastjson"
 	"io"
 	"io/ioutil"
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 
-	strconvUtils "github.com/savsgio/gotils/strconv"
-	"github.com/valyala/fasthttp"
-	"github.com/valyala/fastjson"
-	"github.com/wallarm/api-firewall/internal/platform/openapi3"
+	"gopkg.in/yaml.v3"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // ParseErrorKind describes a kind of ParseError.
@@ -42,6 +44,8 @@ type ParseError struct {
 
 	path []interface{}
 }
+
+var _ interface{ Unwrap() error } = ParseError{}
 
 func (e *ParseError) Error() string {
 	var msg []string
@@ -82,6 +86,10 @@ func (e *ParseError) RootCause() error {
 	return e.Cause
 }
 
+func (e ParseError) Unwrap() error {
+	return e.Cause
+}
+
 // Path returns a path to the root cause.
 func (e *ParseError) Path() []interface{} {
 	var path []interface{}
@@ -103,37 +111,31 @@ func invalidSerializationMethodErr(sm *openapi3.SerializationMethod) error {
 
 // Decodes a parameter defined via the content property as an object. It uses
 // the user specified decoder, or our build-in decoder for application/json
-func decodeContentParameter(param *openapi3.Parameter, input *RequestValidationInput) (
-	value interface{}, schema *openapi3.Schema, err error) {
+func decodeContentParameter(param *openapi3.Parameter, input *openapi3filter.RequestValidationInput) (
+	value interface{}, schema *openapi3.Schema, found bool, err error) {
 
 	var paramValues []string
-	var found bool
 	switch param.In {
 	case openapi3.ParameterInPath:
-		paramValue := input.RequestCtx.UserValue(param.Name)
-		if paramValue != nil {
-			paramValues = []string{paramValue.(string)}
+		var paramValue string
+		if paramValue, found = input.PathParams[param.Name]; found {
+			paramValues = []string{paramValue}
 		}
 	case openapi3.ParameterInQuery:
-		if paramByteValues := input.GetQueryParams().PeekMulti(param.Name); len(paramByteValues) > 0 {
-			paramValues = make([]string, len(paramByteValues))
-			for i, value := range paramByteValues {
-				paramValues[i] = strconvUtils.B2S(value)
-			}
-			found = true
-		}
+		paramValues, found = input.GetQueryParams()[param.Name]
 	case openapi3.ParameterInHeader:
-		if paramValue := strconvUtils.B2S(input.RequestCtx.Request.Header.Peek(http.CanonicalHeaderKey(param.Name))); paramValue != "" {
-			paramValues = []string{paramValue}
-			found = true
+		var headerValues []string
+		if headerValues, found = input.Request.Header[http.CanonicalHeaderKey(param.Name)]; found {
+			paramValues = headerValues
 		}
 	case openapi3.ParameterInCookie:
-		//var cookie *http.Cookie
-		cookie := input.RequestCtx.Request.Header.Cookie(param.Name)
-		if cookie == nil {
+		var cookie *http.Cookie
+		if cookie, err = input.Request.Cookie(param.Name); err == http.ErrNoCookie {
 			found = false
+		} else if err != nil {
+			return
 		} else {
-			paramValues = []string{strconvUtils.B2S(cookie)}
+			paramValues = []string{cookie.Value}
 			found = true
 		}
 	default:
@@ -205,105 +207,110 @@ func defaultContentParameterDecoder(param *openapi3.Parameter, values []string) 
 }
 
 type valueDecoder interface {
-	DecodePrimitive(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, error)
-	DecodeArray(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) ([]interface{}, error)
-	DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, error)
+	DecodePrimitive(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error)
+	DecodeArray(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) ([]interface{}, bool, error)
+	DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, bool, error)
 }
 
 // decodeStyledParameter returns a value of an operation's parameter from HTTP request for
-// parameters defined using the style format.
+// parameters defined using the style format, and whether the parameter is supplied in the input.
 // The function returns ParseError when HTTP request contains an invalid value of a parameter.
-func decodeStyledParameter(param *openapi3.Parameter, input *RequestValidationInput) (interface{}, error) {
+func decodeStyledParameter(param *openapi3.Parameter, input *openapi3filter.RequestValidationInput) (interface{}, bool, error) {
 	sm, err := param.SerializationMethod()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	var dec valueDecoder
 	switch param.In {
 	case openapi3.ParameterInPath:
 		if len(input.PathParams) == 0 {
-			return nil, nil
+			return nil, false, nil
 		}
 		dec = &pathParamDecoder{pathParams: input.PathParams}
 	case openapi3.ParameterInQuery:
-		if input.GetQueryParams().Len() == 0 {
-			return nil, nil
+		if len(input.GetQueryParams()) == 0 {
+			return nil, false, nil
 		}
 		dec = &urlValuesDecoder{values: input.GetQueryParams()}
 	case openapi3.ParameterInHeader:
-		dec = &headerParamDecoder{header: &input.RequestCtx.Request.Header}
+		dec = &headerParamDecoder{header: input.Request.Header}
 	case openapi3.ParameterInCookie:
-		dec = &cookieParamDecoder{req: input.RequestCtx}
+		dec = &cookieParamDecoder{req: input.Request}
 	default:
-		return nil, fmt.Errorf("unsupported parameter's 'in': %s", param.In)
+		return nil, false, fmt.Errorf("unsupported parameter's 'in': %s", param.In)
 	}
 
 	return decodeValue(dec, param.Name, sm, param.Schema, param.Required)
 }
 
-func decodeValue(dec valueDecoder, param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef, required bool) (interface{}, error) {
-	var decodeFn func(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, error)
+func decodeValue(dec valueDecoder, param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef, required bool) (interface{}, bool, error) {
+	var found bool
 
 	if len(schema.Value.AllOf) > 0 {
 		var value interface{}
 		var err error
 		for _, sr := range schema.Value.AllOf {
-			value, err = decodeValue(dec, param, sm, sr, required)
+			var f bool
+			value, f, err = decodeValue(dec, param, sm, sr, required)
+			found = found || f
 			if value == nil || err != nil {
 				break
 			}
 		}
-		return value, err
+		return value, found, err
 	}
 
 	if len(schema.Value.AnyOf) > 0 {
 		for _, sr := range schema.Value.AnyOf {
-			value, _ := decodeValue(dec, param, sm, sr, required)
+			value, f, _ := decodeValue(dec, param, sm, sr, required)
+			found = found || f
 			if value != nil {
-				return value, nil
+				return value, found, nil
 			}
 		}
 		if required {
-			return nil, fmt.Errorf("decoding anyOf for parameter %q failed", param)
+			return nil, found, fmt.Errorf("decoding anyOf for parameter %q failed", param)
 		}
-		return nil, nil
+		return nil, found, nil
 	}
 
 	if len(schema.Value.OneOf) > 0 {
 		isMatched := 0
 		var value interface{}
 		for _, sr := range schema.Value.OneOf {
-			v, _ := decodeValue(dec, param, sm, sr, required)
+			v, f, _ := decodeValue(dec, param, sm, sr, required)
+			found = found || f
 			if v != nil {
 				value = v
 				isMatched++
 			}
 		}
 		if isMatched == 1 {
-			return value, nil
+			return value, found, nil
 		} else if isMatched > 1 {
-			return nil, fmt.Errorf("decoding oneOf failed: %d schemas matched", isMatched)
+			return nil, found, fmt.Errorf("decoding oneOf failed: %d schemas matched", isMatched)
 		}
 		if required {
-			return nil, fmt.Errorf("decoding oneOf failed: %q is required", param)
+			return nil, found, fmt.Errorf("decoding oneOf failed: %q is required", param)
 		}
-		return nil, nil
+		return nil, found, nil
 	}
 
 	if schema.Value.Not != nil {
 		// TODO(decode not): handle decoding "not" JSON Schema
-		return nil, errors.New("not implemented: decoding 'not'")
+		return nil, found, errors.New("not implemented: decoding 'not'")
 	}
 
 	if schema.Value.Type != "" {
+		var decodeFn func(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error)
 		switch schema.Value.Type {
 		case "array":
-			decodeFn = func(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, error) {
+			decodeFn = func(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error) {
 				return dec.DecodeArray(param, sm, schema)
 			}
 		case "object":
-			decodeFn = func(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, error) {
+			decodeFn = func(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error) {
 				return dec.DecodeObject(param, sm, schema)
 			}
 		default:
@@ -311,8 +318,20 @@ func decodeValue(dec valueDecoder, param string, sm *openapi3.SerializationMetho
 		}
 		return decodeFn(param, sm, schema)
 	}
-
-	return nil, nil
+	switch vDecoder := dec.(type) {
+	case *pathParamDecoder:
+		_, found = vDecoder.pathParams[param]
+	case *urlValuesDecoder:
+		_, found = vDecoder.values[param]
+	case *headerParamDecoder:
+		_, found = vDecoder.header[param]
+	case *cookieParamDecoder:
+		_, err := vDecoder.req.Cookie(param)
+		found = err != http.ErrNoCookie
+	default:
+		return nil, found, errors.New("unsupported decoder")
+	}
+	return nil, found, nil
 }
 
 // pathParamDecoder decodes values of path parameters.
@@ -320,7 +339,7 @@ type pathParamDecoder struct {
 	pathParams map[string]string
 }
 
-func (d *pathParamDecoder) DecodePrimitive(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, error) {
+func (d *pathParamDecoder) DecodePrimitive(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error) {
 	var prefix string
 	switch sm.Style {
 	case "simple":
@@ -330,26 +349,27 @@ func (d *pathParamDecoder) DecodePrimitive(param string, sm *openapi3.Serializat
 	case "matrix":
 		prefix = ";" + param + "="
 	default:
-		return nil, invalidSerializationMethodErr(sm)
+		return nil, false, invalidSerializationMethodErr(sm)
 	}
 
 	if d.pathParams == nil {
 		// HTTP request does not contains a value of the target path parameter.
-		return nil, nil
+		return nil, false, nil
 	}
 	raw, ok := d.pathParams[param]
 	if !ok || raw == "" {
 		// HTTP request does not contains a value of the target path parameter.
-		return nil, nil
+		return nil, false, nil
 	}
 	src, err := cutPrefix(raw, prefix)
 	if err != nil {
-		return nil, err
+		return nil, ok, err
 	}
-	return parsePrimitive(src, schema)
+	val, err := parsePrimitive(src, schema)
+	return val, ok, err
 }
 
-func (d *pathParamDecoder) DecodeArray(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) ([]interface{}, error) {
+func (d *pathParamDecoder) DecodeArray(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) ([]interface{}, bool, error) {
 	var prefix, delim string
 	switch {
 	case sm.Style == "simple":
@@ -367,26 +387,27 @@ func (d *pathParamDecoder) DecodeArray(param string, sm *openapi3.SerializationM
 		prefix = ";" + param + "="
 		delim = ";" + param + "="
 	default:
-		return nil, invalidSerializationMethodErr(sm)
+		return nil, false, invalidSerializationMethodErr(sm)
 	}
 
 	if d.pathParams == nil {
 		// HTTP request does not contains a value of the target path parameter.
-		return nil, nil
+		return nil, false, nil
 	}
 	raw, ok := d.pathParams[param]
 	if !ok || raw == "" {
 		// HTTP request does not contains a value of the target path parameter.
-		return nil, nil
+		return nil, false, nil
 	}
 	src, err := cutPrefix(raw, prefix)
 	if err != nil {
-		return nil, err
+		return nil, ok, err
 	}
-	return parseArray(strings.Split(src, delim), schema)
+	val, err := parseArray(strings.Split(src, delim), schema)
+	return val, ok, err
 }
 
-func (d *pathParamDecoder) DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, error) {
+func (d *pathParamDecoder) DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, bool, error) {
 	var prefix, propsDelim, valueDelim string
 	switch {
 	case sm.Style == "simple" && !sm.Explode:
@@ -412,27 +433,28 @@ func (d *pathParamDecoder) DecodeObject(param string, sm *openapi3.Serialization
 		propsDelim = ";"
 		valueDelim = "="
 	default:
-		return nil, invalidSerializationMethodErr(sm)
+		return nil, false, invalidSerializationMethodErr(sm)
 	}
 
 	if d.pathParams == nil {
 		// HTTP request does not contains a value of the target path parameter.
-		return nil, nil
+		return nil, false, nil
 	}
 	raw, ok := d.pathParams[param]
 	if !ok || raw == "" {
 		// HTTP request does not contains a value of the target path parameter.
-		return nil, nil
+		return nil, false, nil
 	}
 	src, err := cutPrefix(raw, prefix)
 	if err != nil {
-		return nil, err
+		return nil, ok, err
 	}
 	props, err := propsFromString(src, propsDelim, valueDelim)
 	if err != nil {
-		return nil, err
+		return nil, ok, err
 	}
-	return makeObject(props, schema)
+	val, err := makeObject(props, schema)
+	return val, ok, err
 }
 
 // cutPrefix validates that a raw value of a path parameter has the specified prefix,
@@ -453,31 +475,32 @@ func cutPrefix(raw, prefix string) (string, error) {
 
 // urlValuesDecoder decodes values of query parameters.
 type urlValuesDecoder struct {
-	values *fasthttp.Args
+	values url.Values
 }
 
-func (d *urlValuesDecoder) DecodePrimitive(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, error) {
+func (d *urlValuesDecoder) DecodePrimitive(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error) {
 	if sm.Style != "form" {
-		return nil, invalidSerializationMethodErr(sm)
+		return nil, false, invalidSerializationMethodErr(sm)
 	}
 
-	values := d.values.Peek(param)
-	if values == nil {
+	values, ok := d.values[param]
+	if len(values) == 0 {
 		// HTTP request does not contain a value of the target query parameter.
-		return nil, nil
+		return nil, ok, nil
 	}
-	return parsePrimitive(strconvUtils.B2S(values), schema)
+	val, err := parsePrimitive(values[0], schema)
+	return val, ok, err
 }
 
-func (d *urlValuesDecoder) DecodeArray(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) ([]interface{}, error) {
+func (d *urlValuesDecoder) DecodeArray(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) ([]interface{}, bool, error) {
 	if sm.Style == "deepObject" {
-		return nil, invalidSerializationMethodErr(sm)
+		return nil, false, invalidSerializationMethodErr(sm)
 	}
 
-	bvalues := d.values.PeekMulti(param)
-	if len(bvalues) == 0 {
+	values, ok := d.values[param]
+	if len(values) == 0 {
 		// HTTP request does not contain a value of the target query parameter.
-		return nil, nil
+		return nil, ok, nil
 	}
 	if !sm.Explode {
 		var delim string
@@ -489,53 +512,46 @@ func (d *urlValuesDecoder) DecodeArray(param string, sm *openapi3.SerializationM
 		case "pipeDelimited":
 			delim = "|"
 		}
-		return parseArray(strings.Split(strconvUtils.B2S(bvalues[0]), delim), schema)
+		values = strings.Split(values[0], delim)
 	}
-	values := make([]string, len(bvalues))
-	for i, value := range bvalues {
-		values[i] = strconvUtils.B2S(value)
-	}
-	//return parseArray([]string{strconvUtils.B2S(values)}, schema)
-	return parseArray(values, schema)
+	val, err := parseArray(values, schema)
+	return val, ok, err
 }
 
-func (d *urlValuesDecoder) DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, error) {
-	var propsFn func(args *fasthttp.Args) (map[string]string, error)
+func (d *urlValuesDecoder) DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, bool, error) {
+	var propsFn func(url.Values) (map[string]string, error)
 	switch sm.Style {
 	case "form":
-		propsFn = func(params *fasthttp.Args) (map[string]string, error) {
-			if params == nil {
+		propsFn = func(params url.Values) (map[string]string, error) {
+			if len(params) == 0 {
 				// HTTP request does not contain query parameters.
 				return nil, nil
 			}
 			if sm.Explode {
 				props := make(map[string]string)
-				params.VisitAll(func(key []byte, value []byte) {
-					props[strconvUtils.B2S(key)] = strconvUtils.B2S(value)
-				})
-
+				for key, values := range params {
+					props[key] = values[0]
+				}
 				return props, nil
 			}
-			value := params.Peek(param)
-			if value == nil {
+			values := params[param]
+			if len(values) == 0 {
 				// HTTP request does not contain a value of the target query parameter.
 				return nil, nil
 			}
-			return propsFromString(strconvUtils.B2S(value), ",", ",")
+			return propsFromString(values[0], ",", ",")
 		}
 	case "deepObject":
-		propsFn = func(params *fasthttp.Args) (map[string]string, error) {
+		propsFn = func(params url.Values) (map[string]string, error) {
 			props := make(map[string]string)
-			params.VisitAll(func(key []byte, value []byte) {
-				keyS := strconvUtils.B2S(key)
-				valueS := strconvUtils.B2S(value)
-				//props[] = strconvUtils.B2S(value)
-				groups := regexp.MustCompile(fmt.Sprintf("%s\\[(.+?)\\]", param)).FindAllStringSubmatch(keyS, -1)
-				if len(groups) > 0 {
+			for key, values := range params {
+				groups := regexp.MustCompile(fmt.Sprintf("%s\\[(.+?)\\]", param)).FindAllStringSubmatch(key, -1)
+				if len(groups) == 0 {
 					// A query parameter's name does not match the required format, so skip it.
-					props[groups[0][1]] = valueS
+					continue
 				}
-			})
+				props[groups[0][1]] = values[0]
+			}
 			if len(props) == 0 {
 				// HTTP request does not contain query parameters encoded by rules of style "deepObject".
 				return nil, nil
@@ -543,113 +559,148 @@ func (d *urlValuesDecoder) DecodeObject(param string, sm *openapi3.Serialization
 			return props, nil
 		}
 	default:
-		return nil, invalidSerializationMethodErr(sm)
+		return nil, false, invalidSerializationMethodErr(sm)
 	}
 
 	props, err := propsFn(d.values)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if props == nil {
-		return nil, nil
+		return nil, false, nil
 	}
-	return makeObject(props, schema)
+
+	// check the props
+	found := false
+	for propName := range schema.Value.Properties {
+		if _, ok := props[propName]; ok {
+			found = true
+			break
+		}
+	}
+	val, err := makeObject(props, schema)
+	return val, found, err
 }
 
 // headerParamDecoder decodes values of header parameters.
 type headerParamDecoder struct {
-	header *fasthttp.RequestHeader
+	header http.Header
 }
 
-func (d *headerParamDecoder) DecodePrimitive(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, error) {
+func (d *headerParamDecoder) DecodePrimitive(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error) {
 	if sm.Style != "simple" {
-		return nil, invalidSerializationMethodErr(sm)
+		return nil, false, invalidSerializationMethodErr(sm)
 	}
 
-	raw := d.header.Peek(http.CanonicalHeaderKey(param))
-	return parsePrimitive(strconvUtils.B2S(raw), schema)
+	raw, ok := d.header[http.CanonicalHeaderKey(param)]
+	if !ok || len(raw) == 0 {
+		// HTTP request does not contains a corresponding header or has the empty value
+		return nil, ok, nil
+	}
+
+	val, err := parsePrimitive(raw[0], schema)
+	return val, ok, err
 }
 
-func (d *headerParamDecoder) DecodeArray(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) ([]interface{}, error) {
+func (d *headerParamDecoder) DecodeArray(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) ([]interface{}, bool, error) {
 	if sm.Style != "simple" {
-		return nil, invalidSerializationMethodErr(sm)
+		return nil, false, invalidSerializationMethodErr(sm)
 	}
 
-	raw := d.header.Peek(http.CanonicalHeaderKey(param))
-	if raw == nil {
+	raw, ok := d.header[http.CanonicalHeaderKey(param)]
+	if !ok || len(raw) == 0 {
 		// HTTP request does not contains a corresponding header
-		return nil, nil
+		return nil, ok, nil
 	}
-	return parseArray(strings.Split(strconvUtils.B2S(raw), ","), schema)
+
+	val, err := parseArray(strings.Split(raw[0], ","), schema)
+	return val, ok, err
 }
 
-func (d *headerParamDecoder) DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, error) {
+func (d *headerParamDecoder) DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, bool, error) {
 	if sm.Style != "simple" {
-		return nil, invalidSerializationMethodErr(sm)
+		return nil, false, invalidSerializationMethodErr(sm)
 	}
 	valueDelim := ","
 	if sm.Explode {
 		valueDelim = "="
 	}
 
-	raw := d.header.Peek(http.CanonicalHeaderKey(param))
-	if raw == nil {
+	raw, ok := d.header[http.CanonicalHeaderKey(param)]
+	if !ok || len(raw) == 0 {
 		// HTTP request does not contain a corresponding header.
-		return nil, nil
+		return nil, ok, nil
 	}
-	props, err := propsFromString(strconvUtils.B2S(raw), ",", valueDelim)
+	props, err := propsFromString(raw[0], ",", valueDelim)
 	if err != nil {
-		return nil, err
+		return nil, ok, err
 	}
-	return makeObject(props, schema)
+	val, err := makeObject(props, schema)
+	return val, ok, err
 }
 
 // cookieParamDecoder decodes values of cookie parameters.
 type cookieParamDecoder struct {
-	req *fasthttp.RequestCtx
+	req *http.Request
 }
 
-func (d *cookieParamDecoder) DecodePrimitive(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, error) {
+func (d *cookieParamDecoder) DecodePrimitive(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error) {
 	if sm.Style != "form" {
-		return nil, invalidSerializationMethodErr(sm)
+		return nil, false, invalidSerializationMethodErr(sm)
 	}
 
-	cookie := d.req.Request.Header.Cookie(param)
-	if cookie == nil {
+	cookie, err := d.req.Cookie(param)
+	found := err != http.ErrNoCookie
+	if !found {
 		// HTTP request does not contain a corresponding cookie.
-		return nil, nil
+		return nil, found, nil
 	}
-	return parsePrimitive(strconvUtils.B2S(cookie), schema)
-}
-
-func (d *cookieParamDecoder) DecodeArray(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) ([]interface{}, error) {
-	if sm.Style != "form" || sm.Explode {
-		return nil, invalidSerializationMethodErr(sm)
-	}
-
-	cookie := d.req.Request.Header.Cookie(param)
-	if cookie == nil {
-		// HTTP request does not contain a corresponding cookie.
-		return nil, nil
-	}
-	return parseArray(strings.Split(strconvUtils.B2S(cookie), ","), schema)
-}
-
-func (d *cookieParamDecoder) DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, error) {
-	if sm.Style != "form" || sm.Explode {
-		return nil, invalidSerializationMethodErr(sm)
-	}
-
-	cookie := d.req.Request.Header.Cookie(param)
-	if cookie == nil {
-		// HTTP request does not contain a corresponding cookie.
-		return nil, nil
-	}
-	props, err := propsFromString(strconvUtils.B2S(cookie), ",", ",")
 	if err != nil {
-		return nil, err
+		return nil, found, fmt.Errorf("decoding param %q: %s", param, err)
 	}
-	return makeObject(props, schema)
+
+	val, err := parsePrimitive(cookie.Value, schema)
+	return val, found, err
+}
+
+func (d *cookieParamDecoder) DecodeArray(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) ([]interface{}, bool, error) {
+	if sm.Style != "form" || sm.Explode {
+		return nil, false, invalidSerializationMethodErr(sm)
+	}
+
+	cookie, err := d.req.Cookie(param)
+	found := err != http.ErrNoCookie
+	if !found {
+		// HTTP request does not contain a corresponding cookie.
+		return nil, found, nil
+	}
+	if err != nil {
+		return nil, found, fmt.Errorf("decoding param %q: %s", param, err)
+	}
+	val, err := parseArray(strings.Split(cookie.Value, ","), schema)
+	return val, found, err
+}
+
+func (d *cookieParamDecoder) DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, bool, error) {
+	if sm.Style != "form" || sm.Explode {
+		return nil, false, invalidSerializationMethodErr(sm)
+	}
+
+	cookie, err := d.req.Cookie(param)
+	found := err != http.ErrNoCookie
+	if !found {
+		// HTTP request does not contain a corresponding cookie.
+		return nil, found, nil
+	}
+	if err != nil {
+		return nil, found, fmt.Errorf("decoding param %q: %s", param, err)
+	}
+	props, err := propsFromString(cookie.Value, ",", ",")
+	if err != nil {
+		return nil, found, err
+	}
+	val, err := makeObject(props, schema)
+	return val, found, err
 }
 
 // propsFromString returns a properties map that is created by splitting a source string by propDelim and valueDelim.
@@ -724,6 +775,12 @@ func parseArray(raw []string, schemaRef *openapi3.SchemaRef) ([]interface{}, err
 			}
 			return nil, fmt.Errorf("item %d: %s", i, err)
 		}
+
+		// If the items are nil, then the array is nil. There shouldn't be case where some values are actual primitive
+		// values and some are nil values.
+		if item == nil {
+			return nil, nil
+		}
 		value = append(value, item)
 	}
 	return value, nil
@@ -740,19 +797,19 @@ func parsePrimitive(raw string, schema *openapi3.SchemaRef) (interface{}, error)
 	case "integer":
 		v, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid integer", Cause: err}
+			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
 		}
 		return v, nil
 	case "number":
 		v, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid number", Cause: err}
+			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
 		}
 		return v, nil
 	case "boolean":
 		v, err := strconv.ParseBool(raw)
 		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid number", Cause: err}
+			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
 		}
 		return v, nil
 	case "string":
@@ -767,16 +824,25 @@ type EncodingFn func(partName string) *openapi3.Encoding
 
 // BodyDecoder is an interface to decode a body of a request or response.
 // An implementation must return a value that is a primitive, []interface{}, or map[string]interface{}.
-type BodyDecoder func(io.Reader, []byte, string, *openapi3.SchemaRef, EncodingFn, *fastjson.Parser) (interface{}, error)
+type BodyDecoder func(io.Reader, http.Header, *openapi3.SchemaRef, EncodingFn, *fastjson.Parser) (interface{}, error)
 
 // bodyDecoders contains decoders for supported content types of a body.
 // By default, there is content type "application/json" is supported only.
 var bodyDecoders = make(map[string]BodyDecoder)
 
+// RegisteredBodyDecoder returns the registered body decoder for the given content type.
+//
+// If no decoder was registered for the given content type, nil is returned.
+// This call is not thread-safe: body decoders should not be created/destroyed by multiple goroutines.
+func RegisteredBodyDecoder(contentType string) BodyDecoder {
+	return bodyDecoders[contentType]
+}
+
 // RegisterBodyDecoder registers a request body's decoder for a content type.
 //
 // If a decoder for the specified content type already exists, the function replaces
 // it with the specified decoder.
+// This call is not thread-safe: body decoders should not be created/destroyed by multiple goroutines.
 func RegisterBodyDecoder(contentType string, decoder BodyDecoder) {
 	if contentType == "" {
 		panic("contentType is empty")
@@ -790,6 +856,7 @@ func RegisterBodyDecoder(contentType string, decoder BodyDecoder) {
 // UnregisterBodyDecoder dissociates a body decoder from a content type.
 //
 // Decoding this content type will result in an error.
+// This call is not thread-safe: body decoders should not be created/destroyed by multiple goroutines.
 func UnregisterBodyDecoder(contentType string) {
 	if contentType == "" {
 		panic("contentType is empty")
@@ -803,7 +870,12 @@ const prefixUnsupportedCT = "unsupported content type"
 
 // decodeBody returns a decoded body.
 // The function returns ParseError when a body is invalid.
-func decodeBody(body io.Reader, bodyBytes []byte, contentType string, schema *openapi3.SchemaRef, encFn EncodingFn, parser *fastjson.Parser) (interface{}, error) {
+func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (
+	string,
+	interface{},
+	error,
+) {
+	contentType := header.Get(headerCT)
 	if contentType == "" {
 		if _, ok := body.(*multipart.Part); ok {
 			contentType = "text/plain"
@@ -812,55 +884,30 @@ func decodeBody(body io.Reader, bodyBytes []byte, contentType string, schema *op
 	mediaType := parseMediaType(contentType)
 	decoder, ok := bodyDecoders[mediaType]
 	if !ok {
-		// use default decoder which returns empty object
-		decoder = defaultEmptyBodyDecoder
+		return "", nil, &ParseError{
+			Kind:   KindUnsupportedFormat,
+			Reason: fmt.Sprintf("%s %q", prefixUnsupportedCT, mediaType),
+		}
 	}
-	value, err := decoder(body, bodyBytes, contentType, schema, encFn, parser)
+	value, err := decoder(body, header, schema, encFn, jsonParser)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	return value, nil
+	return mediaType, value, nil
 }
 
 func init() {
 	RegisterBodyDecoder("text/plain", plainBodyDecoder)
 	RegisterBodyDecoder("application/json", jsonBodyDecoder)
+	RegisterBodyDecoder("application/x-yaml", yamlBodyDecoder)
+	RegisterBodyDecoder("application/yaml", yamlBodyDecoder)
 	RegisterBodyDecoder("application/problem+json", jsonBodyDecoder)
 	RegisterBodyDecoder("application/x-www-form-urlencoded", urlencodedBodyDecoder)
 	RegisterBodyDecoder("multipart/form-data", multipartBodyDecoder)
 	RegisterBodyDecoder("application/octet-stream", FileBodyDecoder)
 }
 
-func defaultEmptyBodyDecoder(body io.Reader, bodyBytes []byte, contentType string, schema *openapi3.SchemaRef, encFn EncodingFn, parser *fastjson.Parser) (interface{}, error) {
-	if schema != nil {
-		switch schema.Value.Type {
-		case "object":
-			obj := make(map[string]interface{})
-			return obj, nil
-		case "null":
-			return nil, nil
-		case "integer", "number", "boolean", "array":
-			return nil, &ParseError{Kind: KindUnsupportedFormat, Cause: fmt.Errorf("schema not fully supported: %v", contentType)}
-		}
-	}
-	if bodyBytes != nil {
-		return string(bodyBytes), nil
-	}
-	if body != nil {
-		data, err := ioutil.ReadAll(body)
-		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
-		}
-		return string(data), nil
-	}
-
-	return "", nil
-}
-
-func plainBodyDecoder(body io.Reader, bodyBytes []byte, contentType string, schema *openapi3.SchemaRef, encFn EncodingFn, parser *fastjson.Parser) (interface{}, error) {
-	if bodyBytes != nil {
-		return string(bodyBytes), nil
-	}
+func plainBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	data, err := ioutil.ReadAll(body)
 	if err != nil {
 		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
@@ -868,20 +915,16 @@ func plainBodyDecoder(body io.Reader, bodyBytes []byte, contentType string, sche
 	return string(data), nil
 }
 
-func jsonBodyDecoder(body io.Reader, bodyBytes []byte, contentType string, schema *openapi3.SchemaRef, encFn EncodingFn, parser *fastjson.Parser) (interface{}, error) {
+func jsonBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	var data []byte
 	var err error
 
-	if bodyBytes != nil {
-		data = bodyBytes
-	} else {
-		data, err = ioutil.ReadAll(body)
-		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
-		}
+	data, err = io.ReadAll(body)
+	if err != nil {
+		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
 	}
 
-	parsedDoc, err := parser.ParseBytes(data)
+	parsedDoc, err := jsonParser.ParseBytes(data)
 	if err != nil {
 		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
 	}
@@ -889,7 +932,15 @@ func jsonBodyDecoder(body io.Reader, bodyBytes []byte, contentType string, schem
 	return parsedDoc, nil
 }
 
-func urlencodedBodyDecoder(body io.Reader, bodyBytes []byte, contentType string, schema *openapi3.SchemaRef, encFn EncodingFn, parser *fastjson.Parser) (interface{}, error) {
+func yamlBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
+	var value interface{}
+	if err := yaml.NewDecoder(body).Decode(&value); err != nil {
+		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
+	}
+	return value, nil
+}
+
+func urlencodedBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	// Validate schema of request body.
 	// By the OpenAPI 3 specification request body's schema must have type "object".
 	// Properties of the schema describes individual parts of request body.
@@ -913,13 +964,14 @@ func urlencodedBodyDecoder(body io.Reader, bodyBytes []byte, contentType string,
 	if err != nil {
 		return nil, err
 	}
-
-	var args fasthttp.Args
-	args.ParseBytes(b)
+	values, err := url.ParseQuery(string(b))
+	if err != nil {
+		return nil, err
+	}
 
 	// Make an object value from form values.
 	obj := make(map[string]interface{})
-	dec := &urlValuesDecoder{values: &args}
+	dec := &urlValuesDecoder{values: values}
 	for name, prop := range schema.Value.Properties {
 		var (
 			value interface{}
@@ -930,8 +982,7 @@ func urlencodedBodyDecoder(body io.Reader, bodyBytes []byte, contentType string,
 		}
 		sm := enc.SerializationMethod()
 
-		value, err := decodeValue(dec, name, sm, prop, false)
-		if err != nil {
+		if value, _, err = decodeValue(dec, name, sm, prop, false); err != nil {
 			return nil, err
 		}
 		obj[name] = value
@@ -940,13 +991,14 @@ func urlencodedBodyDecoder(body io.Reader, bodyBytes []byte, contentType string,
 	return obj, nil
 }
 
-func multipartBodyDecoder(body io.Reader, bodyBytes []byte, contentType string, schema *openapi3.SchemaRef, encFn EncodingFn, parser *fastjson.Parser) (interface{}, error) {
+func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	if schema.Value.Type != "object" {
 		return nil, errors.New("unsupported schema of request body")
 	}
 
 	// Parse form.
 	values := make(map[string][]interface{})
+	contentType := header.Get(headerCT)
 	_, params, err := mime.ParseMediaType(contentType)
 	if err != nil {
 		return nil, err
@@ -999,12 +1051,7 @@ func multipartBodyDecoder(body io.Reader, bodyBytes []byte, contentType string, 
 		}
 
 		var value interface{}
-
-		mHeaderCT := part.Header.Get(headerCT)
-
-		var parserNew fastjson.Parser
-
-		if value, err = decodeBody(part, nil, mHeaderCT, valueSchema, subEncFn, &parserNew); err != nil {
+		if _, value, err = decodeBody(part, http.Header(part.Header), valueSchema, subEncFn, jsonParser); err != nil {
 			if v, ok := err.(*ParseError); ok {
 				return nil, &ParseError{path: []interface{}{name}, Cause: v}
 			}
@@ -1040,10 +1087,7 @@ func multipartBodyDecoder(body io.Reader, bodyBytes []byte, contentType string, 
 }
 
 // FileBodyDecoder is a body decoder that decodes a file body to a string.
-func FileBodyDecoder(body io.Reader, bodyBytes []byte, contentType string, schema *openapi3.SchemaRef, encFn EncodingFn, parser *fastjson.Parser) (interface{}, error) {
-	if bodyBytes != nil {
-		return string(bodyBytes), nil
-	}
+func FileBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	data, err := ioutil.ReadAll(body)
 	if err != nil {
 		return nil, err
