@@ -21,4 +21,7 @@ genmocks:
 fmt:
 	gofmt -w ./
 
-.PHONY: lint tidy test fmt build genmocks
+vulncheck:
+	govulncheck ./...
+
+.PHONY: lint tidy test fmt build genmocks vulncheck

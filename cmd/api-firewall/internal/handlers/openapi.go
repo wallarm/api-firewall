@@ -222,9 +222,12 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		},
 	}
 
+	jsonParser := s.parserPool.Get()
+	defer s.parserPool.Put(jsonParser)
+
 	switch s.cfg.RequestValidation {
 	case web.ValidationBlock:
-		if err := validator.ValidateRequest(ctx, requestValidationInput); err != nil {
+		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -242,7 +245,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, nil)
 		}
 	case web.ValidationLog:
-		if err := validator.ValidateRequest(ctx, requestValidationInput); err != nil {
+		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -291,7 +294,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	// Validate response
 	switch s.cfg.ResponseValidation {
 	case web.ValidationBlock:
-		if err := validator.ValidateResponse(ctx, responseValidationInput); err != nil {
+		if err := validator.ValidateResponse(ctx, responseValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -309,7 +312,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, nil)
 		}
 	case web.ValidationLog:
-		if err := validator.ValidateResponse(ctx, responseValidationInput); err != nil {
+		if err := validator.ValidateResponse(ctx, responseValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),

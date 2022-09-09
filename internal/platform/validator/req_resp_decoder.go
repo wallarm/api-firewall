@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/valyala/fastjson"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -823,7 +824,7 @@ type EncodingFn func(partName string) *openapi3.Encoding
 
 // BodyDecoder is an interface to decode a body of a request or response.
 // An implementation must return a value that is a primitive, []interface{}, or map[string]interface{}.
-type BodyDecoder func(io.Reader, http.Header, *openapi3.SchemaRef, EncodingFn) (interface{}, error)
+type BodyDecoder func(io.Reader, http.Header, *openapi3.SchemaRef, EncodingFn, *fastjson.Parser) (interface{}, error)
 
 // bodyDecoders contains decoders for supported content types of a body.
 // By default, there is content type "application/json" is supported only.
@@ -869,7 +870,7 @@ const prefixUnsupportedCT = "unsupported content type"
 
 // decodeBody returns a decoded body.
 // The function returns ParseError when a body is invalid.
-func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn) (
+func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (
 	string,
 	interface{},
 	error,
@@ -888,7 +889,7 @@ func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, 
 			Reason: fmt.Sprintf("%s %q", prefixUnsupportedCT, mediaType),
 		}
 	}
-	value, err := decoder(body, header, schema, encFn)
+	value, err := decoder(body, header, schema, encFn, jsonParser)
 	if err != nil {
 		return "", nil, err
 	}
@@ -906,7 +907,7 @@ func init() {
 	RegisterBodyDecoder("application/octet-stream", FileBodyDecoder)
 }
 
-func plainBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn) (interface{}, error) {
+func plainBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	data, err := ioutil.ReadAll(body)
 	if err != nil {
 		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
@@ -914,15 +915,24 @@ func plainBodyDecoder(body io.Reader, header http.Header, schema *openapi3.Schem
 	return string(data), nil
 }
 
-func jsonBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn) (interface{}, error) {
-	var value interface{}
-	if err := json.NewDecoder(body).Decode(&value); err != nil {
+func jsonBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
+	var data []byte
+	var err error
+
+	data, err = io.ReadAll(body)
+	if err != nil {
 		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
 	}
-	return value, nil
+
+	parsedDoc, err := jsonParser.ParseBytes(data)
+	if err != nil {
+		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
+	}
+
+	return parsedDoc, nil
 }
 
-func yamlBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn) (interface{}, error) {
+func yamlBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	var value interface{}
 	if err := yaml.NewDecoder(body).Decode(&value); err != nil {
 		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
@@ -930,7 +940,7 @@ func yamlBodyDecoder(body io.Reader, header http.Header, schema *openapi3.Schema
 	return value, nil
 }
 
-func urlencodedBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn) (interface{}, error) {
+func urlencodedBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	// Validate schema of request body.
 	// By the OpenAPI 3 specification request body's schema must have type "object".
 	// Properties of the schema describes individual parts of request body.
@@ -981,7 +991,7 @@ func urlencodedBodyDecoder(body io.Reader, header http.Header, schema *openapi3.
 	return obj, nil
 }
 
-func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn) (interface{}, error) {
+func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	if schema.Value.Type != "object" {
 		return nil, errors.New("unsupported schema of request body")
 	}
@@ -1041,7 +1051,7 @@ func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.S
 		}
 
 		var value interface{}
-		if _, value, err = decodeBody(part, http.Header(part.Header), valueSchema, subEncFn); err != nil {
+		if _, value, err = decodeBody(part, http.Header(part.Header), valueSchema, subEncFn, jsonParser); err != nil {
 			if v, ok := err.(*ParseError); ok {
 				return nil, &ParseError{path: []interface{}{name}, Cause: v}
 			}
@@ -1077,7 +1087,7 @@ func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.S
 }
 
 // FileBodyDecoder is a body decoder that decodes a file body to a string.
-func FileBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn) (interface{}, error) {
+func FileBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	data, err := ioutil.ReadAll(body)
 	if err != nil {
 		return nil, err

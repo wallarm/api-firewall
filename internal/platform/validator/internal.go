@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"github.com/valyala/fastjson"
 	"reflect"
 	"strings"
 )
@@ -22,4 +23,27 @@ func isNilValue(value interface{}) bool {
 		return reflect.ValueOf(value).IsNil()
 	}
 	return false
+}
+
+func convertToMap(v *fastjson.Value) interface{} {
+	switch v.Type() {
+	case fastjson.TypeObject:
+		m := make(map[string]interface{})
+		v.GetObject().Visit(func(k []byte, v *fastjson.Value) {
+			m[string(k)] = convertToMap(v)
+		})
+		return m
+	case fastjson.TypeArray:
+		var a []interface{}
+		for _, v := range v.GetArray() {
+			a = append(a, convertToMap(v))
+		}
+		return a
+	case fastjson.TypeString:
+		return string(v.GetStringBytes())
+	case fastjson.TypeTrue, fastjson.TypeFalse:
+		return v.GetBool()
+	default:
+		return nil
+	}
 }

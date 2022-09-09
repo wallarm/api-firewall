@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"github.com/valyala/fastjson"
+	"io"
 	"net/http"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -17,7 +18,7 @@ import (
 //
 // Note: One can tune the behavior of uniqueItems: true verification
 // by registering a custom function with openapi3.RegisterArrayUniqueItemsChecker
-func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidationInput) error {
+func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidationInput, jsonParser *fastjson.Parser) error {
 	req := input.RequestValidationInput.Request
 	switch req.Method {
 	case "HEAD":
@@ -98,7 +99,7 @@ func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidat
 	defer body.Close()
 
 	// Read all
-	data, err := ioutil.ReadAll(body)
+	data, err := io.ReadAll(body)
 	if err != nil {
 		return &openapi3filter.ResponseError{
 			Input:  input,
@@ -111,7 +112,7 @@ func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidat
 	input.SetBodyBytes(data)
 
 	encFn := func(name string) *openapi3.Encoding { return contentType.Encoding[name] }
-	_, value, err := decodeBody(bytes.NewBuffer(data), input.Header, contentType.Schema, encFn)
+	_, value, err := decodeBody(bytes.NewBuffer(data), input.Header, contentType.Schema, encFn, jsonParser)
 	if err != nil {
 		return &openapi3filter.ResponseError{
 			Input:  input,
@@ -124,6 +125,12 @@ func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidat
 	opts = append(opts, openapi3.VisitAsRequest())
 	if options.MultiError {
 		opts = append(opts, openapi3.MultiErrors())
+	}
+
+	// prepare map[string]interface{} structure for json validation
+	fastjsonValue, ok := value.(*fastjson.Value)
+	if ok {
+		value = convertToMap(fastjsonValue)
 	}
 
 	// Validate data with the schema.

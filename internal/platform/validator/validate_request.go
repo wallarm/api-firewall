@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"net/http"
-
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/valyala/fastjson"
+	"io"
+	"net/http"
 )
 
 const prefixInvalidCT = "header Content-Type has unexpected value"
@@ -19,7 +19,7 @@ const prefixInvalidCT = "header Content-Type has unexpected value"
 //
 // Note: One can tune the behavior of uniqueItems: true verification
 // by registering a custom function with openapi3.RegisterArrayUniqueItemsChecker
-func ValidateRequest(ctx context.Context, input *openapi3filter.RequestValidationInput) error {
+func ValidateRequest(ctx context.Context, input *openapi3filter.RequestValidationInput, jsonParser *fastjson.Parser) error {
 	var (
 		err error
 		me  openapi3.MultiError
@@ -83,7 +83,7 @@ func ValidateRequest(ctx context.Context, input *openapi3filter.RequestValidatio
 	// RequestBody
 	requestBody := operation.RequestBody
 	if requestBody != nil && !options.ExcludeRequestBody {
-		if err = ValidateRequestBody(ctx, input, requestBody.Value); err != nil && !options.MultiError {
+		if err = ValidateRequestBody(ctx, input, requestBody.Value, jsonParser); err != nil && !options.MultiError {
 			return err
 		}
 
@@ -103,7 +103,7 @@ func ValidateRequest(ctx context.Context, input *openapi3filter.RequestValidatio
 //
 // The function returns RequestError with ErrInvalidRequired cause when a value is required but not defined.
 // The function returns RequestError with a openapi3.SchemaError cause when a value is invalid by JSON schema.
-func ValidateRequestBody(ctx context.Context, input *openapi3filter.RequestValidationInput, requestBody *openapi3.RequestBody) error {
+func ValidateRequestBody(ctx context.Context, input *openapi3filter.RequestValidationInput, requestBody *openapi3.RequestBody, jsonParser *fastjson.Parser) error {
 	var (
 		req  = input.Request
 		data []byte
@@ -158,7 +158,7 @@ func ValidateRequestBody(ctx context.Context, input *openapi3filter.RequestValid
 	}
 
 	encFn := func(name string) *openapi3.Encoding { return contentType.Encoding[name] }
-	mediaType, value, err := decodeBody(bytes.NewReader(data), req.Header, contentType.Schema, encFn)
+	mediaType, value, err := decodeBody(bytes.NewReader(data), req.Header, contentType.Schema, encFn, jsonParser)
 	if err != nil {
 		return &openapi3filter.RequestError{
 			Input:       input,
@@ -174,6 +174,12 @@ func ValidateRequestBody(ctx context.Context, input *openapi3filter.RequestValid
 	opts = append(opts, openapi3.DefaultsSet(func() { defaultsSet = true }))
 	if options.MultiError {
 		opts = append(opts, openapi3.MultiErrors())
+	}
+
+	// prepare map[string]interface{} structure for json validation
+	fastjsonValue, ok := value.(*fastjson.Value)
+	if ok {
+		value = convertToMap(fastjsonValue)
 	}
 
 	// Validate JSON with the schema
