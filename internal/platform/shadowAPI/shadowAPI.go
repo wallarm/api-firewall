@@ -2,9 +2,11 @@ package shadowAPI
 
 import (
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/config"
+
 	"golang.org/x/exp/slices"
 )
 

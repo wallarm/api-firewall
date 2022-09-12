@@ -3,7 +3,6 @@ package main
 import (
 	"expvar" // Register the expvar handlers
 	"fmt"
-	"github.com/wallarm/api-firewall/internal/platform/shadowAPI"
 	"mime"
 	"net/url"
 	"os"
@@ -23,6 +22,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/shadowAPI"
 )
 
 var build = "develop"

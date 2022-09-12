@@ -20,8 +20,9 @@ import (
 	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
+	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
-	"github.com/wallarm/api-firewall/internal/platform/tests"
+	"github.com/wallarm/api-firewall/internal/platform/shadowAPI"
 )
 
 const openAPISpecTest = `
@@ -178,10 +179,10 @@ type ServiceTests struct {
 	serverUrl  *url.URL
 	shutdown   chan os.Signal
 	logger     *logrus.Logger
-	proxy      *tests.MockPool
-	client     *tests.MockHTTPClient
+	proxy      *proxy.MockPool
+	client     *proxy.MockHTTPClient
 	swagRouter *router.Router
-	shadowAPI  *tests.MockChecker
+	shadowAPI  *shadowAPI.MockChecker
 }
 
 // POST /test/signup <- 200
@@ -199,9 +200,9 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("parsing API Host URL: %s", err.Error())
 	}
 
-	pool := tests.NewMockPool(mockCtrl)
-	client := tests.NewMockHTTPClient(mockCtrl)
-	checker := tests.NewMockChecker(mockCtrl)
+	pool := proxy.NewMockPool(mockCtrl)
+	client := proxy.NewMockHTTPClient(mockCtrl)
+	checker := shadowAPI.NewMockChecker(mockCtrl)
 
 	swagger, err := openapi3.NewLoader().LoadFromData([]byte(openAPISpecTest))
 	if err != nil {
@@ -227,9 +228,13 @@ func TestBasic(t *testing.T) {
 	}
 
 	// basic test
-	t.Run("basicBlockMode", apifwTests.testBlockMode)
-	t.Run("basicLogOnlyMode", apifwTests.testLogOnlyMode)
-	t.Run("basicDisableMode", apifwTests.testDisableMode)
+	t.Run("basicBlockBlockMode", apifwTests.testBlockMode)
+	t.Run("basicLogOnlyLogOnlyMode", apifwTests.testLogOnlyMode)
+	t.Run("basicDisableDisableMode", apifwTests.testDisableMode)
+
+	t.Run("basicBlockLogOnlyMode", apifwTests.testBlockLogOnlyMode)
+	t.Run("basicLogOnlyBlockMode", apifwTests.testLogOnlyBlockMode)
+
 	t.Run("commonParamters", apifwTests.testCommonParameters)
 
 	t.Run("basicDenylist", apifwTests.testDenylist)
@@ -298,6 +303,7 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
+	// Repeat request with invalid email
 	reqInvalidEmail, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
 		"lastname":  "test",
@@ -575,6 +581,111 @@ func (s *ServiceTests) testDisableMode(t *testing.T) {
 
 	if reqCtx.Response.StatusCode() != 200 {
 		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+}
+
+func (s *ServiceTests) testBlockLogOnlyMode(t *testing.T) {
+
+	var cfg = config.APIFWConfiguration{
+		RequestValidation:         "BLOCK",
+		ResponseValidation:        "LOG_ONLY",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+	}
+
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signup")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	// 503 status code not defined in the OpenAPI spec
+	resp.SetStatusCode(fasthttp.StatusServiceUnavailable)
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != fasthttp.StatusServiceUnavailable {
+		t.Errorf("Incorrect response status code. Expected: 503 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+}
+
+func (s *ServiceTests) testLogOnlyBlockMode(t *testing.T) {
+
+	var cfg = config.APIFWConfiguration{
+		RequestValidation:         "LOG_ONLY",
+		ResponseValidation:        "BLOCK",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+	}
+
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signup")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	// 503 status code not defined in the OpenAPI spec
+	resp.SetStatusCode(fasthttp.StatusServiceUnavailable)
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
 			reqCtx.Response.StatusCode())
 	}
 

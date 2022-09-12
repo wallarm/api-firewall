@@ -16,8 +16,8 @@ test:
 	go test ./... -count=1
 
 genmocks:
-	mockgen -source ./internal/platform/proxy/chainpool.go -destination ./internal/platform/tests/httppool.go -package tests HTTPClient
-	mockgen -source ./internal/platform/shadowAPI/shadowAPI.go -destination ./internal/platform/tests/shadowAPI.go -package tests shadowAPI
+	mockgen -source ./internal/platform/proxy/chainpool.go -destination ./internal/platform/proxy/httppool_mock.go -package proxy
+	mockgen -source ./internal/platform/shadowAPI/shadowAPI.go -destination ./internal/platform/shadowAPI/shadowAPI_mock.go -package shadowAPI
 
 fmt:
 	gofmt -w ./
