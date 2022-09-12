@@ -16,6 +16,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/valyala/fasthttp v1.40.0
 	github.com/valyala/fastjson v1.6.3
+	golang.org/x/exp v0.0.0-20220909182711-5c715a9e8561
 )
 
 require (

@@ -179,6 +179,7 @@ type ServiceTests struct {
 	proxy      *tests.MockPool
 	client     *tests.MockHTTPClient
 	swagRouter *router.Router
+	shadowAPI  *tests.MockChecker
 }
 
 // POST /test/signup <- 200
@@ -198,6 +199,7 @@ func TestBasic(t *testing.T) {
 
 	pool := tests.NewMockPool(mockCtrl)
 	client := tests.NewMockHTTPClient(mockCtrl)
+	checker := tests.NewMockChecker(mockCtrl)
 
 	swagger, err := openapi3.NewLoader().LoadFromData([]byte(openAPISpecTest))
 	if err != nil {
@@ -219,6 +221,7 @@ func TestBasic(t *testing.T) {
 		proxy:      pool,
 		client:     client,
 		swagRouter: swagRouter,
+		shadowAPI:  checker,
 	}
 
 	// basic test
@@ -228,6 +231,7 @@ func TestBasic(t *testing.T) {
 	t.Run("commonParamters", apifwTests.testCommonParameters)
 
 	t.Run("basicDenylist", apifwTests.testDenylist)
+	t.Run("basicShadowAPI", apifwTests.testShadowAPI)
 
 	t.Run("oauthIntrospectionReadSuccess", apifwTests.testOauthIntrospectionReadSuccess)
 	t.Run("oauthIntrospectionReadUnsuccessful", apifwTests.testOauthIntrospectionReadUnsuccessful)
@@ -252,7 +256,7 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -346,7 +350,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, deniedTokens)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, deniedTokens, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -402,6 +406,75 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 
 }
 
+func (s *ServiceTests) testShadowAPI(t *testing.T) {
+
+	tokensCfg := config.Token{
+		CookieName: testDeniedCookieName,
+		HeaderName: "",
+		File:       "",
+	}
+
+	var cfg = config.APIFWConfiguration{
+		RequestValidation:         "LOG_ONLY",
+		ResponseValidation:        "LOG_ONLY",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+		Denylist: struct {
+			Tokens config.Token
+		}{Tokens: tokensCfg},
+	}
+
+	deniedTokens, err := denylist.New(&cfg, s.logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, deniedTokens, s.shadowAPI)
+
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/shadowAPItest")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Times(1)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+}
+
 func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 	var cfg = config.APIFWConfiguration{
 		RequestValidation:         "LOG_ONLY",
@@ -413,7 +486,7 @@ func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -443,27 +516,7 @@ func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 	}
 
 	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
-
-	handler(&reqCtx)
-
-	if reqCtx.Response.StatusCode() != 200 {
-		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
-			reqCtx.Response.StatusCode())
-	}
-
-	// check shadow API
-	req.SetRequestURI("/test/shadow")
-	req.Header.SetMethod("POST")
-	req.SetBodyStream(bytes.NewReader(p), -1)
-	req.Header.SetContentType("application/json")
-
-	reqCtx = fasthttp.RequestCtx{
-		Request: *req,
-	}
-
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Times(0)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
 
@@ -488,7 +541,7 @@ func (s *ServiceTests) testDisableMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"email": "wallarm.com",
@@ -539,7 +592,7 @@ func (s *ServiceTests) testCommonParameters(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/users/1/1")
@@ -673,7 +726,7 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -758,7 +811,7 @@ func (s *ServiceTests) testOauthIntrospectionReadUnsuccessful(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -825,7 +878,7 @@ func (s *ServiceTests) testOauthIntrospectionInvalidResponse(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -893,7 +946,7 @@ func (s *ServiceTests) testOauthIntrospectionReadWriteSuccess(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -962,7 +1015,7 @@ func (s *ServiceTests) testOauthIntrospectionContentTypeRequest(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1023,7 +1076,7 @@ func (s *ServiceTests) testOauthJWTRS256(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1101,7 +1154,7 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)

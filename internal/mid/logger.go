@@ -1,11 +1,11 @@
 package mid
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -22,14 +22,16 @@ func Logger(logger *logrus.Logger) web.Middleware {
 
 			err := before(ctx)
 
-			logger.Infof("(%d) : #%016X : %s %s -> %s (%s)",
-				ctx.Response.StatusCode(),
-				ctx.ID(),
-				ctx.Request.Header.Method(), ctx.Path(),
-				ctx.RemoteAddr(), time.Since(start),
-			)
+			logger.WithFields(logrus.Fields{
+				"request_id":      fmt.Sprintf("#%016X", ctx.ID()),
+				"status_code":     ctx.Response.StatusCode(),
+				"method":          fmt.Sprintf("%s", ctx.Request.Header.Method()),
+				"path":            fmt.Sprintf("%s", ctx.Path()),
+				"client_address":  ctx.RemoteAddr(),
+				"processing_time": time.Since(start),
+			}).Debug("New Request")
 
-			// Return the error so it can be handled further up the chain.
+			// Return the error, so it can be handled further up the chain.
 			return err
 		}
 

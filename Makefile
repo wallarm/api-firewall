@@ -17,6 +17,7 @@ test:
 
 genmocks:
 	mockgen -source ./internal/platform/proxy/chainpool.go -destination ./internal/platform/tests/httppool.go -package tests HTTPClient
+	mockgen -source ./internal/platform/shadowAPI/shadowAPI.go -destination ./internal/platform/tests/shadowAPI.go -package tests shadowAPI
 
 fmt:
 	gofmt -w ./

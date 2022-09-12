@@ -9,8 +9,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"sync"
 
 	"github.com/valyala/fasthttp"
@@ -90,7 +90,7 @@ func NewChanPool(initialCap, maxCap int, hostAddr string, server *config.Server)
 	if server.RootCA != "" {
 
 		// Read in the cert file
-		certs, err := ioutil.ReadFile(server.RootCA)
+		certs, err := os.ReadFile(server.RootCA)
 		if err != nil {
 			return nil, fmt.Errorf("failed to append %q to RootCAs: %v", server.RootCA, err)
 		}

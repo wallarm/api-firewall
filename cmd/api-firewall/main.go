@@ -3,6 +3,7 @@ package main
 import (
 	"expvar" // Register the expvar handlers
 	"fmt"
+	"github.com/wallarm/api-firewall/internal/platform/shadowAPI"
 	"mime"
 	"net/url"
 	"os"
@@ -198,6 +199,11 @@ func run(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
+	// Init ShadowAPI checker
+
+	shadowAPI := shadowAPI.New(&cfg.ShadowAPI, logger)
+
+	// =========================================================================
 	// Init Cache
 
 	logger.Infof("%s: Initializing Cache", logPrefix)
@@ -239,7 +245,7 @@ func run(logger *logrus.Logger) error {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{
-		Handler:               handlers.OpenapiProxy(&cfg, serverUrl, shutdown, logger, pool, swagRouter, deniedTokens),
+		Handler:               handlers.OpenapiProxy(&cfg, serverUrl, shutdown, logger, pool, swagRouter, deniedTokens, shadowAPI),
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
 		Logger:                logger,
