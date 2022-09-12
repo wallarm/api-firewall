@@ -170,6 +170,8 @@ const (
 
 	testDeniedCookieName = "testCookieName"
 	testDeniedToken      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzb21lIjoicGF5bG9hZDk5OTk5ODUifQ.S9P-DEiWg7dlI81rLjnJWCA6h9Q4ewTizxrsxOPGmNA"
+
+	testShadowAPIendpoint = "/shadowAPItest"
 )
 
 type ServiceTests struct {
@@ -343,9 +345,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 		}{Tokens: tokensCfg},
 	}
 
-	logger := logrus.New()
-
-	deniedTokens, err := denylist.New(&cfg, logger)
+	deniedTokens, err := denylist.New(&cfg, s.logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -447,7 +447,7 @@ func (s *ServiceTests) testShadowAPI(t *testing.T) {
 	}
 
 	req := fasthttp.AcquireRequest()
-	req.SetRequestURI("/shadowAPItest")
+	req.SetRequestURI(testShadowAPIendpoint)
 	req.Header.SetMethod("POST")
 	req.SetBodyStream(bytes.NewReader(p), -1)
 	req.Header.SetContentType("application/json")
