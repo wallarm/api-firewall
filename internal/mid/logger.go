@@ -29,7 +29,7 @@ func Logger(logger *logrus.Logger) web.Middleware {
 				"path":            fmt.Sprintf("%s", ctx.Path()),
 				"client_address":  ctx.RemoteAddr(),
 				"processing_time": time.Since(start),
-			}).Debug("New Request")
+			}).Debug("new request")
 
 			// Return the error, so it can be handled further up the chain.
 			return err
