@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/ardanlabs/conf"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-playground/validator"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -19,9 +20,9 @@ import (
 	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
-	"github.com/wallarm/api-firewall/internal/platform/openapi3"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/shadowAPI"
 )
 
 var build = "develop"
@@ -144,7 +145,7 @@ func run(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Swagger
 
-	var swagger *openapi3.Swagger
+	var swagger *openapi3.T
 
 	apiSpecUrl, err := url.ParseRequestURI(cfg.APISpecs)
 	if err != nil {
@@ -153,12 +154,12 @@ func run(logger *logrus.Logger) error {
 
 	switch apiSpecUrl {
 	case nil:
-		swagger, err = openapi3.NewSwaggerLoader().LoadSwaggerFromFile(cfg.APISpecs)
+		swagger, err = openapi3.NewLoader().LoadFromFile(cfg.APISpecs)
 		if err != nil {
 			return errors.Wrap(err, "loading swagwaf file")
 		}
 	default:
-		swagger, err = openapi3.NewSwaggerLoader().LoadSwaggerFromURI(apiSpecUrl)
+		swagger, err = openapi3.NewLoader().LoadFromURI(apiSpecUrl)
 		if err != nil {
 			return errors.Wrap(err, "loading swagwaf url")
 		}
@@ -198,6 +199,11 @@ func run(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
+	// Init ShadowAPI checker
+
+	shadowAPI := shadowAPI.New(&cfg.ShadowAPI, logger)
+
+	// =========================================================================
 	// Init Cache
 
 	logger.Infof("%s: Initializing Cache", logPrefix)
@@ -207,7 +213,12 @@ func run(logger *logrus.Logger) error {
 		return errors.Wrap(err, "denylist init error")
 	}
 
-	logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
+	switch deniedTokens {
+	case nil:
+		logger.Infof("%s: Denylist not configured", logPrefix)
+	default:
+		logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
+	}
 
 	// =========================================================================
 	// Start API Service
@@ -234,7 +245,7 @@ func run(logger *logrus.Logger) error {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{
-		Handler:               handlers.OpenapiProxy(&cfg, serverUrl, shutdown, logger, pool, swagRouter, deniedTokens),
+		Handler:               handlers.OpenapiProxy(&cfg, serverUrl, shutdown, logger, pool, swagRouter, deniedTokens, shadowAPI),
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
 		Logger:                logger,

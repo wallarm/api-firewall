@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"crypto/rsa"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
 	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang-jwt/jwt"
 	"github.com/karlseguin/ccache/v2"
 	"github.com/sirupsen/logrus"
@@ -17,23 +17,25 @@ import (
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
-	"github.com/wallarm/api-firewall/internal/platform/openapi3"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/shadowAPI"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func OpenapiProxy(cfg *config.APIFWConfiguration, serverUrl *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
+func OpenapiProxy(cfg *config.APIFWConfiguration, serverUrl *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens, shadowAPI shadowAPI.Checker) fasthttp.RequestHandler {
 
+	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
 
+	// Init OAuth validator
 	var oauthValidator woauth2.OAuth2
 
 	switch strings.ToLower(cfg.Server.Oauth.ValidationType) {
 	case "jwt":
 		var key *rsa.PublicKey
-		if strings.HasPrefix(strings.ToLower(cfg.Server.Oauth.JWT.SignatureAlgorithm), "rs") {
-			verifyBytes, err := ioutil.ReadFile(cfg.Server.Oauth.JWT.PubCertFile)
+		if strings.HasPrefix(strings.ToLower(cfg.Server.Oauth.JWT.SignatureAlgorithm), "rs") && cfg.Server.Oauth.JWT.PubCertFile != "" {
+			verifyBytes, err := os.ReadFile(cfg.Server.Oauth.JWT.PubCertFile)
 			if err != nil {
 				logger.Errorf("Error reading public key from file: %s", err)
 				break
@@ -62,6 +64,7 @@ func OpenapiProxy(cfg *config.APIFWConfiguration, serverUrl *url.URL, shutdown c
 			Cache:  ccache.New(ccache.Configure()),
 		}
 	}
+
 	// Construct the web.App which holds all routes as well as common Middleware.
 	app := web.NewApp(shutdown, cfg, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(cfg, serverUrl), mid.Denylist(cfg, deniedTokens, logger))
 
@@ -92,6 +95,7 @@ func OpenapiProxy(cfg *config.APIFWConfiguration, serverUrl *url.URL, shutdown c
 			cfg:             cfg,
 			parserPool:      &parserPool,
 			oauthValidator:  oauthValidator,
+			shadowAPI:       shadowAPI,
 		}
 		updRoutePath := path.Join(serverUrl.Path, route.Path)
 
@@ -108,6 +112,7 @@ func OpenapiProxy(cfg *config.APIFWConfiguration, serverUrl *url.URL, shutdown c
 		logger:          logger,
 		cfg:             cfg,
 		parserPool:      &parserPool,
+		shadowAPI:       shadowAPI,
 	}
 	app.SetDefaultBehavior(s.openapiWafHandler)
 

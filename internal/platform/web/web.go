@@ -1,13 +1,13 @@
 package web
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 
 	"github.com/fasthttp/router"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-
 	"github.com/wallarm/api-firewall/internal/config"
 )
 
@@ -34,20 +34,6 @@ type App struct {
 	mw       []Middleware
 }
 
-func ShadowAPIChecks(ctx *fasthttp.RequestCtx, logger *logrus.Logger, shadowApi *config.ShadowAPI) {
-	foundInExcluded := false
-	for _, eStatusCode := range shadowApi.ExcludeList {
-		if ctx.Response.StatusCode() == eStatusCode {
-			foundInExcluded = true
-			break
-		}
-	}
-	if !foundInExcluded {
-		logger.Errorf("#%016X : Shadow API : %s -> %s %s : %d (response length: %d)", ctx.ID(), ctx.RemoteAddr(),
-			ctx.Request.Header.Method(), ctx.Path(), ctx.Response.StatusCode(), ctx.Response.Header.ContentLength())
-	}
-}
-
 func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
 	// First wrap handler specific middleware around this handler.
 	handler = wrapMiddleware(mw, handler)
@@ -59,11 +45,12 @@ func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
 
 		// Block request if it's not found in the route
 		if a.cfg.RequestValidation == ValidationBlock || a.cfg.ResponseValidation == ValidationBlock {
-			a.Log.Infof("#%016X: Request Forbidden: %s -> %s %s",
-				ctx.ID(),
-				ctx.RemoteAddr(),
-				ctx.Request.Header.Method(), ctx.Path(),
-			)
+			a.Log.WithFields(logrus.Fields{
+				"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
+				"method":         fmt.Sprintf("%s", ctx.Request.Header.Method()),
+				"path":           fmt.Sprintf("%s", ctx.Path()),
+				"client_address": ctx.RemoteAddr(),
+			}).Info("request blocked")
 			ctx.Error("", a.cfg.CustomBlockStatusCode)
 			return
 		}

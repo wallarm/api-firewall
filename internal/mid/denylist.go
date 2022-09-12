@@ -21,11 +21,9 @@ func Denylist(cfg *config.APIFWConfiguration, deniedTokens *denylist.DeniedToken
 
 			// check existence and emptiness of the cache
 			if deniedTokens != nil && deniedTokens.ElementsNum > 0 {
-				//TODO: update getting token
 				if cfg.Denylist.Tokens.CookieName != "" {
 					token := string(ctx.Request.Header.Cookie(cfg.Denylist.Tokens.CookieName))
-					_, found := deniedTokens.Cache.Get(token)
-					if found {
+					if _, found := deniedTokens.Cache.Get(token); found {
 						return web.RespondError(ctx, cfg.CustomBlockStatusCode, nil)
 					}
 				}
@@ -34,8 +32,7 @@ func Denylist(cfg *config.APIFWConfiguration, deniedTokens *denylist.DeniedToken
 					if cfg.Denylist.Tokens.TrimBearerPrefix {
 						token = strings.TrimPrefix(token, "Bearer ")
 					}
-					_, found := deniedTokens.Cache.Get(token)
-					if found {
+					if _, found := deniedTokens.Cache.Get(token); found {
 						return web.RespondError(ctx, cfg.CustomBlockStatusCode, nil)
 					}
 				}

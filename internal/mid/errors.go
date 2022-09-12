@@ -1,9 +1,9 @@
 package mid
 
 import (
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -22,7 +22,10 @@ func Errors(logger *logrus.Logger) web.Middleware {
 			if err := before(ctx); err != nil {
 
 				// Log the error.
-				logger.Errorf("ERROR : %v", err)
+				logger.WithFields(logrus.Fields{
+					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+					"error":      err,
+				}).Error("common error")
 
 				// Respond to the error.
 				if err := web.RespondError(ctx, fasthttp.StatusBadGateway, nil); err != nil {
