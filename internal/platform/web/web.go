@@ -50,7 +50,7 @@ func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
 				"method":         fmt.Sprintf("%s", ctx.Request.Header.Method()),
 				"path":           fmt.Sprintf("%s", ctx.Path()),
 				"client_address": ctx.RemoteAddr(),
-			}).Info("Request Forbidden")
+			}).Info("Request Blocked")
 			ctx.Error("", a.cfg.CustomBlockStatusCode)
 			return
 		}
