@@ -1,12 +1,13 @@
-FROM golang:1.19-alpine3.16 AS build
+FROM golang:1.18-alpine3.16 AS build
 
 ARG APIFIREWALL_VERSION
 ENV APIFIREWALL_VERSION=${APIFIREWALL_VERSION}
 
 RUN apk add --no-cache                       \
-        git                                  \
         gcc                                  \
-        make
+        git                                  \
+        make                                 \
+        musl-dev
 
 WORKDIR /build
 COPY . .
@@ -14,6 +15,7 @@ COPY . .
 RUN go mod download -x                    && \
     go build                                 \
         -ldflags="-X main.build=${APIFIREWALL_VERSION} -s -w" \
+        -buildvcs=false                      \
         -o ./api-firewall                    \
         ./cmd/api-firewall
 
