@@ -177,7 +177,7 @@ jobs:
       -
         uses: addnab/docker-run-action@v3
         with:
-          image: alpine:3.16
+          image: alpine:edge
           options: >
             --volume ${{ github.workspace }}:/build
             --workdir /build
