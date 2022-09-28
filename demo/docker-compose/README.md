@@ -70,7 +70,6 @@ By default, this demo is running with the original **httpbin** OpenAPI 3.0 speci
     Date: Mon, 31 May 2021 06:58:29 GMT
     Content-Type: text/plain; charset=utf-8
     Content-Length: 0
-    Apifw-Request-Id: 0000000200000001
     ```
 * Check that API Firewall blocks requests with string value passed in the parameter that requires integer data type:
 
@@ -85,7 +84,6 @@ By default, this demo is running with the original **httpbin** OpenAPI 3.0 speci
     Date: Mon, 31 May 2021 06:58:29 GMT
     Content-Type: text/plain; charset=utf-8
     Content-Length: 0
-    Apifw-Request-Id: 0000000200000001
     ```
 
     This case demonstrates that API Firewall protects the application from Cache-Poisoned DoS attacks.
@@ -132,7 +130,6 @@ Then, to test this demo option, you can use the following methods:
     Date: Mon, 31 May 2021 07:09:08 GMT
     Content-Type: text/plain; charset=utf-8
     Content-Length: 0
-    Apifw-Request-Id: 0000000100000001
 
     
     # Request with the int parameter value which is in a valid range
@@ -146,7 +143,6 @@ Then, to test this demo option, you can use the following methods:
     Content-Length: 280
     Access-Control-Allow-Origin: *
     Access-Control-Allow-Credentials: true
-    Apifw-Request-Id: 0000000300000001
     ...
 
 
@@ -158,7 +154,6 @@ Then, to test this demo option, you can use the following methods:
     Date: Mon, 31 May 2021 07:09:27 GMT
     Content-Type: text/plain; charset=utf-8
     Content-Length: 0
-    Apifw-Request-Id: 0000000200000001
 
 
     # Request with the int parameter value which is out of range
@@ -169,7 +164,6 @@ Then, to test this demo option, you can use the following methods:
     Date: Mon, 31 May 2021 07:09:53 GMT
     Content-Type: text/plain; charset=utf-8
     Content-Length: 0
-    Apifw-Request-Id: 0000000400000001
 
 
     # Request with the int parameter value which is out of range
@@ -181,7 +175,6 @@ Then, to test this demo option, you can use the following methods:
     Date: Mon, 31 May 2021 07:10:04 GMT
     Content-Type: text/plain; charset=utf-8
     Content-Length: 0
-    Apifw-Request-Id: 0000000500000001
     ```
 * Check that API Firewall blocks requests with the query parameter `str` that does not match the following definition:
 
@@ -209,7 +202,6 @@ Then, to test this demo option, you can use the following methods:
     Date: Mon, 31 May 2021 07:10:42 GMT
     Content-Type: text/plain; charset=utf-8
     Content-Length: 0
-    Apifw-Request-Id: 0000000700000001
 
 
     # Request with the str parameter value that does not match the defined regular expression
@@ -220,7 +212,6 @@ Then, to test this demo option, you can use the following methods:
     Date: Mon, 31 May 2021 07:10:42 GMT
     Content-Type: text/plain; charset=utf-8
     Content-Length: 0
-    Apifw-Request-Id: 0000000700000001
 
 
     # Request with the str parameter value that matches the defined regular expression
@@ -234,7 +225,6 @@ Then, to test this demo option, you can use the following methods:
     Content-Length: 331
     Access-Control-Allow-Origin: *
     Access-Control-Allow-Credentials: true
-    Apifw-Request-Id: 0000000800000001
     ...
 
 
@@ -247,7 +237,6 @@ Then, to test this demo option, you can use the following methods:
     Date: Mon, 31 May 2021 07:12:04 GMT
     Content-Type: text/plain; charset=utf-8
     Content-Length: 0
-    Apifw-Request-Id: 0000000B00000001
     ```
 
 ## Step 4: Stopping the demo code
