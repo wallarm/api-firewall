@@ -1,4 +1,4 @@
-VERSION := 0.6.9
+VERSION := 0.6.10
 
 .DEFAULT_GOAL := build
 
@@ -18,6 +18,9 @@ test:
 genmocks:
 	mockgen -source ./internal/platform/proxy/chainpool.go -destination ./internal/platform/proxy/httppool_mock.go -package proxy
 	mockgen -source ./internal/platform/shadowAPI/shadowAPI.go -destination ./internal/platform/shadowAPI/shadowAPI_mock.go -package shadowAPI
+
+update:
+	go get -u ./...
 
 fmt:
 	gofmt -w ./
