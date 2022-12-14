@@ -3,6 +3,12 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
+	"net/url"
+	"os"
+	"os/signal"
+	"syscall"
+	"testing"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
@@ -12,11 +18,6 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/shadowAPI"
-	"net/url"
-	"os"
-	"os/signal"
-	"syscall"
-	"testing"
 )
 
 const openAPIJSONSpecTest = `
@@ -71,6 +72,19 @@ components:
         $ref: '#/components/schemas/Obj'
 `
 
+var (
+	// basic APIFW configuration
+	apifwCfg = config.APIFWConfiguration{
+		RequestValidation:         "BLOCK",
+		ResponseValidation:        "BLOCK",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+	}
+)
+
 func TestJSONBasic(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
@@ -112,24 +126,17 @@ func TestJSONBasic(t *testing.T) {
 	}
 
 	// basic test
-	t.Run("basicJSONFieldValidation", apifwTests.testBasicJSONFieldValidation)
+	t.Run("basicObjJSONFieldValidation", apifwTests.testBasicObjJSONFieldValidation)
+	t.Run("basicArrJSONFieldValidation", apifwTests.testBasicArrJSONFieldValidation)
+	t.Run("basicJSONFieldValidation", apifwTests.testNegativeJSONFieldValidation)
 
 }
 
-func (s *ServiceTests) testBasicJSONFieldValidation(t *testing.T) {
+func (s *ServiceTests) testBasicObjJSONFieldValidation(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
-		RequestValidation:         "BLOCK",
-		ResponseValidation:        "BLOCK",
-		CustomBlockStatusCode:     403,
-		AddValidationStatusHeader: false,
-		ShadowAPI: config.ShadowAPI{
-			ExcludeList: []int{404, 401},
-		},
-	}
+	handler := handlers.OpenapiProxy(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
-
+	// basic object check
 	p, err := json.Marshal(map[string]interface{}{
 		"valueNum":           10.1,
 		"valueInt":           10,
@@ -170,7 +177,71 @@ func (s *ServiceTests) testBasicJSONFieldValidation(t *testing.T) {
 		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
 			reqCtx.Response.StatusCode())
 	}
+}
 
+func (s *ServiceTests) testBasicArrJSONFieldValidation(t *testing.T) {
+
+	handler := handlers.OpenapiProxy(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+
+	p, err := json.Marshal([]map[string]interface{}{{
+		"valueNum":           10.1,
+		"valueInt":           10,
+		"valueStr":           "testStringValue",
+		"valueBool":          true,
+		"valueNumMultipleOf": 10.0,
+		"valueIntMinMax":     1,
+		"valueStringMinMax":  "test",
+		"ValueStringEnum":    "testValue1",
+	},
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("basic array validation test: incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+}
+
+func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
+
+	handler := handlers.OpenapiProxy(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test")
+	req.Header.SetMethod("POST")
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
+
+	// negative tests
 	negativeTests := []struct {
 		name        string
 		requestBody map[string]interface{}
@@ -194,7 +265,7 @@ func (s *ServiceTests) testBasicJSONFieldValidation(t *testing.T) {
 			name: "invalid_value_int",
 			requestBody: map[string]interface{}{
 				"valueNum":           10.1,
-				"valueInt":           "wrongType",
+				"valueInt":           10.1,
 				"valueStr":           "testStringValue",
 				"valueBool":          true,
 				"valueNumMultipleOf": 10.0,
@@ -291,11 +362,14 @@ func (s *ServiceTests) testBasicJSONFieldValidation(t *testing.T) {
 
 	for _, test := range negativeTests {
 
-		reqInvalidEmail, _ := json.Marshal(test.requestBody)
+		reqInvalidEmail, err := json.Marshal(test.requestBody)
+		if err != nil {
+			t.Fatalf("%s: %v", test.name, err)
+		}
 
 		req.SetBodyStream(bytes.NewReader(reqInvalidEmail), -1)
 
-		reqCtx = fasthttp.RequestCtx{
+		reqCtx := fasthttp.RequestCtx{
 			Request: *req,
 		}
 
@@ -305,7 +379,7 @@ func (s *ServiceTests) testBasicJSONFieldValidation(t *testing.T) {
 		handler(&reqCtx)
 
 		if reqCtx.Response.StatusCode() != 403 {
-			t.Errorf("Test %s failed. Incorrect response status code. Expected: 403 and got %d",
+			t.Errorf("%s: incorrect response status code. Expected: 403 and got %d",
 				test.name, reqCtx.Response.StatusCode())
 		}
 	}
