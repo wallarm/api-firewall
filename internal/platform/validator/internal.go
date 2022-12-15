@@ -39,6 +39,8 @@ func convertToMap(v *fastjson.Value) interface{} {
 			a = append(a, convertToMap(v))
 		}
 		return a
+	case fastjson.TypeNumber:
+		return v.GetFloat64()
 	case fastjson.TypeString:
 		return string(v.GetStringBytes())
 	case fastjson.TypeTrue, fastjson.TypeFalse:
