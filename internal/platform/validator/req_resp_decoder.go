@@ -1,11 +1,12 @@
 package validator
 
 import (
+	"archive/zip"
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/getkin/kin-openapi/openapi3filter"
-	"github.com/valyala/fastjson"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -16,9 +17,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/valyala/fastjson"
 	"gopkg.in/yaml.v3"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 )
 
 // ParseErrorKind describes a kind of ParseError.
@@ -186,8 +189,17 @@ func defaultContentParameterDecoder(param *openapi3.Parameter, values []string) 
 	}
 	outSchema = mt.Schema.Value
 
+	unmarshal := func(encoded string, paramSchema *openapi3.SchemaRef) (decoded interface{}, err error) {
+		if err = json.Unmarshal([]byte(encoded), &decoded); err != nil {
+			if paramSchema != nil && paramSchema.Value.Type != "object" {
+				decoded, err = encoded, nil
+			}
+		}
+		return
+	}
+
 	if len(values) == 1 {
-		if err = json.Unmarshal([]byte(values[0]), &outValue); err != nil {
+		if outValue, err = unmarshal(values[0], mt.Schema); err != nil {
 			err = fmt.Errorf("error unmarshaling parameter %q", param.Name)
 			return
 		}
@@ -195,7 +207,7 @@ func defaultContentParameterDecoder(param *openapi3.Parameter, values []string) 
 		outArray := make([]interface{}, 0, len(values))
 		for _, v := range values {
 			var item interface{}
-			if err = json.Unmarshal([]byte(v), &item); err != nil {
+			if item, err = unmarshal(v, outSchema.Items); err != nil {
 				err = fmt.Errorf("error unmarshaling parameter %q", param.Name)
 				return
 			}
@@ -322,9 +334,12 @@ func decodeValue(dec valueDecoder, param string, sm *openapi3.SerializationMetho
 	case *pathParamDecoder:
 		_, found = vDecoder.pathParams[param]
 	case *urlValuesDecoder:
+		if schema.Value.Pattern != "" {
+			return dec.DecodePrimitive(param, sm, schema)
+		}
 		_, found = vDecoder.values[param]
 	case *headerParamDecoder:
-		_, found = vDecoder.header[param]
+		_, found = vDecoder.header[http.CanonicalHeaderKey(param)]
 	case *cookieParamDecoder:
 		_, err := vDecoder.req.Cookie(param)
 		found = err != http.ErrNoCookie
@@ -488,6 +503,10 @@ func (d *urlValuesDecoder) DecodePrimitive(param string, sm *openapi3.Serializat
 		// HTTP request does not contain a value of the target query parameter.
 		return nil, ok, nil
 	}
+
+	if schema.Value.Type == "" && schema.Value.Pattern != "" {
+		return values[0], ok, nil
+	}
 	val, err := parsePrimitive(values[0], schema)
 	return val, ok, err
 }
@@ -514,8 +533,89 @@ func (d *urlValuesDecoder) DecodeArray(param string, sm *openapi3.SerializationM
 		}
 		values = strings.Split(values[0], delim)
 	}
-	val, err := parseArray(values, schema)
+	val, err := d.parseArray(values, sm, schema)
 	return val, ok, err
+}
+
+// parseArray returns an array that contains items from a raw array.
+// Every item is parsed as a primitive value.
+// The function returns an error when an error happened while parse array's items.
+func (d *urlValuesDecoder) parseArray(raw []string, sm *openapi3.SerializationMethod, schemaRef *openapi3.SchemaRef) ([]interface{}, error) {
+	var value []interface{}
+
+	for i, v := range raw {
+		item, err := d.parseValue(v, schemaRef.Value.Items)
+		if err != nil {
+			if v, ok := err.(*ParseError); ok {
+				return nil, &ParseError{path: []interface{}{i}, Cause: v}
+			}
+			return nil, fmt.Errorf("item %d: %w", i, err)
+		}
+
+		// If the items are nil, then the array is nil. There shouldn't be case where some values are actual primitive
+		// values and some are nil values.
+		if item == nil {
+			return nil, nil
+		}
+		value = append(value, item)
+	}
+	return value, nil
+}
+
+func (d *urlValuesDecoder) parseValue(v string, schema *openapi3.SchemaRef) (interface{}, error) {
+	if len(schema.Value.AllOf) > 0 {
+		var value interface{}
+		var err error
+		for _, sr := range schema.Value.AllOf {
+			value, err = d.parseValue(v, sr)
+			if value == nil || err != nil {
+				break
+			}
+		}
+		return value, err
+	}
+
+	if len(schema.Value.AnyOf) > 0 {
+		var value interface{}
+		var err error
+		for _, sr := range schema.Value.AnyOf {
+			if value, err = d.parseValue(v, sr); err == nil {
+				return value, nil
+			}
+		}
+
+		return nil, err
+	}
+
+	if len(schema.Value.OneOf) > 0 {
+		isMatched := 0
+		var value interface{}
+		var err error
+		for _, sr := range schema.Value.OneOf {
+			result, err := d.parseValue(v, sr)
+			if err == nil {
+				value = result
+				isMatched++
+			}
+		}
+		if isMatched == 1 {
+			return value, nil
+		} else if isMatched > 1 {
+			return nil, fmt.Errorf("decoding oneOf failed: %d schemas matched", isMatched)
+		} else if isMatched == 0 {
+			return nil, fmt.Errorf("decoding oneOf failed: %d schemas matched", isMatched)
+		}
+
+		return nil, err
+	}
+
+	if schema.Value.Not != nil {
+		// TODO(decode not): handle decoding "not" JSON Schema
+		return nil, errors.New("not implemented: decoding 'not'")
+	}
+
+	return parsePrimitive(v, schema)
+
 }
 
 func (d *urlValuesDecoder) DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, bool, error) {
@@ -656,7 +756,7 @@ func (d *cookieParamDecoder) DecodePrimitive(param string, sm *openapi3.Serializ
 		return nil, found, nil
 	}
 	if err != nil {
-		return nil, found, fmt.Errorf("decoding param %q: %s", param, err)
+		return nil, found, fmt.Errorf("decoding param %q: %w", param, err)
 	}
 
 	val, err := parsePrimitive(cookie.Value, schema)
@@ -675,7 +775,7 @@ func (d *cookieParamDecoder) DecodeArray(param string, sm *openapi3.Serializatio
 		return nil, found, nil
 	}
 	if err != nil {
-		return nil, found, fmt.Errorf("decoding param %q: %s", param, err)
+		return nil, found, fmt.Errorf("decoding param %q: %w", param, err)
 	}
 	val, err := parseArray(strings.Split(cookie.Value, ","), schema)
 	return val, found, err
@@ -693,7 +793,7 @@ func (d *cookieParamDecoder) DecodeObject(param string, sm *openapi3.Serializati
 		return nil, found, nil
 	}
 	if err != nil {
-		return nil, found, fmt.Errorf("decoding param %q: %s", param, err)
+		return nil, found, fmt.Errorf("decoding param %q: %w", param, err)
 	}
 	props, err := propsFromString(cookie.Value, ",", ",")
 	if err != nil {
@@ -755,7 +855,7 @@ func makeObject(props map[string]string, schema *openapi3.SchemaRef) (map[string
 			if v, ok := err.(*ParseError); ok {
 				return nil, &ParseError{path: []interface{}{propName}, Cause: v}
 			}
-			return nil, fmt.Errorf("property %q: %s", propName, err)
+			return nil, fmt.Errorf("property %q: %w", propName, err)
 		}
 		obj[propName] = value
 	}
@@ -773,7 +873,7 @@ func parseArray(raw []string, schemaRef *openapi3.SchemaRef) ([]interface{}, err
 			if v, ok := err.(*ParseError); ok {
 				return nil, &ParseError{path: []interface{}{i}, Cause: v}
 			}
-			return nil, fmt.Errorf("item %d: %s", i, err)
+			return nil, fmt.Errorf("item %d: %w", i, err)
 		}
 
 		// If the items are nil, then the array is nil. There shouldn't be case where some values are actual primitive
@@ -788,14 +888,21 @@ func parseArray(raw []string, schemaRef *openapi3.SchemaRef) ([]interface{}, err
 
 // parsePrimitive returns a value that is created by parsing a source string to a primitive type
 // that is specified by a schema. The function returns nil when the source string is empty.
-// The function panics when a schema has a non primitive type.
+// The function panics when a schema has a non-primitive type.
 func parsePrimitive(raw string, schema *openapi3.SchemaRef) (interface{}, error) {
 	if raw == "" {
 		return nil, nil
 	}
 	switch schema.Value.Type {
 	case "integer":
-		v, err := strconv.ParseFloat(raw, 64)
+		if schema.Value.Format == "int32" {
+			v, err := strconv.ParseInt(raw, 0, 32)
+			if err != nil {
+				return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+			}
+			return int32(v), nil
+		}
+		v, err := strconv.ParseInt(raw, 0, 64)
 		if err != nil {
 			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
 		}
@@ -897,14 +1004,17 @@ func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, 
 }
 
 func init() {
-	RegisterBodyDecoder("text/plain", plainBodyDecoder)
 	RegisterBodyDecoder("application/json", jsonBodyDecoder)
-	RegisterBodyDecoder("application/x-yaml", yamlBodyDecoder)
-	RegisterBodyDecoder("application/yaml", yamlBodyDecoder)
+	RegisterBodyDecoder("application/json-patch+json", jsonBodyDecoder)
+	RegisterBodyDecoder("application/octet-stream", FileBodyDecoder)
 	RegisterBodyDecoder("application/problem+json", jsonBodyDecoder)
 	RegisterBodyDecoder("application/x-www-form-urlencoded", urlencodedBodyDecoder)
+	RegisterBodyDecoder("application/x-yaml", yamlBodyDecoder)
+	RegisterBodyDecoder("application/yaml", yamlBodyDecoder)
+	RegisterBodyDecoder("application/zip", zipFileBodyDecoder)
 	RegisterBodyDecoder("multipart/form-data", multipartBodyDecoder)
-	RegisterBodyDecoder("application/octet-stream", FileBodyDecoder)
+	RegisterBodyDecoder("text/csv", csvBodyDecoder)
+	RegisterBodyDecoder("text/plain", plainBodyDecoder)
 }
 
 func plainBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
@@ -929,7 +1039,7 @@ func jsonBodyDecoder(body io.Reader, header http.Header, schema *openapi3.Schema
 		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
 	}
 
-	return parsedDoc, nil
+	return convertToMap(parsedDoc), nil
 }
 
 func yamlBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
@@ -1055,7 +1165,7 @@ func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.S
 			if v, ok := err.(*ParseError); ok {
 				return nil, &ParseError{path: []interface{}{name}, Cause: v}
 			}
-			return nil, fmt.Errorf("part %s: %s", name, err)
+			return nil, fmt.Errorf("part %s: %w", name, err)
 		}
 		values[name] = append(values[name], value)
 	}
@@ -1093,4 +1203,75 @@ func FileBodyDecoder(body io.Reader, header http.Header, schema *openapi3.Schema
 		return nil, err
 	}
 	return string(data), nil
+}
+
+// zipFileBodyDecoder is a body decoder that decodes a zip file body to a string.
+func zipFileBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
+	buff := bytes.NewBuffer([]byte{})
+	size, err := io.Copy(buff, body)
+	if err != nil {
+		return nil, err
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(buff.Bytes()), size)
+	if err != nil {
+		return nil, err
+	}
+
+	const bufferSize = 256
+	content := make([]byte, 0, bufferSize*len(zr.File))
+	buffer := make([]byte /*0,*/, bufferSize)
+
+	for _, f := range zr.File {
+		err := func() error {
+			rc, err := f.Open()
+			if err != nil {
+				return err
+			}
+			defer func() {
+				_ = rc.Close()
+			}()
+
+			for {
+				n, err := rc.Read(buffer)
+				if 0 < n {
+					content = append(content, buffer...)
+				}
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}()
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return string(content), nil
+}
+
+// csvBodyDecoder is a body decoder that decodes a csv body to a string.
+func csvBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
+	r := csv.NewReader(body)
+
+	var content string
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		content += strings.Join(record, ",") + "\n"
+	}
+
+	return content, nil
 }

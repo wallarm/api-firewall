@@ -1,11 +1,45 @@
 package web
 
 import (
+	"bytes"
+	"compress/flate"
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/valyala/fasthttp"
 )
+
+var (
+	gzip    = []byte("gzip")
+	deflate = []byte("deflate")
+	br      = []byte("br")
+)
+
+func GetResponseBodyUncompressed(ctx *fasthttp.RequestCtx) (io.ReadCloser, error) {
+
+	bodyBytes := ctx.Response.Body()
+	bodyReader := io.NopCloser(bytes.NewReader(bodyBytes))
+	compression := ctx.Response.Header.ContentEncoding()
+
+	if compression != nil {
+		for _, sc := range [][]byte{gzip, deflate, br} {
+			if bytes.Equal(sc, compression) {
+				var body []byte
+				var err error
+				if body, err = ctx.Response.BodyUncompressed(); err != nil {
+					if bytes.Equal(compression, []byte("deflate")) {
+						return flate.NewReader(bytes.NewReader(bodyBytes)), nil
+					}
+					return nil, err
+				}
+				return io.NopCloser(bytes.NewReader(body)), nil
+			}
+		}
+	}
+
+	return bodyReader, nil
+}
 
 // Respond converts a Go value to JSON and sends it to the client.
 func Respond(ctx *fasthttp.RequestCtx, data interface{}, statusCode int) error {
