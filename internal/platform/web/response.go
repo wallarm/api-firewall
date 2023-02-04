@@ -28,7 +28,7 @@ func GetResponseBodyUncompressed(ctx *fasthttp.RequestCtx) (io.ReadCloser, error
 				var body []byte
 				var err error
 				if body, err = ctx.Response.BodyUncompressed(); err != nil {
-					if bytes.Equal(compression, []byte("deflate")) {
+					if bytes.Equal(compression, deflate) {
 						return flate.NewReader(bytes.NewReader(bodyBytes)), nil
 					}
 					return nil, err
