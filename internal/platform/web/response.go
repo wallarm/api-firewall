@@ -2,24 +2,27 @@ package web
 
 import (
 	"bytes"
-	"compress/flate"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
+	"github.com/klauspost/compress/flate"
+	"github.com/klauspost/compress/zlib"
 	"github.com/valyala/fasthttp"
 )
 
+// List of the supported compression schemes
 var (
 	gzip    = []byte("gzip")
 	deflate = []byte("deflate")
 	br      = []byte("br")
 )
 
+// GetResponseBodyUncompressed function returns the Reader of the uncompressed body
 func GetResponseBodyUncompressed(ctx *fasthttp.RequestCtx) (io.ReadCloser, error) {
 
 	bodyBytes := ctx.Response.Body()
-	bodyReader := io.NopCloser(bytes.NewReader(bodyBytes))
 	compression := ctx.Response.Header.ContentEncoding()
 
 	if compression != nil {
@@ -28,17 +31,23 @@ func GetResponseBodyUncompressed(ctx *fasthttp.RequestCtx) (io.ReadCloser, error
 				var body []byte
 				var err error
 				if body, err = ctx.Response.BodyUncompressed(); err != nil {
-					if bytes.Equal(compression, deflate) {
+					if errors.Is(zlib.ErrHeader, err) && bytes.Equal(compression, deflate) {
+						// deflate rfc 1951 implementation
 						return flate.NewReader(bytes.NewReader(bodyBytes)), nil
 					}
+					// got error while body decompression
 					return nil, err
 				}
+				// body has been successfully uncompressed
 				return io.NopCloser(bytes.NewReader(body)), nil
 			}
 		}
+		// body compression schema not supported
+		return nil, fasthttp.ErrContentEncodingUnsupported
 	}
 
-	return bodyReader, nil
+	// body without compression
+	return io.NopCloser(bytes.NewReader(bodyBytes)), nil
 }
 
 // Respond converts a Go value to JSON and sends it to the client.
