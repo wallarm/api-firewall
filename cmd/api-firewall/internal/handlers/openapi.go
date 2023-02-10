@@ -1,11 +1,9 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -188,6 +186,19 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		return web.RespondError(ctx, fasthttp.StatusBadRequest, nil)
 	}
 
+	// decode request body
+	requestContentEncoding := string(ctx.Request.Header.ContentEncoding())
+	if requestContentEncoding != "" {
+		req.Body, err = web.GetDecompressedRequestBody(&ctx.Request, requestContentEncoding)
+		if err != nil {
+			s.logger.WithFields(logrus.Fields{
+				"error":      err,
+				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			}).Error("request body decompression error")
+			return err
+		}
+	}
+
 	// Validate request
 	requestValidationInput := &openapi3filter.RequestValidationInput{
 		Request:    &req,
@@ -277,18 +288,28 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
 	// Prepare http response headers
 	respHeader := http.Header{}
-	ctx.Request.Header.VisitAll(func(k, v []byte) {
+	ctx.Response.Header.VisitAll(func(k, v []byte) {
 		sk := string(k)
 		sv := string(v)
 
 		respHeader.Set(sk, sv)
 	})
 
+	// decode response body
+	responseBodyReader, err := web.GetDecompressedResponseBody(&ctx.Response, string(ctx.Response.Header.ContentEncoding()))
+	if err != nil {
+		s.logger.WithFields(logrus.Fields{
+			"error":      err,
+			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+		}).Error("response body decompression error")
+		return err
+	}
+
 	responseValidationInput := &openapi3filter.ResponseValidationInput{
 		RequestValidationInput: requestValidationInput,
 		Status:                 ctx.Response.StatusCode(),
 		Header:                 respHeader,
-		Body:                   io.NopCloser(bytes.NewReader(ctx.Response.Body())),
+		Body:                   responseBodyReader,
 		Options: &openapi3filter.Options{
 			ExcludeRequestBody:    false,
 			ExcludeResponseBody:   false,

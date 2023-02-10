@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/valyala/fastjson"
 	"io"
 	"net/http"
+	"sort"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/valyala/fastjson"
 )
 
 // ValidateResponse is used to validate the given input according to previous
@@ -60,6 +62,25 @@ func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidat
 	response := responseRef.Value
 	if response == nil {
 		return &openapi3filter.ResponseError{Input: input, Reason: "response has not been resolved"}
+	}
+
+	opts := make([]openapi3.SchemaValidationOption, 0, 2)
+	if options.MultiError {
+		opts = append(opts, openapi3.MultiErrors())
+	}
+
+	headers := make([]string, 0, len(response.Headers))
+	for k := range response.Headers {
+		if k != headerCT {
+			headers = append(headers, k)
+		}
+	}
+	sort.Strings(headers)
+	for _, headerName := range headers {
+		headerRef := response.Headers[headerName]
+		if err := validateResponseHeader(headerName, headerRef, input, opts); err != nil {
+			return err
+		}
 	}
 
 	if options.ExcludeResponseBody {
@@ -121,25 +142,78 @@ func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidat
 		}
 	}
 
-	opts := make([]openapi3.SchemaValidationOption, 0, 2) // 2 potential opts here
-	opts = append(opts, openapi3.VisitAsRequest())
-	if options.MultiError {
-		opts = append(opts, openapi3.MultiErrors())
-	}
-
-	// prepare map[string]interface{} structure for json validation
-	fastjsonValue, ok := value.(*fastjson.Value)
-	if ok {
-		value = convertToMap(fastjsonValue)
-	}
-
 	// Validate data with the schema.
-	if err := contentType.Schema.Value.VisitJSON(value, opts...); err != nil {
+	if err := contentType.Schema.Value.VisitJSON(value, append(opts, openapi3.VisitAsResponse())...); err != nil {
+		schemaId := getSchemaIdentifier(contentType.Schema)
+		schemaId = prependSpaceIfNeeded(schemaId)
 		return &openapi3filter.ResponseError{
 			Input:  input,
-			Reason: "response body doesn't match the schema",
+			Reason: fmt.Sprintf("response body doesn't match schema%s", schemaId),
 			Err:    err,
 		}
 	}
 	return nil
+}
+
+func validateResponseHeader(headerName string, headerRef *openapi3.HeaderRef, input *openapi3filter.ResponseValidationInput, opts []openapi3.SchemaValidationOption) error {
+	var err error
+	var decodedValue interface{}
+	var found bool
+	var sm *openapi3.SerializationMethod
+	dec := &headerParamDecoder{header: input.Header}
+
+	if sm, err = headerRef.Value.SerializationMethod(); err != nil {
+		return &openapi3filter.ResponseError{
+			Input:  input,
+			Reason: fmt.Sprintf("unable to get header %q serialization method", headerName),
+			Err:    err,
+		}
+	}
+
+	if decodedValue, found, err = decodeValue(dec, headerName, sm, headerRef.Value.Schema, headerRef.Value.Required); err != nil {
+		return &openapi3filter.ResponseError{
+			Input:  input,
+			Reason: fmt.Sprintf("unable to decode header %q value", headerName),
+			Err:    err,
+		}
+	}
+
+	if found {
+		if err = headerRef.Value.Schema.Value.VisitJSON(decodedValue, opts...); err != nil {
+			return &openapi3filter.ResponseError{
+				Input:  input,
+				Reason: fmt.Sprintf("response header %q doesn't match schema", headerName),
+				Err:    err,
+			}
+		}
+	} else if headerRef.Value.Required {
+		return &openapi3filter.ResponseError{
+			Input:  input,
+			Reason: fmt.Sprintf("response header %q missing", headerName),
+		}
+	}
+	return nil
+}
+
+// getSchemaIdentifier gets something by which a schema could be identified.
+// A schema by itself doesn't have a true identity field. This function makes
+// a best effort to get a value that can fill that void.
+func getSchemaIdentifier(schema *openapi3.SchemaRef) string {
+	var id string
+
+	if schema != nil {
+		id = strings.TrimSpace(schema.Ref)
+	}
+	if id == "" && schema.Value != nil {
+		id = strings.TrimSpace(schema.Value.Title)
+	}
+
+	return id
+}
+
+func prependSpaceIfNeeded(value string) string {
+	if len(value) > 0 {
+		value = " " + value
+	}
+	return value
 }

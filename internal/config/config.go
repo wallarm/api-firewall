@@ -13,15 +13,16 @@ type TLS struct {
 }
 
 type Server struct {
-	URL                string        `conf:"default:http://localhost:3000/v1/" validate:"required,url"`
-	ClientPoolCapacity int           `conf:"default:1000" validate:"gt=0"`
-	InsecureConnection bool          `conf:"default:false"`
-	RootCA             string        `conf:""`
-	MaxConnsPerHost    int           `conf:"default:512"`
-	ReadTimeout        time.Duration `conf:"default:5s"`
-	WriteTimeout       time.Duration `conf:"default:5s"`
-	DialTimeout        time.Duration `conf:"default:200ms"`
-	Oauth              Oauth
+	URL                  string        `conf:"default:http://localhost:3000/v1/" validate:"required,url"`
+	ClientPoolCapacity   int           `conf:"default:1000" validate:"gt=0"`
+	InsecureConnection   bool          `conf:"default:false"`
+	RootCA               string        `conf:""`
+	MaxConnsPerHost      int           `conf:"default:512"`
+	ReadTimeout          time.Duration `conf:"default:5s"`
+	WriteTimeout         time.Duration `conf:"default:5s"`
+	DialTimeout          time.Duration `conf:"default:200ms"`
+	DeleteAcceptEncoding bool          `conf:"default:false"`
+	Oauth                Oauth
 }
 
 type JWT struct {

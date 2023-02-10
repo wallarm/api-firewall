@@ -3,6 +3,7 @@ package mid
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"net/url"
 
 	"github.com/savsgio/gotils/strconv"
@@ -18,17 +19,20 @@ const apifwHeaderName = "APIFW-Request-Id"
 // Connection header field. These are the headers defined by the
 // obsoleted RFC 2616 (section 13.5.1) and are used for backward
 // compatibility.
-var hopHeaders = []string{
-	"Connection",          // Connection
-	"Proxy-Connection",    // non-standard but still sent by libcurl and rejected by e.g. google
-	"Keep-Alive",          // Keep-Alive
-	"Proxy-Authenticate",  // Proxy-Authenticate
-	"Proxy-Authorization", // Proxy-Authorization
-	"Te",                  // canonicalized version of "TE"
-	"Trailer",             // not Trailers per URL above; https://www.rfc-editor.org/errata_search.php?eid=4522
-	"Transfer-Encoding",   // Transfer-Encoding
-	"Upgrade",             // Upgrade
-}
+var (
+	hopHeaders = []string{
+		"Connection",          // Connection
+		"Proxy-Connection",    // non-standard but still sent by libcurl and rejected by e.g. google
+		"Keep-Alive",          // Keep-Alive
+		"Proxy-Authenticate",  // Proxy-Authenticate
+		"Proxy-Authorization", // Proxy-Authorization
+		"Te",                  // canonicalized version of "TE"
+		"Trailer",             // not Trailers per URL above; https://www.rfc-editor.org/errata_search.php?eid=4522
+		"Transfer-Encoding",   // Transfer-Encoding
+		"Upgrade",             // Upgrade
+	}
+	acHeader = http.CanonicalHeaderKey("Accept-Encoding")
+)
 
 // Proxy changes request scheme before request
 func Proxy(cfg *config.APIFWConfiguration, serverUrl *url.URL) web.Middleware {
@@ -64,6 +68,11 @@ func Proxy(cfg *config.APIFWConfiguration, serverUrl *url.URL) web.Middleware {
 				)
 			default:
 				ctx.Request.Header.Set("X-Forwarded-For", ctx.RemoteIP().String())
+			}
+
+			// delete Accept-Encoding header
+			if cfg.Server.DeleteAcceptEncoding {
+				ctx.Request.Header.Del(acHeader)
 			}
 
 			err := before(ctx)
