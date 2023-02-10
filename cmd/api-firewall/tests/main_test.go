@@ -5,6 +5,7 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -195,6 +196,8 @@ components:
             write: write
 `
 
+var testSupportedEncodingSchemas = []string{"gzip", "deflate", "br"}
+
 const (
 	testOauthBearerToken = "testtesttest"
 	testOauthJWTTokenRS  = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJqd3QudGVzdC5naXRodWIuaW8iLCJzdWIiOiJldmFuZGVyIiwiYXVkIjoibmFpbWlzaCIsImlhdCI6MTYzODUwNjIxNywiZXhwIjozNTMxOTM3ODc1LCJzY29wZSI6InJlYWQgd3JpdGUifQ.MPC35ZX52qWE4AktY1Bs-HVEWUUYrByfRVUSL9GbzZhZfXlfcNkF-qNRK_EDG2eviE4UHb6CFVZeYTsO5MyKg0H3shp79LeZTA2XzCuCZvzAqA7EQrpUKiKof-9af5g3jIRU4YFxvtpp8XxXGHaMvbIy4gqQJ7WEsOksYOytEsbLtsCs880zxCJb1iM4Bu9Q_Nl-wW1NeYSZyHYZP7es7gVvb9Bbm6qYW4qcVbt20pW4dguBGEvUvLM6axqeTZe7JgtqU__uUwkcIS6bu711Y7Zi-TpeZAMp506Wx8qZrhi7Ea0QFZUMjoF0O7jgRtps_BlbqBXNoleMO-kKnSkd6A"
@@ -260,6 +263,19 @@ func compressGzip(data []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+func compressData(data []byte, encodingSchema string) ([]byte, error) {
+	switch encodingSchema {
+	case "br":
+		return compressBrotli(data)
+	case "deflate":
+		return compressFlate(data)
+	case "gzip":
+		return compressGzip(data)
+	}
+
+	return nil, errors.New("encoding schema not supported")
+}
+
 // POST /test/signup <- 200
 // POST /test/shadow <- 200
 func TestBasic(t *testing.T) {
@@ -310,7 +326,7 @@ func TestBasic(t *testing.T) {
 	t.Run("basicBlockLogOnlyMode", apifwTests.testBlockLogOnlyMode)
 	t.Run("basicLogOnlyBlockMode", apifwTests.testLogOnlyBlockMode)
 
-	t.Run("commonParamters", apifwTests.testCommonParameters)
+	t.Run("commonParameters", apifwTests.testCommonParameters)
 
 	t.Run("basicDenylist", apifwTests.testDenylist)
 	t.Run("basicShadowAPI", apifwTests.testShadowAPI)
@@ -327,10 +343,8 @@ func TestBasic(t *testing.T) {
 	t.Run("requestHeaders", apifwTests.testRequestHeaders)
 	t.Run("responseHeaders", apifwTests.testResponseHeaders)
 
-	t.Run("responseBodyCompressionGzip", apifwTests.testResponseBodyCompressionGzip)
-	t.Run("responseBodyCompressionBr", apifwTests.testResponseBodyCompressionBr)
-	t.Run("responseBodyCompressionDeflate", apifwTests.testResponseBodyCompressionDeflate)
-
+	t.Run("reqBodyCompression", apifwTests.testRequestBodyCompression)
+	t.Run("respBodyCompression", apifwTests.testResponseBodyCompression)
 }
 
 func (s *ServiceTests) testBlockMode(t *testing.T) {
@@ -1507,7 +1521,7 @@ func (s *ServiceTests) testResponseHeaders(t *testing.T) {
 
 }
 
-func (s *ServiceTests) testResponseBodyCompressionGzip(t *testing.T) {
+func (s *ServiceTests) testRequestBodyCompression(t *testing.T) {
 
 	var cfg = config.APIFWConfiguration{
 		RequestValidation:         "BLOCK",
@@ -1521,78 +1535,103 @@ func (s *ServiceTests) testResponseBodyCompressionGzip(t *testing.T) {
 
 	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
-	p, err := json.Marshal(map[string]interface{}{
-		"firstname": "test",
-		"lastname":  "test",
-		"job":       "test",
-		"email":     "test@wallarm.com",
-		"url":       "http://wallarm.com",
-	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
 	req.Header.SetMethod("POST")
-	req.SetBodyStream(bytes.NewReader(p), -1)
-	req.Header.SetContentType("application/json")
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
 	resp.Header.SetContentType("application/json")
-	resp.Header.Set("Content-Encoding", "gzip")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
 
-	// compress using gzip
-	body, err := compressGzip([]byte("{\"status\":\"success\"}"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.SetBody(body)
+	var p []byte
+	var err error
 
-	reqCtx := fasthttp.RequestCtx{
-		Request: *req,
-	}
+	for _, encSchema := range testSupportedEncodingSchemas {
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+		p, err = json.Marshal(map[string]interface{}{
+			"firstname": "test",
+			"lastname":  "test",
+			"job":       "test",
+			"email":     "test@wallarm.com",
+			"url":       "http://wallarm.com",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	handler(&reqCtx)
+		// compress request body using gzip
+		reqBodyRaw, err := io.ReadAll(bytes.NewReader(p))
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if reqCtx.Response.StatusCode() != 200 {
-		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
-			reqCtx.Response.StatusCode())
-	}
+		reqBody, err := compressData(reqBodyRaw, encSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	// Repeat request with wrong JSON in response
+		req.SetBody(reqBody)
+		req.Header.SetContentEncoding(encSchema)
+		req.Header.SetContentType("application/json")
 
-	// compress using gzip
-	body, err = compressGzip([]byte("{\"status\": 123}"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.SetBody(body)
+		reqCtx := fasthttp.RequestCtx{
+			Request: *req,
+		}
 
-	reqCtx = fasthttp.RequestCtx{
-		Request: *req,
-	}
+		s.proxy.EXPECT().Get().Return(s.client, nil)
+		s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+		s.proxy.EXPECT().Put(s.client).Return(nil)
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client)
+		handler(&reqCtx)
 
-	handler(&reqCtx)
+		if reqCtx.Response.StatusCode() != 200 {
+			t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+				reqCtx.Response.StatusCode())
+		}
 
-	if reqCtx.Response.StatusCode() != 403 {
-		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
-			reqCtx.Response.StatusCode())
+		// Repeat request with wrong JSON in request
+
+		p, err = json.Marshal(map[string]interface{}{
+			"firstname": "test",
+			"lastname":  "test",
+			"job":       "test",
+			"email":     "wrong_email_test",
+			"url":       "http://wallarm.com",
+		})
+
+		// compress request body using gzip
+		reqBodyRaw, err = io.ReadAll(bytes.NewReader(p))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		reqBody, err = compressData(reqBodyRaw, encSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.SetBody(reqBody)
+
+		reqCtx = fasthttp.RequestCtx{
+			Request: *req,
+		}
+
+		s.proxy.EXPECT().Get().Return(s.client, nil)
+		s.proxy.EXPECT().Put(s.client)
+
+		handler(&reqCtx)
+
+		if reqCtx.Response.StatusCode() != 403 {
+			t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+				reqCtx.Response.StatusCode())
+		}
+
 	}
 
 }
 
-func (s *ServiceTests) testResponseBodyCompressionBr(t *testing.T) {
+func (s *ServiceTests) testResponseBodyCompression(t *testing.T) {
 
 	var cfg = config.APIFWConfiguration{
 		RequestValidation:         "BLOCK",
@@ -1627,137 +1666,56 @@ func (s *ServiceTests) testResponseBodyCompressionBr(t *testing.T) {
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
 	resp.Header.SetContentType("application/json")
-	resp.Header.Set("Content-Encoding", "br")
 
-	// compress using brotli
-	body, err := compressBrotli([]byte("{\"status\":\"success\"}"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.SetBody(body)
+	for _, encSchema := range testSupportedEncodingSchemas {
 
-	reqCtx := fasthttp.RequestCtx{
-		Request: *req,
-	}
+		// compress response body using gzip
+		body, err := compressData([]byte("{\"status\":\"success\"}"), encSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+		resp.SetBody(body)
+		resp.Header.SetContentEncoding(encSchema)
 
-	handler(&reqCtx)
+		reqCtx := fasthttp.RequestCtx{
+			Request: *req,
+		}
 
-	if reqCtx.Response.StatusCode() != 200 {
-		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
-			reqCtx.Response.StatusCode())
-	}
+		s.proxy.EXPECT().Get().Return(s.client, nil)
+		s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+		s.proxy.EXPECT().Put(s.client).Return(nil)
 
-	// Repeat request with wrong JSON in response
+		handler(&reqCtx)
 
-	// compress using brotli
-	body, err = compressBrotli([]byte("{\"status\": 123}"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.SetBody(body)
+		if reqCtx.Response.StatusCode() != 200 {
+			t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+				reqCtx.Response.StatusCode())
+		}
 
-	reqCtx = fasthttp.RequestCtx{
-		Request: *req,
-	}
+		// Repeat request with wrong JSON in response
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client)
+		// compress using gzip
+		body, err = compressData([]byte("{\"status\": 123}"), encSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.SetBody(body)
 
-	handler(&reqCtx)
+		reqCtx = fasthttp.RequestCtx{
+			Request: *req,
+		}
 
-	if reqCtx.Response.StatusCode() != 403 {
-		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
-			reqCtx.Response.StatusCode())
-	}
+		s.proxy.EXPECT().Get().Return(s.client, nil)
+		s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+		s.proxy.EXPECT().Put(s.client)
 
-}
+		handler(&reqCtx)
 
-func (s *ServiceTests) testResponseBodyCompressionDeflate(t *testing.T) {
-
-	var cfg = config.APIFWConfiguration{
-		RequestValidation:         "BLOCK",
-		ResponseValidation:        "BLOCK",
-		CustomBlockStatusCode:     403,
-		AddValidationStatusHeader: false,
-		ShadowAPI: config.ShadowAPI{
-			ExcludeList: []int{404, 401},
-		},
-	}
-
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
-
-	p, err := json.Marshal(map[string]interface{}{
-		"firstname": "test",
-		"lastname":  "test",
-		"job":       "test",
-		"email":     "test@wallarm.com",
-		"url":       "http://wallarm.com",
-	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req := fasthttp.AcquireRequest()
-	req.SetRequestURI("/test/signup")
-	req.Header.SetMethod("POST")
-	req.SetBodyStream(bytes.NewReader(p), -1)
-	req.Header.SetContentType("application/json")
-
-	resp := fasthttp.AcquireResponse()
-	resp.SetStatusCode(fasthttp.StatusOK)
-	resp.Header.SetContentType("application/json")
-	resp.Header.Set("Content-Encoding", "deflate")
-
-	// compress using flate
-	body, err := compressFlate([]byte("{\"status\":\"success\"}"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.SetBody(body)
-
-	reqCtx := fasthttp.RequestCtx{
-		Request: *req,
-	}
-
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
-
-	handler(&reqCtx)
-
-	if reqCtx.Response.StatusCode() != 200 {
-		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
-			reqCtx.Response.StatusCode())
-	}
-
-	// Repeat request with wrong JSON in response
-
-	// compress using flate
-	body, err = compressFlate([]byte("{\"status\": 123}"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.SetBody(body)
-
-	reqCtx = fasthttp.RequestCtx{
-		Request: *req,
-	}
-
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client)
-
-	handler(&reqCtx)
-
-	if reqCtx.Response.StatusCode() != 403 {
-		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
-			reqCtx.Response.StatusCode())
+		if reqCtx.Response.StatusCode() != 403 {
+			t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+				reqCtx.Response.StatusCode())
+		}
 	}
 
 }

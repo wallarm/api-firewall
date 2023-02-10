@@ -186,6 +186,19 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		return web.RespondError(ctx, fasthttp.StatusBadRequest, nil)
 	}
 
+	// decode request body
+	requestContentEncoding := string(ctx.Request.Header.ContentEncoding())
+	if requestContentEncoding != "" {
+		req.Body, err = web.GetDecompressedRequestBody(&ctx.Request, requestContentEncoding)
+		if err != nil {
+			s.logger.WithFields(logrus.Fields{
+				"error":      err,
+				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			}).Error("request body decompression error")
+			return err
+		}
+	}
+
 	// Validate request
 	requestValidationInput := &openapi3filter.RequestValidationInput{
 		Request:    &req,
@@ -282,7 +295,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		respHeader.Set(sk, sv)
 	})
 
-	responseBodyReader, err := web.GetResponseBodyUncompressed(ctx)
+	// decode response body
+	responseBodyReader, err := web.GetDecompressedResponseBody(&ctx.Response, string(ctx.Response.Header.ContentEncoding()))
 	if err != nil {
 		s.logger.WithFields(logrus.Fields{
 			"error":      err,
