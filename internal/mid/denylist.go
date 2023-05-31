@@ -24,7 +24,7 @@ func Denylist(cfg *config.APIFWConfiguration, deniedTokens *denylist.DeniedToken
 				if cfg.Denylist.Tokens.CookieName != "" {
 					token := string(ctx.Request.Header.Cookie(cfg.Denylist.Tokens.CookieName))
 					if _, found := deniedTokens.Cache.Get(token); found {
-						return web.RespondError(ctx, cfg.CustomBlockStatusCode, nil)
+						return web.RespondError(ctx, cfg.CustomBlockStatusCode, "")
 					}
 				}
 				if cfg.Denylist.Tokens.HeaderName != "" {
@@ -33,7 +33,7 @@ func Denylist(cfg *config.APIFWConfiguration, deniedTokens *denylist.DeniedToken
 						token = strings.TrimPrefix(token, "Bearer ")
 					}
 					if _, found := deniedTokens.Cache.Get(token); found {
-						return web.RespondError(ctx, cfg.CustomBlockStatusCode, nil)
+						return web.RespondError(ctx, cfg.CustomBlockStatusCode, "")
 					}
 				}
 			}

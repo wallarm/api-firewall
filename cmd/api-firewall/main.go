@@ -17,8 +17,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers"
+	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
+	handlersProxy "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
+	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/updater"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
@@ -130,6 +133,12 @@ func run(logger *logrus.Logger) error {
 	// =========================================================================
 	// App Starting
 
+	var pool proxy.Pool
+
+	updSpecErrors := make(chan error, 1)
+
+	var updOpenAPISpec updater.Updater
+
 	// Print the build version for our logs. Also expose it under /debug/vars.
 	expvar.NewString("build").Set(build)
 
@@ -141,6 +150,162 @@ func run(logger *logrus.Logger) error {
 		return errors.Wrap(err, "generating config for output")
 	}
 	logger.Infof("%s: Configuration Loaded :\n%v\n", logPrefix, out)
+
+	var requestHandlers fasthttp.RequestHandler
+
+	// Make a channel to listen for an interrupt or terminate signal from the OS.
+	// Use a buffered channel because the signal package requires it.
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	// Make a channel to listen for errors coming from the listener. Use a
+	// buffered channel so the goroutine can exit if we don't collect this error.
+	serverErrors := make(chan error, 1)
+
+	// =========================================================================
+	// API Mode section
+
+	if cfg.APIMode {
+		// load spec from the database
+		specStorage, err := database.NewOpenAPIDB(logger, "")
+		if err != nil {
+			logger.Fatalf("%s: Trying to load API Spec value from SQLLite Database : %v\n", logPrefix, err.Error())
+		}
+
+		swagRouter, err := router.NewRouterDBLoader(specStorage)
+		if err != nil {
+			return errors.Wrap(err, "parsing OpenAPI specification")
+		}
+
+		// =========================================================================
+		// Init Handlers
+
+		serverURLStr, err := specStorage.Specification().Servers.BasePath()
+		if err != nil {
+			return errors.Wrap(err, "getting server URL from OpenAPI specification")
+		}
+
+		serverURL, err := url.Parse(serverURLStr)
+		if err != nil {
+			return errors.Wrap(err, "parsing server URL from OpenAPI specification")
+		}
+
+		requestHandlers = handlersAPI.APIModeHandlers(&cfg, serverURL, shutdown, logger, swagRouter)
+
+		// =========================================================================
+		// Start Health API Service
+
+		healthData := handlersAPI.Health{
+			Build:     build,
+			Logger:    logger,
+			OpenAPIDB: specStorage,
+		}
+
+		// health service handler
+		healthHandler := func(ctx *fasthttp.RequestCtx) {
+			switch string(ctx.Path()) {
+			case "/v1/liveness":
+				if err := healthData.Liveness(ctx); err != nil {
+					healthData.Logger.Errorf("%s: liveness: %s", logPrefix, err.Error())
+				}
+			case "/v1/readiness":
+				if err := healthData.Readiness(ctx); err != nil {
+					healthData.Logger.Errorf("%s: readiness: %s", logPrefix, err.Error())
+				}
+			default:
+				ctx.Error("Unsupported path", fasthttp.StatusNotFound)
+			}
+		}
+
+		healthApi := fasthttp.Server{
+			Handler:               healthHandler,
+			ReadTimeout:           cfg.ReadTimeout,
+			WriteTimeout:          cfg.WriteTimeout,
+			Logger:                logger,
+			NoDefaultServerHeader: true,
+		}
+
+		// Start the service listening for requests.
+		go func() {
+			logger.Infof("%s: Health API listening on %s", logPrefix, cfg.HealthAPIHost)
+			serverErrors <- healthApi.ListenAndServe(cfg.HealthAPIHost)
+		}()
+
+		// =========================================================================
+		// Start API Service
+
+		logger.Infof("%s: Initializing API support", logPrefix)
+
+		apiHost, err := url.ParseRequestURI(cfg.APIHost)
+		if err != nil {
+			return errors.Wrap(err, "parsing API Host URL")
+		}
+
+		var isTLS bool
+
+		switch apiHost.Scheme {
+		case "http":
+			isTLS = false
+		case "https":
+			isTLS = true
+		}
+
+		api := fasthttp.Server{
+			Handler:               requestHandlers,
+			ReadTimeout:           cfg.ReadTimeout,
+			WriteTimeout:          cfg.WriteTimeout,
+			Logger:                logger,
+			NoDefaultServerHeader: true,
+		}
+
+		// =========================================================================
+		// Init Regular Update Controller
+
+		updOpenAPISpec = updater.NewController(logger, specStorage, &cfg, &api, serverURL, shutdown, swagRouter)
+
+		go func() {
+			logger.Infof("%s: starting specification regular update process every %.0f seconds", logPrefix, cfg.SpecificationUpdatePeriod.Seconds())
+			updSpecErrors <- updOpenAPISpec.Start()
+		}()
+
+		// Start the service listening for requests.
+		go func() {
+			logger.Infof("%s: API listening on %s", logPrefix, cfg.APIHost)
+			switch isTLS {
+			case false:
+				serverErrors <- api.ListenAndServe(apiHost.Host)
+			case true:
+				serverErrors <- api.ListenAndServeTLS(apiHost.Host, path.Join(cfg.TLS.CertsPath, cfg.TLS.CertFile),
+					path.Join(cfg.TLS.CertsPath, cfg.TLS.CertKey))
+			}
+		}()
+
+		// =========================================================================
+		// Shutdown
+
+		// Blocking main and waiting for shutdown.
+		select {
+		case err := <-serverErrors:
+			return errors.Wrap(err, "server error")
+
+		case err := <-updSpecErrors:
+			return errors.Wrap(err, "regular updater error")
+
+		case sig := <-shutdown:
+			logger.Infof("%s: %v: Start shutdown", logPrefix, sig)
+
+			if err := updOpenAPISpec.Shutdown(); err != nil {
+				return errors.Wrap(err, "could not stop configuration updater gracefully")
+			}
+
+			// Asking listener to shutdown and shed load.
+			if err := api.Shutdown(); err != nil {
+				return errors.Wrap(err, "could not stop server gracefully")
+			}
+			logger.Infof("%s: %v: Completed shutdown", logPrefix, sig)
+		}
+
+	}
 
 	// =========================================================================
 	// Init Swagger
@@ -193,7 +358,7 @@ func run(logger *logrus.Logger) error {
 		initialCap = 1
 	}
 
-	pool, err := proxy.NewChanPool(initialCap, cfg.Server.ClientPoolCapacity, host, &cfg.Server)
+	pool, err = proxy.NewChanPool(initialCap, cfg.Server.ClientPoolCapacity, host, &cfg.Server)
 	if err != nil {
 		return errors.Wrap(err, "proxy pool init")
 	}
@@ -201,7 +366,7 @@ func run(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init ShadowAPI checker
 
-	shadowAPI := shadowAPI.New(&cfg.ShadowAPI, logger)
+	shadowAPIChecker := shadowAPI.New(&cfg.ShadowAPI, swagRouter, logger)
 
 	// =========================================================================
 	// Init Cache
@@ -221,57 +386,14 @@ func run(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
-	// Start API Service
+	// Init Handlers
 
-	logger.Infof("%s: Initializing API support", logPrefix)
-
-	apiHost, err := url.ParseRequestURI(cfg.APIHost)
-	if err != nil {
-		return errors.Wrap(err, "parsing API Host URL")
-	}
-
-	var isTLS bool
-
-	switch apiHost.Scheme {
-	case "http":
-		isTLS = false
-	case "https":
-		isTLS = true
-	}
-
-	// Make a channel to listen for an interrupt or terminate signal from the OS.
-	// Use a buffered channel because the signal package requires it.
-	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
-
-	api := fasthttp.Server{
-		Handler:               handlers.OpenapiProxy(&cfg, serverUrl, shutdown, logger, pool, swagRouter, deniedTokens, shadowAPI),
-		ReadTimeout:           cfg.ReadTimeout,
-		WriteTimeout:          cfg.WriteTimeout,
-		Logger:                logger,
-		NoDefaultServerHeader: true,
-	}
-
-	// Make a channel to listen for errors coming from the listener. Use a
-	// buffered channel so the goroutine can exit if we don't collect this error.
-	serverErrors := make(chan error, 1)
-
-	// Start the service listening for requests.
-	go func() {
-		logger.Infof("%s: API listening on %s", logPrefix, cfg.APIHost)
-		switch isTLS {
-		case false:
-			serverErrors <- api.ListenAndServe(apiHost.Host)
-		case true:
-			serverErrors <- api.ListenAndServeTLS(apiHost.Host, path.Join(cfg.TLS.CertsPath, cfg.TLS.CertFile),
-				path.Join(cfg.TLS.CertsPath, cfg.TLS.CertKey))
-		}
-	}()
+	requestHandlers = handlersProxy.APIFirewallHandlers(&cfg, serverUrl, shutdown, logger, pool, swagRouter, deniedTokens, shadowAPIChecker)
 
 	// =========================================================================
 	// Start Health API Service
 
-	healthData := handlers.Health{
+	healthData := handlersProxy.Health{
 		Build:  build,
 		Logger: logger,
 		Pool:   pool,
@@ -308,6 +430,45 @@ func run(logger *logrus.Logger) error {
 	}()
 
 	// =========================================================================
+	// Start API Service
+
+	logger.Infof("%s: Initializing API support", logPrefix)
+
+	apiHost, err := url.ParseRequestURI(cfg.APIHost)
+	if err != nil {
+		return errors.Wrap(err, "parsing API Host URL")
+	}
+
+	var isTLS bool
+
+	switch apiHost.Scheme {
+	case "http":
+		isTLS = false
+	case "https":
+		isTLS = true
+	}
+
+	api := fasthttp.Server{
+		Handler:               requestHandlers,
+		ReadTimeout:           cfg.ReadTimeout,
+		WriteTimeout:          cfg.WriteTimeout,
+		Logger:                logger,
+		NoDefaultServerHeader: true,
+	}
+
+	// Start the service listening for requests.
+	go func() {
+		logger.Infof("%s: API listening on %s", logPrefix, cfg.APIHost)
+		switch isTLS {
+		case false:
+			serverErrors <- api.ListenAndServe(apiHost.Host)
+		case true:
+			serverErrors <- api.ListenAndServeTLS(apiHost.Host, path.Join(cfg.TLS.CertsPath, cfg.TLS.CertFile),
+				path.Join(cfg.TLS.CertsPath, cfg.TLS.CertKey))
+		}
+	}()
+
+	// =========================================================================
 	// Shutdown
 
 	// Blocking main and waiting for shutdown.
@@ -315,8 +476,15 @@ func run(logger *logrus.Logger) error {
 	case err := <-serverErrors:
 		return errors.Wrap(err, "server error")
 
+	case err := <-updSpecErrors:
+		return errors.Wrap(err, "regular updater error")
+
 	case sig := <-shutdown:
 		logger.Infof("%s: %v: Start shutdown", logPrefix, sig)
+
+		if err := updOpenAPISpec.Shutdown(); err != nil {
+			return errors.Wrap(err, "could not stop configuration updater gracefully")
+		}
 
 		// Asking listener to shutdown and shed load.
 		if err := api.Shutdown(); err != nil {

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	proxy2 "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"io"
 	"net"
 	"net/url"
@@ -22,7 +23,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
@@ -359,7 +359,7 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -391,6 +391,7 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -413,9 +414,6 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
 	}
-
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.proxy.EXPECT().Put(s.client)
 
 	handler(&reqCtx)
 
@@ -452,7 +450,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, deniedTokens, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, deniedTokens, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -484,6 +482,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -534,7 +533,7 @@ func (s *ServiceTests) testShadowAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, deniedTokens, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, deniedTokens, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -588,7 +587,7 @@ func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -621,6 +620,7 @@ func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 	s.shadowAPI.EXPECT().Check(gomock.Any()).Times(0)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -643,7 +643,7 @@ func (s *ServiceTests) testDisableMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"email": "wallarm.com",
@@ -672,6 +672,7 @@ func (s *ServiceTests) testDisableMode(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -694,7 +695,7 @@ func (s *ServiceTests) testBlockLogOnlyMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -725,6 +726,7 @@ func (s *ServiceTests) testBlockLogOnlyMode(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -746,7 +748,7 @@ func (s *ServiceTests) testLogOnlyBlockMode(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -799,7 +801,7 @@ func (s *ServiceTests) testCommonParameters(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/users/1/1")
@@ -815,6 +817,7 @@ func (s *ServiceTests) testCommonParameters(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -933,7 +936,7 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -945,6 +948,7 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -963,6 +967,7 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1018,7 +1023,7 @@ func (s *ServiceTests) testOauthIntrospectionReadUnsuccessful(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1026,9 +1031,6 @@ func (s *ServiceTests) testOauthIntrospectionReadUnsuccessful(t *testing.T) {
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
 	}
-
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1085,7 +1087,7 @@ func (s *ServiceTests) testOauthIntrospectionInvalidResponse(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1093,10 +1095,6 @@ func (s *ServiceTests) testOauthIntrospectionInvalidResponse(t *testing.T) {
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
 	}
-
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	//s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1153,7 +1151,7 @@ func (s *ServiceTests) testOauthIntrospectionReadWriteSuccess(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1165,6 +1163,7 @@ func (s *ServiceTests) testOauthIntrospectionReadWriteSuccess(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1222,7 +1221,7 @@ func (s *ServiceTests) testOauthIntrospectionContentTypeRequest(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1234,6 +1233,7 @@ func (s *ServiceTests) testOauthIntrospectionContentTypeRequest(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1283,7 +1283,7 @@ func (s *ServiceTests) testOauthJWTRS256(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1295,6 +1295,7 @@ func (s *ServiceTests) testOauthJWTRS256(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1309,9 +1310,6 @@ func (s *ServiceTests) testOauthJWTRS256(t *testing.T) {
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
 	}
-
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1361,7 +1359,7 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1373,6 +1371,7 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1387,9 +1386,6 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
 	}
-
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1412,7 +1408,7 @@ func (s *ServiceTests) testRequestHeaders(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	xReqTestValue := uuid.New()
 
@@ -1433,6 +1429,7 @@ func (s *ServiceTests) testRequestHeaders(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1447,9 +1444,6 @@ func (s *ServiceTests) testRequestHeaders(t *testing.T) {
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
 	}
-
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.proxy.EXPECT().Put(s.client)
 
 	handler(&reqCtx)
 
@@ -1472,7 +1466,7 @@ func (s *ServiceTests) testResponseHeaders(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	xRespTestValue := uuid.New()
 
@@ -1493,6 +1487,7 @@ func (s *ServiceTests) testResponseHeaders(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1533,7 +1528,7 @@ func (s *ServiceTests) testRequestBodyCompression(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
@@ -1582,6 +1577,7 @@ func (s *ServiceTests) testRequestBodyCompression(t *testing.T) {
 		s.proxy.EXPECT().Get().Return(s.client, nil)
 		s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 		s.proxy.EXPECT().Put(s.client).Return(nil)
+		s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 		handler(&reqCtx)
 
@@ -1617,9 +1613,6 @@ func (s *ServiceTests) testRequestBodyCompression(t *testing.T) {
 			Request: *req,
 		}
 
-		s.proxy.EXPECT().Get().Return(s.client, nil)
-		s.proxy.EXPECT().Put(s.client)
-
 		handler(&reqCtx)
 
 		if reqCtx.Response.StatusCode() != 403 {
@@ -1643,7 +1636,7 @@ func (s *ServiceTests) testResponseBodyCompression(t *testing.T) {
 		},
 	}
 
-	handler := handlers.OpenapiProxy(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxy2.APIFirewallHandlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1685,6 +1678,7 @@ func (s *ServiceTests) testResponseBodyCompression(t *testing.T) {
 		s.proxy.EXPECT().Get().Return(s.client, nil)
 		s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 		s.proxy.EXPECT().Put(s.client).Return(nil)
+		s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 		handler(&reqCtx)
 

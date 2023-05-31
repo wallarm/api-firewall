@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"fmt"
+	"github.com/wallarm/api-firewall/internal/platform/database"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -11,13 +12,16 @@ import (
 
 // Router helps link http.Request.s and an OpenAPIv3 spec
 type Router struct {
-	Routes []Route
+	Routes               []CustomRoute
+	SpecificationVersion string
+	SchemaID             int
 }
 
-type Route struct {
-	Route  *routers.Route
-	Path   string
-	Method string
+type CustomRoute struct {
+	Route                  *routers.Route
+	Path                   string
+	Method                 string
+	ParametersNumberInPath int
 }
 
 // NewRouter creates a new router.
@@ -40,12 +44,49 @@ func NewRouter(doc *openapi3.T) (*Router, error) {
 				Method:    method,
 				Operation: operation,
 			}
-			router.Routes = append(router.Routes, Route{
-				Route:  &route,
-				Path:   path,
-				Method: method,
+
+			// count number of parameters in the path
+			pathParamLength := 0
+			if getOp := pathItem.GetOperation(route.Method); getOp != nil {
+				for _, param := range getOp.Parameters {
+					if param.Value.In == openapi3.ParameterInPath {
+						pathParamLength += 1
+					}
+				}
+			}
+
+			// check common parameters
+			if getOp := pathItem.Parameters; getOp != nil {
+				for _, param := range getOp {
+					if param.Value.In == openapi3.ParameterInPath {
+						pathParamLength += 1
+					}
+				}
+			}
+
+			router.Routes = append(router.Routes, CustomRoute{
+				Route:                  &route,
+				Path:                   path,
+				Method:                 method,
+				ParametersNumberInPath: pathParamLength,
 			})
 		}
 	}
+
 	return &router, nil
+}
+
+// NewRouterDBLoader creates a new router based on DB OpenAPI loader.
+func NewRouterDBLoader(openAPISpec database.DBOpenAPILoader) (*Router, error) {
+	doc := openAPISpec.Specification()
+
+	router, err := NewRouter(doc)
+	if err != nil {
+		return nil, err
+	}
+
+	router.SpecificationVersion = openAPISpec.SpecificationVersion()
+	router.SchemaID = openAPISpec.SchemaID()
+
+	return router, nil
 }

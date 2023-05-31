@@ -18,37 +18,6 @@ var (
 	supportedEncodings = []string{"gzip", "deflate", "br"}
 )
 
-//// GetDecompressedBody function returns the Reader of the decompressed body
-//func GetDecompressedBody(ctx *fasthttp.RequestCtx) (io.ReadCloser, error) {
-//
-//	bodyBytes := ctx.Response.Body()
-//	compression := ctx.Response.Header.ContentEncoding()
-//
-//	if compression != nil {
-//		for _, sc := range [][]byte{gzip, deflate, br} {
-//			if bytes.Equal(sc, compression) {
-//				var body []byte
-//				var err error
-//				if body, err = ctx.Response.BodyUncompressed(); err != nil {
-//					if errors.Is(zlib.ErrHeader, err) && bytes.Equal(compression, deflate) {
-//						// deflate rfc 1951 implementation
-//						return flate.NewReader(bytes.NewReader(bodyBytes)), nil
-//					}
-//					// got error while body decompression
-//					return nil, err
-//				}
-//				// body has been successfully uncompressed
-//				return io.NopCloser(bytes.NewReader(body)), nil
-//			}
-//		}
-//		// body compression schema not supported
-//		return nil, fasthttp.ErrContentEncodingUnsupported
-//	}
-//
-//	// body without compression
-//	return io.NopCloser(bytes.NewReader(bodyBytes)), nil
-//}
-
 // GetDecompressedResponseBody function returns the Reader of the decompressed response body
 func GetDecompressedResponseBody(resp *fasthttp.Response, contentEncoding string) (io.ReadCloser, error) {
 
@@ -133,15 +102,23 @@ func Respond(ctx *fasthttp.RequestCtx, data interface{}, statusCode int) error {
 	return nil
 }
 
-// RespondError sends an error reponse back to the client.
-func RespondError(ctx *fasthttp.RequestCtx, statusCode int, statusHeader *string) error {
+// RespondError sends an error response back to the client.
+func RespondError(ctx *fasthttp.RequestCtx, statusCode int, statusHeader string) error {
 
 	ctx.Error("", statusCode)
 
 	// Add validation status header
-	if statusHeader != nil {
-		ctx.Response.Header.Add(ValidationStatus, *statusHeader)
+	if statusHeader != "" {
+		ctx.Response.Header.Add(ValidationStatus, statusHeader)
 	}
+
+	return nil
+}
+
+// RespondOk sends an empty response with 200 status OK back to the client.
+func RespondOk(ctx *fasthttp.RequestCtx) error {
+
+	ctx.Error("", fasthttp.StatusOK)
 
 	return nil
 }

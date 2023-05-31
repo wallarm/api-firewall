@@ -67,6 +67,8 @@ type APIFWConfiguration struct {
 	TLS    TLS
 	Server Server
 
+	SpecificationUpdatePeriod time.Duration `conf:"default:1m"`
+	APIMode                   bool          `conf:"default:false"`
 	APIHost                   string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
 	HealthAPIHost             string        `conf:"default:0.0.0.0:9667,env:HEALTH_HOST" validate:"required"`
 	ReadTimeout               time.Duration `conf:"default:5s"`

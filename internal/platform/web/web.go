@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"syscall"
@@ -43,16 +44,18 @@ func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
 
 	customHandler := func(ctx *fasthttp.RequestCtx) {
 
-		// Block request if it's not found in the route
-		if a.cfg.RequestValidation == ValidationBlock || a.cfg.ResponseValidation == ValidationBlock {
-			a.Log.WithFields(logrus.Fields{
-				"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
-				"method":         fmt.Sprintf("%s", ctx.Request.Header.Method()),
-				"path":           fmt.Sprintf("%s", ctx.Path()),
-				"client_address": ctx.RemoteAddr(),
-			}).Info("request blocked")
-			ctx.Error("", a.cfg.CustomBlockStatusCode)
-			return
+		// Block request if it's not found in the route. Not for API mode.
+		if !a.cfg.APIMode {
+			if a.cfg.RequestValidation == ValidationBlock || a.cfg.ResponseValidation == ValidationBlock {
+				a.Log.WithFields(logrus.Fields{
+					"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
+					"method":         bytes.NewBuffer(ctx.Request.Header.Method()).String(),
+					"path":           fmt.Sprintf("%s", ctx.Path()),
+					"client_address": ctx.RemoteAddr(),
+				}).Info("request blocked")
+				ctx.Error("", a.cfg.CustomBlockStatusCode)
+				return
+			}
 		}
 
 		if err := handler(ctx); err != nil {
