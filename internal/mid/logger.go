@@ -25,11 +25,15 @@ func Logger(logger *logrus.Logger) web.Middleware {
 			logger.WithFields(logrus.Fields{
 				"request_id":      fmt.Sprintf("#%016X", ctx.ID()),
 				"status_code":     ctx.Response.StatusCode(),
-				"method":          fmt.Sprintf("%s", ctx.Request.Header.Method()),
-				"path":            fmt.Sprintf("%s", ctx.Path()),
+				"method":          string(ctx.Request.Header.Method()),
+				"path":            string(ctx.Path()),
+				"uri":             string(ctx.Request.URI().RequestURI()),
 				"client_address":  ctx.RemoteAddr(),
 				"processing_time": time.Since(start),
 			}).Debug("new request")
+
+			// log all information about the request
+			web.LogRequestResponseAtTraceLevel(ctx, logger)
 
 			// Return the error, so it can be handled further up the chain.
 			return err

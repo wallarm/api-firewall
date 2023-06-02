@@ -3,18 +3,17 @@ package router
 import (
 	"context"
 	"fmt"
-	"github.com/wallarm/api-firewall/internal/platform/database"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/routers"
+	"github.com/wallarm/api-firewall/internal/platform/database"
 )
 
 // Router helps link http.Request.s and an OpenAPIv3 spec
 type Router struct {
-	Routes               []CustomRoute
-	SpecificationVersion string
-	SchemaID             int
+	Routes        []CustomRoute
+	SchemaVersion string
 }
 
 type CustomRoute struct {
@@ -77,16 +76,15 @@ func NewRouter(doc *openapi3.T) (*Router, error) {
 }
 
 // NewRouterDBLoader creates a new router based on DB OpenAPI loader.
-func NewRouterDBLoader(openAPISpec database.DBOpenAPILoader) (*Router, error) {
-	doc := openAPISpec.Specification()
+func NewRouterDBLoader(schemaID int, openAPISpec database.DBOpenAPILoader) (*Router, error) {
+	doc := openAPISpec.Specification(schemaID)
 
 	router, err := NewRouter(doc)
 	if err != nil {
 		return nil, err
 	}
 
-	router.SpecificationVersion = openAPISpec.SpecificationVersion()
-	router.SchemaID = openAPISpec.SchemaID()
+	router.SchemaVersion = openAPISpec.SpecificationVersion(schemaID)
 
 	return router, nil
 }

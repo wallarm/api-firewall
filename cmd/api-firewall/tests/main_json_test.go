@@ -3,7 +3,6 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
-	proxy2 "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"net/url"
 	"os"
 	"os/signal"
@@ -14,10 +13,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+	proxyHandler "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
-	"github.com/wallarm/api-firewall/internal/platform/shadowAPI"
 )
 
 const openAPIJSONSpecTest = `
@@ -100,7 +99,6 @@ func TestJSONBasic(t *testing.T) {
 
 	pool := proxy.NewMockPool(mockCtrl)
 	client := proxy.NewMockHTTPClient(mockCtrl)
-	checker := shadowAPI.NewMockChecker(mockCtrl)
 
 	swagger, err := openapi3.NewLoader().LoadFromData([]byte(openAPIJSONSpecTest))
 	if err != nil {
@@ -122,7 +120,6 @@ func TestJSONBasic(t *testing.T) {
 		proxy:      pool,
 		client:     client,
 		swagRouter: swagRouter,
-		shadowAPI:  checker,
 	}
 
 	// basic test
@@ -134,7 +131,7 @@ func TestJSONBasic(t *testing.T) {
 
 func (s *ServiceTests) testBasicObjJSONFieldValidation(t *testing.T) {
 
-	handler := proxy2.APIFirewallHandlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	// basic object check
 	p, err := json.Marshal(map[string]interface{}{
@@ -169,7 +166,6 @@ func (s *ServiceTests) testBasicObjJSONFieldValidation(t *testing.T) {
 
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
 
 	handler(&reqCtx)
@@ -182,7 +178,7 @@ func (s *ServiceTests) testBasicObjJSONFieldValidation(t *testing.T) {
 
 func (s *ServiceTests) testBasicArrJSONFieldValidation(t *testing.T) {
 
-	handler := proxy2.APIFirewallHandlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	p, err := json.Marshal([]map[string]interface{}{{
 		"valueNum":           10.1,
@@ -218,7 +214,6 @@ func (s *ServiceTests) testBasicArrJSONFieldValidation(t *testing.T) {
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
 	s.proxy.EXPECT().Put(s.client).Return(nil)
-	s.shadowAPI.EXPECT().Check(gomock.Any()).Return(nil)
 
 	handler(&reqCtx)
 
@@ -231,7 +226,7 @@ func (s *ServiceTests) testBasicArrJSONFieldValidation(t *testing.T) {
 
 func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 
-	handler := proxy2.APIFirewallHandlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, s.shadowAPI)
+	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test")

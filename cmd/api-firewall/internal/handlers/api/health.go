@@ -21,7 +21,7 @@ func (h *Health) Readiness(ctx *fasthttp.RequestCtx) error {
 	status := "ok"
 	statusCode := fasthttp.StatusOK
 
-	if h.OpenAPIDB.Specification() == nil {
+	if len(h.OpenAPIDB.SchemaIDs()) == 0 {
 		status = "not ready"
 		statusCode = fasthttp.StatusInternalServerError
 	}

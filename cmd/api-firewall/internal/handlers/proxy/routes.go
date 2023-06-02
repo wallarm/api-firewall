@@ -18,11 +18,10 @@ import (
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
-	"github.com/wallarm/api-firewall/internal/platform/shadowAPI"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func APIFirewallHandlers(cfg *config.APIFWConfiguration, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens, shadowAPI shadowAPI.Checker) fasthttp.RequestHandler {
+func Handlers(cfg *config.APIFWConfiguration, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -65,7 +64,7 @@ func APIFirewallHandlers(cfg *config.APIFWConfiguration, serverURL *url.URL, shu
 	}
 
 	// Construct the web.App which holds all routes as well as common Middleware.
-	app := web.NewApp(shutdown, cfg, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(cfg, serverURL), mid.Denylist(cfg, deniedTokens, logger), mid.ShadowAPIMonitor(logger, shadowAPI))
+	app := web.NewApp(shutdown, cfg, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(cfg, serverURL), mid.Denylist(cfg, deniedTokens, logger), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
 
 	for i := 0; i < len(swagRouter.Routes); i++ {
 		s := openapiWaf{
@@ -78,7 +77,7 @@ func APIFirewallHandlers(cfg *config.APIFWConfiguration, serverURL *url.URL, shu
 		}
 		updRoutePath := path.Join(serverURL.Path, swagRouter.Routes[i].Path)
 
-		s.logger.Debugf("handler: Loaded path : %s - %s", swagRouter.Routes[i].Method, updRoutePath)
+		s.logger.Debugf("handler: Loaded path %s - %s", swagRouter.Routes[i].Method, updRoutePath)
 
 		app.Handle(swagRouter.Routes[i].Method, updRoutePath, s.openapiWafHandler)
 	}

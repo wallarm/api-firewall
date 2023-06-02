@@ -36,13 +36,10 @@ type openapiWaf struct {
 func getValidationHeader(ctx *fasthttp.RequestCtx, err error) *string {
 	var reason = "unknown"
 
-	switch err.(type) {
-
+	switch err := err.(type) {
 	case *openapi3filter.ResponseError:
-		responseError, ok := err.(*openapi3filter.ResponseError)
-
-		if ok && responseError.Reason != "" {
-			reason = responseError.Reason
+		if err.Reason != "" {
+			reason = err.Reason
 		}
 
 		id := fmt.Sprintf("response-%d-%s", ctx.Response.StatusCode(), strings.Split(string(ctx.Response.Header.ContentType()), ";")[0])
@@ -51,46 +48,42 @@ func getValidationHeader(ctx *fasthttp.RequestCtx, err error) *string {
 
 	case *openapi3filter.RequestError:
 
-		requestError, ok := err.(*openapi3filter.RequestError)
-		if !ok {
-			return nil
+		if err.Reason != "" {
+			reason = err.Reason
 		}
 
-		if requestError.Reason != "" {
-			reason = requestError.Reason
-		}
-
-		if requestError.Parameter != nil {
+		if err.Parameter != nil {
 			paramName := "request-parameter"
 
-			if requestError.Reason == "" {
-				schemaError, ok := requestError.Err.(*openapi3.SchemaError)
+			if err.Reason == "" {
+				schemaError, ok := err.Err.(*openapi3.SchemaError)
 				if ok && schemaError.Reason != "" {
 					reason = schemaError.Reason
 				}
-				paramName = requestError.Parameter.Name
+				paramName = err.Parameter.Name
 			}
 
 			value := fmt.Sprintf("request-parameter:%s:%s", reason, paramName)
 			return &value
 		}
 
-		if requestError.RequestBody != nil {
+		if err.RequestBody != nil {
 			id := fmt.Sprintf("request-body-%s", strings.Split(string(ctx.Request.Header.ContentType()), ";")[0])
 			value := fmt.Sprintf("%s:%s:request-body", id, reason)
 			return &value
 		}
 	case *openapi3filter.SecurityRequirementsError:
 
+		secRequirements := err.SecurityRequirements
 		secSchemeName := ""
-		for _, scheme := range err.(*openapi3filter.SecurityRequirementsError).SecurityRequirements {
+		for _, scheme := range secRequirements {
 			for key := range scheme {
 				secSchemeName += key + ","
 			}
 		}
 
 		secErrors := ""
-		for _, secError := range err.(*openapi3filter.SecurityRequirementsError).Errors {
+		for _, secError := range err.Errors {
 			secErrors += secError.Error() + ","
 		}
 
@@ -112,9 +105,8 @@ func performProxy(ctx *fasthttp.RequestCtx, proxyPool proxy.Pool) error {
 
 	if err := client.Do(&ctx.Request, &ctx.Response); err != nil {
 		// request proxy has been failed
-		ctx.SetUserValue("proxy_failed", true)
+		ctx.SetUserValue(web.RequestProxyFailed, true)
 
-		// set
 		switch err {
 		case fasthttp.ErrDialTimeout:
 			if err := web.RespondError(ctx, fasthttp.StatusGatewayTimeout, ""); err != nil {
@@ -139,7 +131,7 @@ func performProxy(ctx *fasthttp.RequestCtx, proxyPool proxy.Pool) error {
 
 func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
-	// Proxy request if APIFW is disabled
+	// Proxy request if APIFW is disabled OR pass requests with OPTIONS method is enabled and request method is OPTIONS
 	if s.cfg.RequestValidation == web.ValidationDisable && s.cfg.ResponseValidation == web.ValidationDisable {
 		if err := performProxy(ctx, s.proxyPool); err != nil {
 			s.logger.WithFields(logrus.Fields{
@@ -152,6 +144,9 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
 	// If Validation is BLOCK for request and response then respond by CustomBlockStatusCode
 	if s.customRoute == nil {
+		// route for the request not found
+		ctx.SetUserValue(web.RequestProxyNoRoute, true)
+
 		if s.cfg.RequestValidation == web.ValidationBlock || s.cfg.ResponseValidation == web.ValidationBlock {
 			if s.cfg.AddValidationStatusHeader {
 				vh := "request: customRoute not found"
@@ -262,24 +257,64 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	switch s.cfg.RequestValidation {
 	case web.ValidationBlock:
 		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
-			// request has been blocked
-			ctx.SetUserValue("blocked", true)
 
-			s.logger.WithFields(logrus.Fields{
-				"error":      err,
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-			}).Error("request validation error")
-			if s.cfg.AddValidationStatusHeader {
-				if vh := getValidationHeader(ctx, err); vh != nil {
+			isRequestBlocked := true
+			if requestErr, ok := err.(*openapi3filter.RequestError); ok {
+
+				// body parser not found
+				if strings.HasPrefix(requestErr.Error(), "request body has an error: failed to decode request body: unsupported content type") {
 					s.logger.WithFields(logrus.Fields{
 						"error":      err,
 						"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-					}).Errorf("add header %s: %s", web.ValidationStatus, *vh)
-					ctx.Request.Header.Add(web.ValidationStatus, *vh)
-					return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, *vh)
+					}).Error("request body parsing error: request passed")
+					isRequestBlocked = false
 				}
 			}
-			return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, "")
+
+			if isRequestBlocked {
+				// request has been blocked
+				ctx.SetUserValue(web.RequestBlocked, true)
+
+				s.logger.WithFields(logrus.Fields{
+					"error":      err,
+					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				}).Error("request validation error: request blocked")
+
+				if s.cfg.AddValidationStatusHeader {
+					if vh := getValidationHeader(ctx, err); vh != nil {
+						s.logger.WithFields(logrus.Fields{
+							"error":      err,
+							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+						}).Errorf("add header %s: %s", web.ValidationStatus, *vh)
+						ctx.Request.Header.Add(web.ValidationStatus, *vh)
+						return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, *vh)
+					}
+				}
+
+				return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, "")
+			}
+		}
+
+		if s.cfg.ShadowAPI.UnknownParametersDetection {
+			upResults, valUPReqErrors := validator.ValidateUnknownRequestParameters(ctx, requestValidationInput.Route, req.Header, jsonParser)
+			// log only error and pass request if unknown params module can't parse it
+			if valUPReqErrors != nil {
+				s.logger.WithFields(logrus.Fields{
+					"error":      valUPReqErrors,
+					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				}).Warning("Shadow API: searching for undefined parameters")
+			}
+
+			if len(upResults) > 0 {
+				s.logger.WithFields(logrus.Fields{
+					"errors":     upResults,
+					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				}).Error("Shadow API: undefined parameters found")
+
+				// request has been blocked
+				ctx.SetUserValue(web.RequestBlocked, true)
+				return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, "")
+			}
 		}
 	case web.ValidationLog:
 		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
@@ -287,6 +322,24 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			}).Error("request validation error")
+		}
+
+		if s.cfg.ShadowAPI.UnknownParametersDetection {
+			upResults, valUPReqErrors := validator.ValidateUnknownRequestParameters(ctx, requestValidationInput.Route, req.Header, jsonParser)
+			// log only error and pass request if unknown params module can't parse it
+			if valUPReqErrors != nil {
+				s.logger.WithFields(logrus.Fields{
+					"error":      valUPReqErrors,
+					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				}).Warning("Shadow API: searching for undefined parameters")
+			}
+
+			if len(upResults) > 0 {
+				s.logger.WithFields(logrus.Fields{
+					"errors":     upResults,
+					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				}).Error("Shadow API: undefined parameters found")
+			}
 		}
 	}
 
@@ -336,7 +389,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	case web.ValidationBlock:
 		if err := validator.ValidateResponse(ctx, responseValidationInput, jsonParser); err != nil {
 			// response has been blocked
-			ctx.SetUserValue("blocked", true)
+			ctx.SetUserValue(web.ResponseBlocked, true)
 
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
@@ -356,6 +409,14 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		}
 	case web.ValidationLog:
 		if err := validator.ValidateResponse(ctx, responseValidationInput, jsonParser); err != nil {
+			if respErr, ok := err.(*openapi3filter.ResponseError); ok {
+				// body parser not found
+				if respErr.Reason == "status is not supported" {
+					// received response status was not found in the OpenAPI spec
+					ctx.SetUserValue(web.ResponseStatusNotFound, true)
+				}
+				return nil
+			}
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),

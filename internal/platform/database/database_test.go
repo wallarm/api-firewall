@@ -2,17 +2,21 @@ package database
 
 import (
 	"bytes"
+	"sort"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	testSchemaID    = 1
-	testSpecVersion = "1"
+	testSchemaID1    = 1
+	testSpecVersion1 = "1"
+	testSchemaID2    = 4
+	testSpecVersion2 = "2"
 )
 
-const testOpenAPIScheme = `openapi: 3.0.1
+const (
+	testOpenAPIScheme1 = `openapi: 3.0.1
 info:
   title: Minimal integer field example
   version: 0.0.1
@@ -33,26 +37,47 @@ paths:
                     type: string
                     example: "success"
                   error:
-                    type: string
-  /wrong:
-    get:
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - status
-                properties:
-                  status:
-                    type: string
-                    example: "example"
-                  error:
                     type: string`
+	testOpenAPIScheme2 = `{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Minimal integer field example",
+    "version": "0.0.1"
+  },
+  "paths": {
+    "/wrong": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "example"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`
+)
 
-func TestDatabaseLoad(t *testing.T) {
+func TestBasicDBSpecsLoading(t *testing.T) {
 
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
@@ -62,17 +87,34 @@ func TestDatabaseLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	openAPISpec := bytes.Trim(dbSpec.SpecificationRaw(), "\xef\xbb\xbf")
-	if !bytes.Equal(openAPISpec, bytes.NewBufferString(testOpenAPIScheme).Bytes()) {
+	// test first OpenAPI spec
+	openAPISpec := bytes.Trim(dbSpec.SpecificationRaw(testSchemaID1), "\xef\xbb\xbf")
+	if !bytes.Equal(openAPISpec, bytes.NewBufferString(testOpenAPIScheme1).Bytes()) {
 		t.Error("loaded and the original specifications are not equal")
 	}
 
-	if testSchemaID != dbSpec.SchemaID() {
+	loadedSchemaIDs := dbSpec.SchemaIDs()
+	sort.Ints(loadedSchemaIDs)
+
+	if len(loadedSchemaIDs) != 2 || loadedSchemaIDs[0] != testSchemaID1 {
 		t.Error("loaded and the original schema IDs are not equal")
 	}
 
-	if testSpecVersion != dbSpec.SpecificationVersion() {
+	if testSpecVersion1 != dbSpec.SpecificationVersion(testSchemaID1) {
 		t.Error("loaded and the original specifications versions are not equal")
 	}
 
+	// test second OpenAPI spec
+	openAPISpec = bytes.Trim(dbSpec.SpecificationRaw(testSchemaID2), "\xef\xbb\xbf")
+	if !bytes.Equal(openAPISpec, bytes.NewBufferString(testOpenAPIScheme2).Bytes()) {
+		t.Error("loaded and the original specifications are not equal")
+	}
+
+	if len(loadedSchemaIDs) != 2 || loadedSchemaIDs[1] != testSchemaID2 {
+		t.Error("loaded and the original schema IDs are not equal")
+	}
+
+	if testSpecVersion2 != dbSpec.SpecificationVersion(testSchemaID2) {
+		t.Error("loaded and the original specifications versions are not equal")
+	}
 }

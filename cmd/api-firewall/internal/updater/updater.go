@@ -2,16 +2,16 @@ package updater
 
 import (
 	"fmt"
-	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
-	"net/url"
 	"os"
+	"reflect"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/database"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 )
 
 type Updater interface {
@@ -25,26 +25,35 @@ type Specification struct {
 	sqlLiteStorage database.DBOpenAPILoader
 	stop           chan struct{}
 	updateTime     time.Duration
-	swagRouter     *router.Router
-	cfg            *config.APIFWConfiguration
+	cfg            *config.APIFWConfigurationAPIMode
 	api            *fasthttp.Server
-	serverURL      *url.URL
 	shutdown       chan os.Signal
+	health         *handlersAPI.Health
+	lock           *sync.RWMutex
 }
 
 // NewController function defines configuration updater controller
-func NewController(logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIFWConfiguration, api *fasthttp.Server, serverURL *url.URL, shutdown chan os.Signal, swagRouter *router.Router) Updater {
+func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIFWConfigurationAPIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health) Updater {
 	return &Specification{
 		logger:         logger,
 		sqlLiteStorage: sqlLiteStorage,
 		stop:           make(chan struct{}),
 		updateTime:     cfg.SpecificationUpdatePeriod,
 		cfg:            cfg,
-		swagRouter:     swagRouter,
 		api:            api,
-		serverURL:      serverURL,
 		shutdown:       shutdown,
+		health:         health,
+		lock:           lock,
 	}
+}
+
+func getSchemaVersions(dbSpecs database.DBOpenAPILoader) map[int]string {
+	result := make(map[int]string)
+	schemaIDs := dbSpecs.SchemaIDs()
+	for _, schemaID := range schemaIDs {
+		result[schemaID] = dbSpecs.SpecificationVersion(schemaID)
+	}
+	return result
 }
 
 // Start function starts update process every ConfigurationUpdatePeriod
@@ -55,21 +64,21 @@ func (s *Specification) Start() error {
 		for {
 			select {
 			case <-updateTicker.C:
-				currentVersion := s.sqlLiteStorage.SpecificationVersion()
+				beforeUpdateSpecs := getSchemaVersions(s.sqlLiteStorage)
 				if err := s.Update(); err != nil {
 					s.logger.WithFields(logrus.Fields{"error": err}).Error("updating OpenAPI specification")
+					continue
 				}
-				s.logger.Debugf("OpenAPI specification has been updated. Loaded OpenAPI specification version: %s", s.sqlLiteStorage.SpecificationVersion())
-				if s.sqlLiteStorage.SpecificationVersion() != currentVersion {
-
-					// get new router
-					newSwagRouter, err := router.NewRouterDBLoader(s.sqlLiteStorage)
-					if err != nil {
-						s.logger.WithFields(logrus.Fields{"error": err}).Error("new router creation failed")
-					}
-
-					s.api.Handler = handlersAPI.APIModeHandlers(s.cfg, s.serverURL, s.shutdown, s.logger, newSwagRouter)
+				afterUpdateSpecs := getSchemaVersions(s.sqlLiteStorage)
+				if !reflect.DeepEqual(beforeUpdateSpecs, afterUpdateSpecs) {
+					s.logger.Debugf("OpenAPI specifications has been updated. Loaded OpenAPI specification versions: %v", afterUpdateSpecs)
+					s.lock.Lock()
+					s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage)
+					s.health.OpenAPIDB = s.sqlLiteStorage
+					s.lock.Unlock()
+					continue
 				}
+				s.logger.Debugf("regular update checker: new OpenAPI specifications not found")
 			}
 		}
 	}()
@@ -89,7 +98,7 @@ func (s *Specification) Shutdown() error {
 func (s *Specification) Update() error {
 
 	// Update specification
-	if err := s.sqlLiteStorage.Load(""); err != nil {
+	if err := s.sqlLiteStorage.Load(s.cfg.PathToSpecDB); err != nil {
 		return fmt.Errorf("error while spicification update: %w", err)
 	}
 

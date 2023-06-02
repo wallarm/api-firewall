@@ -84,6 +84,8 @@ spec:
         securityContext: {{ toYaml .Values.apiFirewall.securityContext | trimSuffix "\n" | nindent 10 }}
         {{ end -}}
         env:
+        - name: APIFW_MODE
+          value: {{ .Values.apiFirewall.config.mode | quote }}
         - name: APIFW_URL
           value: http://{{ .Values.apiFirewall.config.listenAddress }}:{{ .Values.apiFirewall.config.listenPort }}
         {{ if .Values.manifest.enabled -}}
@@ -104,6 +106,12 @@ spec:
           value: {{ .Values.apiFirewall.config.validationMode.request | upper }}
         - name: APIFW_RESPONSE_VALIDATION
           value: {{ .Values.apiFirewall.config.validationMode.response | upper }}
+        - name: APIFW_PASS_OPTIONS
+          value: {{ .Values.apiFirewall.config.passOptions | quote }}
+        - name: APIFW_SHADOW_API_EXCLUDE_LIST
+          value: {{ .Values.apiFirewall.config.shadowAPI.excludeList | quote }}
+        - name: APIFW_SHADOW_API_UNKNOWN_PARAMETERS_DETECTION
+          value: {{ .Values.apiFirewall.config.shadowAPI.unknownParametersDetection | quote }}
         {{- if .Values.apiFirewall.extraEnvs -}}
         {{ toYaml .Values.apiFirewall.extraEnvs | trimSuffix "\n" | nindent 10 }}
         {{- end }}
