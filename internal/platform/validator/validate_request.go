@@ -35,7 +35,7 @@ func ValidateRequest(ctx context.Context, input *openapi3filter.RequestValidatio
 
 	options := input.Options
 	if options == nil {
-		options = openapi3filter.DefaultOptions
+		options = &openapi3filter.Options{}
 	}
 	route := input.Route
 	operation := route.Operation
@@ -121,7 +121,7 @@ func ValidateParameter(ctx context.Context, input *openapi3filter.RequestValidat
 
 	options := input.Options
 	if options == nil {
-		options = openapi3filter.DefaultOptions
+		options = &openapi3filter.Options{}
 	}
 
 	var value interface{}
@@ -169,6 +169,12 @@ func ValidateParameter(ctx context.Context, input *openapi3filter.RequestValidat
 	}
 
 	if isNilValue(value) {
+
+		// if parameter has empty schema
+		if schema.IsEmpty() && found {
+			return nil
+		}
+
 		if !parameter.AllowEmptyValue && found {
 			return &openapi3filter.RequestError{Input: input, Parameter: parameter, Reason: ErrInvalidEmptyValue.Error(), Err: ErrInvalidEmptyValue}
 		}
@@ -204,7 +210,7 @@ func ValidateRequestBody(ctx context.Context, input *openapi3filter.RequestValid
 
 	options := input.Options
 	if options == nil {
-		options = openapi3filter.DefaultOptions
+		options = &openapi3filter.Options{}
 	}
 
 	if req.Body != http.NoBody && req.Body != nil {
@@ -290,7 +296,7 @@ func ValidateRequestBody(ctx context.Context, input *openapi3filter.RequestValid
 		return &openapi3filter.RequestError{
 			Input:       input,
 			RequestBody: requestBody,
-			Reason:      fmt.Sprintf("doesn't match schema%s", schemaId),
+			Reason:      fmt.Sprintf("doesn't match schema %s", schemaId),
 			Err:         err,
 		}
 	}
@@ -358,7 +364,7 @@ func validateSecurityRequirement(ctx context.Context, input *openapi3filter.Requ
 	// Get authentication function
 	options := input.Options
 	if options == nil {
-		options = openapi3filter.DefaultOptions
+		options = &openapi3filter.Options{}
 	}
 	f := options.AuthenticationFunc
 	if f == nil {

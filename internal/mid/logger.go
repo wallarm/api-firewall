@@ -22,14 +22,33 @@ func Logger(logger *logrus.Logger) web.Middleware {
 
 			err := before(ctx)
 
+			// check method and path
+			if isProxyNoRouteValue := ctx.Value(web.RequestProxyNoRoute); isProxyNoRouteValue != nil {
+				if isProxyNoRouteValue.(bool) {
+					logger.WithFields(logrus.Fields{
+						"request_id":      fmt.Sprintf("#%016X", ctx.ID()),
+						"status_code":     ctx.Response.StatusCode(),
+						"response_length": fmt.Sprintf("%d", ctx.Response.Header.ContentLength()),
+						"method":          string(ctx.Request.Header.Method()),
+						"path":            string(ctx.Path()),
+						"uri":             string(ctx.Request.URI().RequestURI()),
+						"client_address":  ctx.RemoteAddr(),
+					}).Error("method or path not found in the OpenAPI specification")
+				}
+			}
+
 			logger.WithFields(logrus.Fields{
 				"request_id":      fmt.Sprintf("#%016X", ctx.ID()),
 				"status_code":     ctx.Response.StatusCode(),
-				"method":          fmt.Sprintf("%s", ctx.Request.Header.Method()),
-				"path":            fmt.Sprintf("%s", ctx.Path()),
+				"method":          string(ctx.Request.Header.Method()),
+				"path":            string(ctx.Path()),
+				"uri":             string(ctx.Request.URI().RequestURI()),
 				"client_address":  ctx.RemoteAddr(),
 				"processing_time": time.Since(start),
 			}).Debug("new request")
+
+			// log all information about the request
+			web.LogRequestResponseAtTraceLevel(ctx, logger)
 
 			// Return the error, so it can be handled further up the chain.
 			return err

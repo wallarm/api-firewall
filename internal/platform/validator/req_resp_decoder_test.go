@@ -5,10 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/getkin/kin-openapi/openapi3filter"
-	"github.com/valyala/fastjson"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -18,8 +15,10 @@ import (
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	legacyrouter "github.com/getkin/kin-openapi/routers/legacy"
 	"github.com/stretchr/testify/require"
+	"github.com/valyala/fastjson"
 )
 
 func TestDecodeParameter(t *testing.T) {
@@ -1147,7 +1146,7 @@ func TestDecodeBody(t *testing.T) {
 	}{
 		{
 			name:    prefixUnsupportedCT,
-			mime:    "application/xml",
+			mime:    "application/none-xml",
 			wantErr: &ParseError{Kind: KindUnsupportedFormat},
 		},
 		{
@@ -1341,7 +1340,7 @@ func TestRegisterAndUnregisterBodyDecoder(t *testing.T) {
 	var decoder BodyDecoder
 	decoder = func(body io.Reader, h http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (decoded interface{}, err error) {
 		var data []byte
-		if data, err = ioutil.ReadAll(body); err != nil {
+		if data, err = io.ReadAll(body); err != nil {
 			return
 		}
 		return strings.Split(string(data), ","), nil

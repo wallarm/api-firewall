@@ -1,7 +1,9 @@
 package web
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/savsgio/gotils/strconv"
 	"os"
 	"syscall"
 
@@ -14,9 +16,21 @@ import (
 const (
 	ValidationStatus = "APIFW-Validation-Status"
 
+	XWallarmSchemaIDHeader = "X-WALLARM-SCHEMA-ID"
+	WallarmSchemaID        = "WallarmSchemaID"
+
 	ValidationDisable = "DISABLE"
 	ValidationBlock   = "BLOCK"
 	ValidationLog     = "LOG_ONLY"
+
+	RequestProxyNoRoute    = "proxy_no_route"
+	RequestProxyFailed     = "proxy_failed"
+	RequestBlocked         = "request_blocked"
+	ResponseBlocked        = "response_blocked"
+	ResponseStatusNotFound = "response_status_not_found"
+
+	APIMode   = "api"
+	ProxyMode = "proxy"
 )
 
 // A Handler is a type that handles an http request within our own little mini
@@ -43,16 +57,18 @@ func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
 
 	customHandler := func(ctx *fasthttp.RequestCtx) {
 
-		// Block request if it's not found in the route
-		if a.cfg.RequestValidation == ValidationBlock || a.cfg.ResponseValidation == ValidationBlock {
-			a.Log.WithFields(logrus.Fields{
-				"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
-				"method":         fmt.Sprintf("%s", ctx.Request.Header.Method()),
-				"path":           fmt.Sprintf("%s", ctx.Path()),
-				"client_address": ctx.RemoteAddr(),
-			}).Info("request blocked")
-			ctx.Error("", a.cfg.CustomBlockStatusCode)
-			return
+		// Block request if it's not found in the route. Not for API mode.
+		if a.cfg.Mode == ProxyMode {
+			if a.cfg.RequestValidation == ValidationBlock || a.cfg.ResponseValidation == ValidationBlock {
+				a.Log.WithFields(logrus.Fields{
+					"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
+					"method":         bytes.NewBuffer(ctx.Request.Header.Method()).String(),
+					"path":           string(ctx.Path()),
+					"client_address": ctx.RemoteAddr(),
+				}).Info("request blocked")
+				ctx.Error("", a.cfg.CustomBlockStatusCode)
+				return
+			}
 		}
 
 		if err := handler(ctx); err != nil {
@@ -79,6 +95,8 @@ func NewApp(shutdown chan os.Signal, cfg *config.APIFWConfiguration, logger *log
 		cfg:      cfg,
 	}
 
+	app.Router.HandleOPTIONS = cfg.PassOptionsRequests
+
 	return &app
 }
 
@@ -98,6 +116,13 @@ func (a *App) Handle(method string, path string, handler Handler, mw ...Middlewa
 		if err := handler(ctx); err != nil {
 			a.SignalShutdown()
 			return
+		}
+
+		// if pass request with OPTIONS method is enabled then log request
+		if ctx.Response.StatusCode() == fasthttp.StatusOK && a.cfg.PassOptionsRequests && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
+			a.Log.WithFields(logrus.Fields{
+				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			}).Debug("pass request with OPTIONS method")
 		}
 	}
 

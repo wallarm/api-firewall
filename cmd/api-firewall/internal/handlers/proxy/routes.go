@@ -1,4 +1,4 @@
-package handlers
+package proxy
 
 import (
 	"crypto/rsa"
@@ -7,7 +7,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang-jwt/jwt"
 	"github.com/karlseguin/ccache/v2"
 	"github.com/sirupsen/logrus"
@@ -19,11 +18,10 @@ import (
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
-	"github.com/wallarm/api-firewall/internal/platform/shadowAPI"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func OpenapiProxy(cfg *config.APIFWConfiguration, serverUrl *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens, shadowAPI shadowAPI.Checker) fasthttp.RequestHandler {
+func Handlers(cfg *config.APIFWConfiguration, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -66,53 +64,31 @@ func OpenapiProxy(cfg *config.APIFWConfiguration, serverUrl *url.URL, shutdown c
 	}
 
 	// Construct the web.App which holds all routes as well as common Middleware.
-	app := web.NewApp(shutdown, cfg, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(cfg, serverUrl), mid.Denylist(cfg, deniedTokens, logger))
+	app := web.NewApp(shutdown, cfg, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(cfg, serverURL), mid.Denylist(cfg, deniedTokens, logger), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
 
-	for _, route := range swagRouter.Routes {
-		pathParamLength := 0
-		if getOp := route.Route.PathItem.GetOperation(route.Method); getOp != nil {
-			for _, param := range getOp.Parameters {
-				if param.Value.In == openapi3.ParameterInPath {
-					pathParamLength += 1
-				}
-			}
-		}
-
-		// check common parameters
-		if getOp := route.Route.PathItem.Parameters; getOp != nil {
-			for _, param := range getOp {
-				if param.Value.In == openapi3.ParameterInPath {
-					pathParamLength += 1
-				}
-			}
-		}
-
+	for i := 0; i < len(swagRouter.Routes); i++ {
 		s := openapiWaf{
-			route:           route.Route,
-			proxyPool:       proxy,
-			pathParamLength: pathParamLength,
-			logger:          logger,
-			cfg:             cfg,
-			parserPool:      &parserPool,
-			oauthValidator:  oauthValidator,
-			shadowAPI:       shadowAPI,
+			customRoute:    &swagRouter.Routes[i],
+			proxyPool:      proxy,
+			logger:         logger,
+			cfg:            cfg,
+			parserPool:     &parserPool,
+			oauthValidator: oauthValidator,
 		}
-		updRoutePath := path.Join(serverUrl.Path, route.Path)
+		updRoutePath := path.Join(serverURL.Path, swagRouter.Routes[i].Path)
 
-		s.logger.Debugf("handler: Loaded path : %s - %s", route.Method, updRoutePath)
+		s.logger.Debugf("handler: Loaded path %s - %s", swagRouter.Routes[i].Method, updRoutePath)
 
-		app.Handle(route.Method, updRoutePath, s.openapiWafHandler)
+		app.Handle(swagRouter.Routes[i].Method, updRoutePath, s.openapiWafHandler)
 	}
 
 	// set handler for default behavior (404, 405)
 	s := openapiWaf{
-		route:           nil,
-		proxyPool:       proxy,
-		pathParamLength: 0,
-		logger:          logger,
-		cfg:             cfg,
-		parserPool:      &parserPool,
-		shadowAPI:       shadowAPI,
+		customRoute: nil,
+		proxyPool:   proxy,
+		logger:      logger,
+		cfg:         cfg,
+		parserPool:  &parserPool,
 	}
 	app.SetDefaultBehavior(s.openapiWafHandler)
 

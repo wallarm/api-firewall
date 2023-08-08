@@ -1,4 +1,4 @@
-FROM golang:1.19-alpine AS build
+FROM golang:1.20-alpine3.18 AS build
 
 ARG APIFIREWALL_VERSION
 ENV APIFIREWALL_VERSION=${APIFIREWALL_VERSION}
@@ -10,7 +10,7 @@ RUN apk add --no-cache                       \
         musl-dev
 
 WORKDIR /build
-COPY . .
+COPY .. .
 
 RUN go mod download -x                    && \
     go build                                 \
@@ -22,17 +22,17 @@ RUN go mod download -x                    && \
 # Smoke test
 RUN ./api-firewall -v
 
-FROM alpine:3.17 AS composer
+FROM alpine:3.18 AS composer
 
 WORKDIR /output
 
 COPY --from=build /build/api-firewall ./usr/local/bin/
-COPY ./docker-entrypoint.sh ./usr/local/bin/docker-entrypoint.sh
+COPY docker-entrypoint.sh ./usr/local/bin/docker-entrypoint.sh
 
 RUN chmod 755 ./usr/local/bin/*           && \
     chown root:root ./usr/local/bin/*
 
-FROM alpine:3.17
+FROM alpine:3.18
 
 RUN adduser -u 1000 -H -h /opt -D -s /bin/sh api-firewall
 

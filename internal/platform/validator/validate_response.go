@@ -40,7 +40,7 @@ func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidat
 	route := input.RequestValidationInput.Route
 	options := input.Options
 	if options == nil {
-		options = openapi3filter.DefaultOptions
+		options = &openapi3filter.Options{}
 	}
 
 	// Find input for the current status

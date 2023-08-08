@@ -51,7 +51,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.19.5.linux-amd64.tar.gz"
+      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.20.7.linux-amd64.tar.gz"
     strategy:
       matrix:
         include:
@@ -78,6 +78,7 @@ jobs:
 
             apt-get update -y                               && \
             apt-get install --no-install-recommends -y         \
+                build-essential                                \
                 binutils                                       \
                 ca-certificates                                \
                 curl                                           \
@@ -159,7 +160,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_VERSION: "1.19.5-r0"
+      X_GO_VERSION: "1.20.7-r0"
     strategy:
       matrix:
         include:
@@ -177,7 +178,7 @@ jobs:
       -
         uses: addnab/docker-run-action@v3
         with:
-          image: alpine:3.17
+          image: alpine:3.18
           options: >
             --volume ${{ github.workspace }}:/build
             --workdir /build
@@ -261,18 +262,16 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - draft-release
-    env:
-      X_GO_VERSION: "1.19.5-r0"
     strategy:
       matrix:
         include:
           - arch: armv6
             distro: bullseye
-            go_distribution: https://go.dev/dl/go1.19.5.linux-armv6l.tar.gz
+            go_distribution: https://go.dev/dl/go1.20.7.linux-armv6l.tar.gz
             artifact: armv6-libc
           - arch: aarch64
             distro: bullseye
-            go_distribution: https://go.dev/dl/go1.19.5.linux-arm64.tar.gz
+            go_distribution: https://go.dev/dl/go1.20.7.linux-arm64.tar.gz
             artifact: arm64-libc
           - arch: armv6
             distro: alpine_latest
@@ -328,10 +327,11 @@ jobs:
                   git                                           \
                   gzip                                          \
                   make                                          \
-                  go=${{ env.X_GO_VERSION }}
+                  musl-dev                                      \
+                  go
                 ;;
             esac
-
+            
             go version
           run: |-
             export PATH=${PATH}:/usr/local/go/bin             && \

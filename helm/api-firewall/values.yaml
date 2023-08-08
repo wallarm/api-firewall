@@ -70,6 +70,7 @@ apiFirewall:
 
   ## Main settings of API Firewall
   config:
+    mode: proxy
     listenAddress: 0.0.0.0
     listenPort: 8080
     maxConnsPerHost: 512
@@ -80,6 +81,10 @@ apiFirewall:
     validationMode:
       request: block
       response: block
+    shadowAPI:
+      excludeList: "404"
+      unknownParametersDetection: true
+    passOptions: false
 
   ## Number of deployment replicas for the API Firewall container
   ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#deploymentspec-v1-apps

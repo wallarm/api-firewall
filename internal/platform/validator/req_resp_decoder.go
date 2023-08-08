@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -17,11 +16,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/valyala/fastjson"
 	"gopkg.in/yaml.v3"
 
+	"github.com/clbanning/mxj/v2"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/valyala/fastjson"
 )
 
 // ParseErrorKind describes a kind of ParseError.
@@ -895,6 +895,14 @@ func parsePrimitive(raw string, schema *openapi3.SchemaRef) (interface{}, error)
 	}
 	switch schema.Value.Type {
 	case "integer":
+		if len(schema.Value.Enum) > 0 {
+			// parse int as float because of the comparison with float enum values
+			v, err := strconv.ParseFloat(raw, 64)
+			if err != nil {
+				return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+			}
+			return v, nil
+		}
 		if schema.Value.Format == "int32" {
 			v, err := strconv.ParseInt(raw, 0, 32)
 			if err != nil {
@@ -986,8 +994,14 @@ func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, 
 	if contentType == "" {
 		if _, ok := body.(*multipart.Part); ok {
 			contentType = "text/plain"
+			value, err := multipartPartBodyDecoder(body, header, schema, encFn, jsonParser)
+			if err != nil {
+				return "", nil, err
+			}
+			return parseMediaType(contentType), value, nil
 		}
 	}
+
 	mediaType := parseMediaType(contentType)
 	decoder, ok := bodyDecoders[mediaType]
 	if !ok {
@@ -1005,6 +1019,7 @@ func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, 
 
 func init() {
 	RegisterBodyDecoder("application/json", jsonBodyDecoder)
+	RegisterBodyDecoder("application/xml", xmlBodyDecoder)
 	RegisterBodyDecoder("application/json-patch+json", jsonBodyDecoder)
 	RegisterBodyDecoder("application/octet-stream", FileBodyDecoder)
 	RegisterBodyDecoder("application/problem+json", jsonBodyDecoder)
@@ -1018,11 +1033,37 @@ func init() {
 }
 
 func plainBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
-	data, err := ioutil.ReadAll(body)
+	data, err := io.ReadAll(body)
 	if err != nil {
 		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
 	}
 	return string(data), nil
+}
+
+func multipartPartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
+	}
+
+	dataStr := string(data)
+
+	switch schema.Value.Type {
+	case "integer", "number":
+		floatValue, err := strconv.ParseFloat(dataStr, 64)
+		if err != nil {
+			return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
+		}
+		return floatValue, nil
+	case "boolean":
+		boolValue, err := strconv.ParseBool(dataStr)
+		if err != nil {
+			return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
+		}
+		return boolValue, nil
+	}
+
+	return dataStr, nil
 }
 
 func jsonBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
@@ -1042,6 +1083,23 @@ func jsonBodyDecoder(body io.Reader, header http.Header, schema *openapi3.Schema
 	return convertToMap(parsedDoc), nil
 }
 
+func xmlBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
+	var data []byte
+	var err error
+
+	data, err = io.ReadAll(body)
+	if err != nil {
+		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
+	}
+
+	mv, err := mxj.NewMapXml(data)
+	if err != nil {
+		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
+	}
+
+	return mv.Old(), nil
+}
+
 func yamlBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 	var value interface{}
 	if err := yaml.NewDecoder(body).Decode(&value); err != nil {
@@ -1051,12 +1109,7 @@ func yamlBodyDecoder(body io.Reader, header http.Header, schema *openapi3.Schema
 }
 
 func urlencodedBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
-	// Validate schema of request body.
-	// By the OpenAPI 3 specification request body's schema must have type "object".
-	// Properties of the schema describes individual parts of request body.
-	if schema.Value.Type != "object" {
-		return nil, errors.New("unsupported schema of request body")
-	}
+
 	for propName, propSchema := range schema.Value.Properties {
 		switch propSchema.Value.Type {
 		case "object":
@@ -1070,7 +1123,7 @@ func urlencodedBodyDecoder(body io.Reader, header http.Header, schema *openapi3.
 	}
 
 	// Parse form.
-	b, err := ioutil.ReadAll(body)
+	b, err := io.ReadAll(body)
 	if err != nil {
 		return nil, err
 	}
@@ -1092,19 +1145,19 @@ func urlencodedBodyDecoder(body io.Reader, header http.Header, schema *openapi3.
 		}
 		sm := enc.SerializationMethod()
 
-		if value, _, err = decodeValue(dec, name, sm, prop, false); err != nil {
+		found := false
+		if value, found, err = decodeValue(dec, name, sm, prop, false); err != nil {
 			return nil, err
 		}
-		obj[name] = value
+		if found {
+			obj[name] = value
+		}
 	}
 
 	return obj, nil
 }
 
 func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
-	if schema.Value.Type != "object" {
-		return nil, errors.New("unsupported schema of request body")
-	}
 
 	// Parse form.
 	values := make(map[string][]interface{})
@@ -1131,33 +1184,43 @@ func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.S
 			enc = encFn(name)
 		}
 		subEncFn := func(string) *openapi3.Encoding { return enc }
-		// If the property's schema has type "array" it is means that the form contains a few parts with the same name.
-		// Every such part has a type that is defined by an items schema in the property's schema.
+
 		var valueSchema *openapi3.SchemaRef
-		var exists bool
-		valueSchema, exists = schema.Value.Properties[name]
-		if !exists {
-			anyProperties := schema.Value.AdditionalPropertiesAllowed
-			if anyProperties != nil {
-				switch *anyProperties {
-				case true:
-					//additionalProperties: true
-					continue
-				default:
-					//additionalProperties: false
-					return nil, &ParseError{Kind: KindOther, Cause: fmt.Errorf("part %s: undefined", name)}
+		if len(schema.Value.AllOf) > 0 {
+			var exists bool
+			for _, sr := range schema.Value.AllOf {
+				if valueSchema, exists = sr.Value.Properties[name]; exists {
+					break
 				}
 			}
-			if schema.Value.AdditionalProperties == nil {
-				return nil, &ParseError{Kind: KindOther, Cause: fmt.Errorf("part %s: undefined", name)}
-			}
-			valueSchema, exists = schema.Value.AdditionalProperties.Value.Properties[name]
 			if !exists {
 				return nil, &ParseError{Kind: KindOther, Cause: fmt.Errorf("part %s: undefined", name)}
 			}
-		}
-		if valueSchema.Value.Type == "array" {
-			valueSchema = valueSchema.Value.Items
+		} else {
+			// If the property's schema has type "array" it is means that the form contains a few parts with the same name.
+			// Every such part has a type that is defined by an items schema in the property's schema.
+			var exists bool
+			if valueSchema, exists = schema.Value.Properties[name]; !exists {
+				if anyProperties := schema.Value.AdditionalProperties.Has; anyProperties != nil {
+					switch *anyProperties {
+					case true:
+						//additionalProperties: true
+						continue
+					default:
+						//additionalProperties: false
+						return nil, &ParseError{Kind: KindOther, Cause: fmt.Errorf("part %s: undefined", name)}
+					}
+				}
+				if schema.Value.AdditionalProperties.Schema == nil {
+					return nil, &ParseError{Kind: KindOther, Cause: fmt.Errorf("part %s: undefined", name)}
+				}
+				if valueSchema, exists = schema.Value.AdditionalProperties.Schema.Value.Properties[name]; !exists {
+					return nil, &ParseError{Kind: KindOther, Cause: fmt.Errorf("part %s: undefined", name)}
+				}
+			}
+			if valueSchema.Value.Type == "array" {
+				valueSchema = valueSchema.Value.Items
+			}
 		}
 
 		var value interface{}
@@ -1171,14 +1234,28 @@ func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.S
 	}
 
 	allTheProperties := make(map[string]*openapi3.SchemaRef)
-	for k, v := range schema.Value.Properties {
-		allTheProperties[k] = v
-	}
-	if schema.Value.AdditionalProperties != nil {
-		for k, v := range schema.Value.AdditionalProperties.Value.Properties {
+	if len(schema.Value.AllOf) > 0 {
+		for _, sr := range schema.Value.AllOf {
+			for k, v := range sr.Value.Properties {
+				allTheProperties[k] = v
+			}
+			if addProps := sr.Value.AdditionalProperties.Schema; addProps != nil {
+				for k, v := range addProps.Value.Properties {
+					allTheProperties[k] = v
+				}
+			}
+		}
+	} else {
+		for k, v := range schema.Value.Properties {
 			allTheProperties[k] = v
 		}
+		if addProps := schema.Value.AdditionalProperties.Schema; addProps != nil {
+			for k, v := range addProps.Value.Properties {
+				allTheProperties[k] = v
+			}
+		}
 	}
+
 	// Make an object value from form values.
 	obj := make(map[string]interface{})
 	for name, prop := range allTheProperties {
@@ -1198,7 +1275,7 @@ func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.S
 
 // FileBodyDecoder is a body decoder that decodes a file body to a string.
 func FileBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
-	data, err := ioutil.ReadAll(body)
+	data, err := io.ReadAll(body)
 	if err != nil {
 		return nil, err
 	}
