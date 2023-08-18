@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 	"golang.org/x/exp/slices"
 	"io"
 	"net/http"
@@ -110,6 +111,20 @@ func RespondError(ctx *fasthttp.RequestCtx, statusCode int, statusHeader string)
 	// Add validation status header
 	if statusHeader != "" {
 		ctx.Response.Header.Add(ValidationStatus, statusHeader)
+	}
+
+	return nil
+}
+
+// RespondGraphQLErrors sends errors back to the client via GraphQL
+func RespondGraphQLErrors(ctx *fasthttp.Response, errors error) error {
+
+	gqlErrors := graphql.RequestErrorsFromError(errors)
+
+	ctx.Header.Set("Content-Type", "application/json")
+
+	if _, err := gqlErrors.WriteResponse(ctx.BodyWriter()); err != nil {
+		return err
 	}
 
 	return nil

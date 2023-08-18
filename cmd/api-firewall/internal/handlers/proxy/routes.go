@@ -21,7 +21,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(cfg *config.APIFWConfiguration, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
+func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -64,7 +64,29 @@ func Handlers(cfg *config.APIFWConfiguration, serverURL *url.URL, shutdown chan 
 	}
 
 	// Construct the web.App which holds all routes as well as common Middleware.
-	app := web.NewApp(shutdown, cfg, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(cfg, serverURL), mid.Denylist(cfg, deniedTokens, logger), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
+	options := web.AppAdditionalOptions{
+		Mode:                  cfg.Mode,
+		PassOptions:           cfg.PassOptionsRequests,
+		RequestValidation:     cfg.RequestValidation,
+		ResponseValidation:    cfg.ResponseValidation,
+		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
+	}
+
+	proxyOptions := mid.ProxyOptions{
+		Mode:                 web.ProxyMode,
+		RequestValidation:    cfg.RequestValidation,
+		DeleteAcceptEncoding: cfg.Server.DeleteAcceptEncoding,
+		ServerUrl:            serverURL,
+	}
+
+	denylistOptions := mid.DenylistOptions{
+		Mode:                  web.GraphQLMode,
+		Config:                &cfg.Denylist,
+		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
+		DeniedTokens:          deniedTokens,
+		Logger:                logger,
+	}
+	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.Denylist(&denylistOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
 
 	for i := 0; i < len(swagRouter.Routes); i++ {
 		s := openapiWaf{

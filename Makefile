@@ -19,6 +19,8 @@ genmocks:
 	mockgen -source ./internal/platform/proxy/chainpool.go -destination ./internal/platform/proxy/httppool_mock.go -package proxy
 	mockgen -source ./internal/platform/database/database.go -destination ./internal/platform/database/database_mock.go -package database
 	mockgen -source ./cmd/api-firewall/internal/updater/updater.go -destination ./cmd/api-firewall/internal/updater/updater_mock.go -package updater
+	mockgen -source ./internal/platform/proxy/ws.go -destination ./internal/platform/proxy/ws_mock.go -package proxy
+	mockgen -source ./internal/platform/proxy/wsClient.go -destination ./internal/platform/proxy/wsClient_mock.go -package proxy
 
 update:
 	go get -u ./...

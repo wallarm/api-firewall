@@ -3,25 +3,27 @@ package web
 import (
 	"bytes"
 	"fmt"
-	"github.com/savsgio/gotils/strconv"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/fasthttp/router"
+	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/config"
 )
 
 const (
+	Playground = "playground"
+
 	ValidationStatus = "APIFW-Validation-Status"
 
 	XWallarmSchemaIDHeader = "X-WALLARM-SCHEMA-ID"
 	WallarmSchemaID        = "WallarmSchemaID"
 
-	ValidationDisable = "DISABLE"
-	ValidationBlock   = "BLOCK"
-	ValidationLog     = "LOG_ONLY"
+	ValidationDisable = "disable"
+	ValidationBlock   = "block"
+	ValidationLog     = "log_only"
 
 	RequestProxyNoRoute    = "proxy_no_route"
 	RequestProxyFailed     = "proxy_failed"
@@ -29,8 +31,11 @@ const (
 	ResponseBlocked        = "response_blocked"
 	ResponseStatusNotFound = "response_status_not_found"
 
-	APIMode   = "api"
-	ProxyMode = "proxy"
+	APIMode     = "api"
+	ProxyMode   = "proxy"
+	GraphQLMode = "graphql"
+
+	AnyMethod = "any"
 )
 
 // A Handler is a type that handles an http request within our own little mini
@@ -44,8 +49,16 @@ type App struct {
 	Router   *router.Router
 	Log      *logrus.Logger
 	shutdown chan os.Signal
-	cfg      *config.APIFWConfiguration
 	mw       []Middleware
+	Options  *AppAdditionalOptions
+}
+
+type AppAdditionalOptions struct {
+	Mode                  string
+	PassOptions           bool
+	RequestValidation     string
+	ResponseValidation    string
+	CustomBlockStatusCode int
 }
 
 func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
@@ -58,15 +71,17 @@ func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
 	customHandler := func(ctx *fasthttp.RequestCtx) {
 
 		// Block request if it's not found in the route. Not for API mode.
-		if a.cfg.Mode == ProxyMode {
-			if a.cfg.RequestValidation == ValidationBlock || a.cfg.ResponseValidation == ValidationBlock {
+		if strings.EqualFold(a.Options.Mode, ProxyMode) {
+			if strings.EqualFold(a.Options.RequestValidation, ValidationBlock) || strings.EqualFold(a.Options.ResponseValidation, ValidationBlock) {
 				a.Log.WithFields(logrus.Fields{
 					"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
 					"method":         bytes.NewBuffer(ctx.Request.Header.Method()).String(),
 					"path":           string(ctx.Path()),
 					"client_address": ctx.RemoteAddr(),
 				}).Info("request blocked")
-				ctx.Error("", a.cfg.CustomBlockStatusCode)
+
+				ctx.Error("", a.Options.CustomBlockStatusCode)
+
 				return
 			}
 		}
@@ -86,16 +101,17 @@ func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
 }
 
 // NewApp creates an App value that handle a set of routes for the application.
-func NewApp(shutdown chan os.Signal, cfg *config.APIFWConfiguration, logger *logrus.Logger, mw ...Middleware) *App {
+func NewApp(options *AppAdditionalOptions, shutdown chan os.Signal, logger *logrus.Logger, mw ...Middleware) *App {
+
 	app := App{
 		Router:   router.New(),
 		shutdown: shutdown,
 		mw:       mw,
 		Log:      logger,
-		cfg:      cfg,
+		Options:  options,
 	}
 
-	app.Router.HandleOPTIONS = cfg.PassOptionsRequests
+	app.Router.HandleOPTIONS = options.PassOptions
 
 	return &app
 }
@@ -118,12 +134,17 @@ func (a *App) Handle(method string, path string, handler Handler, mw ...Middlewa
 			return
 		}
 
-		// if pass request with OPTIONS method is enabled then log request
-		if ctx.Response.StatusCode() == fasthttp.StatusOK && a.cfg.PassOptionsRequests && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
+		// if pass request with OPTIONS method is enabled then log reques
+		if ctx.Response.StatusCode() == fasthttp.StatusOK && a.Options.PassOptions && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 			a.Log.WithFields(logrus.Fields{
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			}).Debug("pass request with OPTIONS method")
 		}
+	}
+
+	if method == AnyMethod {
+		a.Router.ANY(path, h)
+		return
 	}
 
 	// Add this handler for the specified verb and route.

@@ -16,7 +16,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(lock *sync.RWMutex, cfg *config.APIFWConfigurationAPIMode, shutdown chan os.Signal, logger *logrus.Logger, storedSpecs database.DBOpenAPILoader) fasthttp.RequestHandler {
+func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, logger *logrus.Logger, storedSpecs database.DBOpenAPILoader) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool

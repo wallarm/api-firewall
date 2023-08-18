@@ -347,7 +347,7 @@ paths:
           content: {}
 `
 
-var cfg = config.APIFWConfigurationAPIMode{
+var cfg = config.APIMode{
 	APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
 	SpecificationUpdatePeriod:  2 * time.Second,
 	UnknownParametersDetection: true,
@@ -2057,18 +2057,13 @@ func TestAPIModeMockedUpdater(t *testing.T) {
 	handler := handlersAPI.Handlers(&lock, &cfg, shutdown, logger, dbSpecBeforeUpdate)
 	api := fasthttp.Server{Handler: handler}
 
-	updSpecErrors := make(chan error, 1)
 	updater := updater.NewController(&lock, logger, dbSpec, &cfg, &api, shutdown, &health)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
-		updSpecErrors <- updater.Start()
+		updater.Start()
 	}()
 
 	time.Sleep(3 * time.Second)
-
-	if err := updater.Shutdown(); err != nil {
-		t.Fatal(err)
-	}
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
@@ -2089,6 +2084,10 @@ func TestAPIModeMockedUpdater(t *testing.T) {
 	if reqCtx.Response.StatusCode() != 200 {
 		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
 			reqCtx.Response.StatusCode())
+	}
+
+	if err := updater.Shutdown(); err != nil {
+		t.Fatal(err)
 	}
 
 }
