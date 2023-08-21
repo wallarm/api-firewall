@@ -72,7 +72,10 @@
             "name": "n",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 5
           }
         ],
         "responses": {
@@ -154,7 +157,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "anything"
           }
         ],
         "tags": [
@@ -176,7 +180,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "anything"
           }
         ],
         "tags": [
@@ -198,7 +203,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "anything"
           }
         ],
         "tags": [
@@ -220,7 +226,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "anything"
           }
         ],
         "tags": [
@@ -242,7 +249,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "anything"
           }
         ],
         "tags": [
@@ -269,9 +277,9 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "default": "SFRUUEJJTiBpcyBhd2Vzb21l"
-            }
+              "type": "string"
+            },
+            "example": "SFRUUEJJTiBpcyBhd2Vzb21l"
           }
         ],
         "responses": {
@@ -295,7 +303,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "user"
           },
           {
             "name": "passwd",
@@ -303,12 +312,13 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "password"
           }
         ],
         "responses": {
           "200": {
-            "description": "Sucessful authentication.",
+            "description": "Successful authentication.",
             "content": {}
           },
           "401": {
@@ -328,12 +338,15 @@
           {
             "name": "Authorization",
             "in": "header",
-            "schema": {}
+            "schema": {
+              "type": "string"
+            },
+            "example": "Bearer test-token"
           }
         ],
         "responses": {
           "200": {
-            "description": "Sucessful authentication.",
+            "description": "Successful authentication.",
             "content": {}
           },
           "401": {
@@ -368,7 +381,10 @@
             "name": "n",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 128
           }
         ],
         "responses": {
@@ -389,12 +405,18 @@
           {
             "name": "If-Modified-Since",
             "in": "header",
-            "schema": {}
+            "schema": {
+              "type": "string"
+            },
+            "example": "Mon,21 Aug 2023 07:47:54 GMT"
           },
           {
             "name": "If-None-Match",
             "in": "header",
-            "schema": {}
+            "schema": {
+              "type": "string"
+            },
+            "example": "01ab392a8f434b40880c5581b2db66bb"
           }
         ],
         "responses": {
@@ -422,7 +444,8 @@
             "required": true,
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 3600
           }
         ],
         "responses": {
@@ -458,7 +481,15 @@
             "name": "freeform",
             "in": "query",
             "allowEmptyValue": true,
-            "schema": {}
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "example": "{ \"cookie1\": \"value1\", \"cookie2\": \"value2\" }"
           }
         ],
         "responses": {
@@ -480,7 +511,15 @@
             "name": "freeform",
             "in": "query",
             "allowEmptyValue": true,
-            "schema": {}
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "example": "{ \"cookie1\": \"value1\", \"cookie2\": \"value2\" }"
           }
         ],
         "responses": {
@@ -504,7 +543,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "cookie1"
           },
           {
             "name": "value",
@@ -512,7 +552,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "value1"
           }
         ],
         "responses": {
@@ -531,7 +572,7 @@
         "summary": "Returns Deflate-encoded data.",
         "responses": {
           "200": {
-            "description": "Defalte-encoded data.",
+            "description": "Deflate-encoded data.",
             "content": {}
           }
         }
@@ -548,7 +589,10 @@
             "name": "delay",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 3
           }
         ],
         "responses": {
@@ -568,7 +612,10 @@
             "name": "delay",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 3
           }
         ],
         "responses": {
@@ -588,7 +635,10 @@
             "name": "delay",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 3
           }
         ],
         "responses": {
@@ -608,7 +658,10 @@
             "name": "delay",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 3
           }
         ],
         "responses": {
@@ -628,7 +681,10 @@
             "name": "delay",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 3
           }
         ],
         "responses": {
@@ -681,7 +737,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "auth"
           },
           {
             "name": "user",
@@ -689,7 +746,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "user"
           },
           {
             "name": "passwd",
@@ -697,12 +755,13 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "password"
           }
         ],
         "responses": {
           "200": {
-            "description": "Sucessful authentication.",
+            "description": "Successful authentication.",
             "content": {}
           },
           "401": {
@@ -726,7 +785,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "auth"
           },
           {
             "name": "user",
@@ -734,7 +794,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "user"
           },
           {
             "name": "passwd",
@@ -742,7 +803,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "password"
           },
           {
             "name": "algorithm",
@@ -750,14 +812,14 @@
             "description": "MD5, SHA-256, SHA-512",
             "required": true,
             "schema": {
-              "type": "string",
-              "default": "MD5"
-            }
+              "type": "string"
+            },
+            "example": "MD5"
           }
         ],
         "responses": {
           "200": {
-            "description": "Sucessful authentication.",
+            "description": "Successful authentication.",
             "content": {}
           },
           "401": {
@@ -782,7 +844,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "auth"
           },
           {
             "name": "user",
@@ -790,7 +853,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "user"
           },
           {
             "name": "passwd",
@@ -798,7 +862,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "password"
           },
           {
             "name": "algorithm",
@@ -806,23 +871,23 @@
             "description": "MD5, SHA-256, SHA-512",
             "required": true,
             "schema": {
-              "type": "string",
-              "default": "MD5"
-            }
+              "type": "string"
+            },
+            "example": "MD5"
           },
           {
             "name": "stale_after",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "default": "never"
-            }
+              "type": "string"
+            },
+            "example": "never"
           }
         ],
         "responses": {
           "200": {
-            "description": "Sucessful authentication.",
+            "description": "Successful authentication.",
             "content": {}
           },
           "401": {
@@ -844,36 +909,36 @@
             "in": "query",
             "description": "The amount of time (in seconds) over which to drip each byte",
             "schema": {
-              "type": "number",
-              "default": 2
-            }
+              "type": "number"
+            },
+            "example": 2
           },
           {
             "name": "numbytes",
             "in": "query",
             "description": "The number of bytes to respond with",
             "schema": {
-              "type": "integer",
-              "default": 10
-            }
+              "type": "integer"
+            },
+            "example": 10
           },
           {
             "name": "code",
             "in": "query",
             "description": "The response code that will be returned",
             "schema": {
-              "type": "integer",
-              "default": 200
-            }
+              "type": "integer"
+            },
+            "example": 200
           },
           {
             "name": "delay",
             "in": "query",
             "description": "The amount of time (in seconds) to delay before responding",
             "schema": {
-              "type": "number",
-              "default": 2
-            }
+              "type": "number"
+            },
+            "example": 2
           }
         ],
         "responses": {
@@ -911,17 +976,24 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "01ab392a8f434b40880c5581b2db66bb"
           },
           {
             "name": "If-None-Match",
             "in": "header",
-            "schema": {}
+            "schema": {
+              "type": "string"
+            },
+            "example": ""
           },
           {
             "name": "If-Match",
             "in": "header",
-            "schema": {}
+            "schema": {
+              "type": "string"
+            },
+            "example": ""
           }
         ],
         "responses": {
@@ -991,7 +1063,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "user"
           },
           {
             "name": "passwd",
@@ -999,12 +1072,22 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "password"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "Basic dXNlcjpwYXNzd29yZA=="
           }
         ],
         "responses": {
           "200": {
-            "description": "Sucessful authentication.",
+            "description": "Successful authentication.",
             "content": {}
           },
           "404": {
@@ -1137,13 +1220,19 @@
             "name": "n",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 5
           },
           {
             "name": "offset",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 0
           }
         ],
         "responses": {
@@ -1207,7 +1296,10 @@
             "name": "numbytes",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 128
           }
         ],
         "responses": {
@@ -1231,98 +1323,18 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "https://example.com/"
           },
           {
             "name": "status_code",
             "in": "query",
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 302
           }
         ],
-        "responses": {
-          "302": {
-            "description": "A redirection.",
-            "content": {}
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Redirects"
-        ],
-        "summary": "302/3XX Redirects to the given URL.",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "required": [
-                  "url"
-                ],
-                "properties": {
-                  "url": {
-                    "type": "string"
-                  },
-                  "status_code": {}
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "302": {
-            "description": "A redirection.",
-            "content": {}
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Redirects"
-        ],
-        "summary": "302/3XX Redirects to the given URL.",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "required": [
-                  "url"
-                ],
-                "properties": {
-                  "url": {
-                    "type": "string"
-                  },
-                  "status_code": {}
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "302": {
-            "description": "A redirection.",
-            "content": {}
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Redirects"
-        ],
-        "summary": "302/3XX Redirects to the given URL.",
-        "responses": {
-          "302": {
-            "description": "A redirection.",
-            "content": {}
-          }
-        }
-      },
-      "patch": {
-        "tags": [
-          "Redirects"
-        ],
-        "summary": "302/3XX Redirects to the given URL.",
         "responses": {
           "302": {
             "description": "A redirection.",
@@ -1342,7 +1354,10 @@
             "name": "n",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 5
           }
         ],
         "responses": {
@@ -1364,7 +1379,10 @@
             "name": "n",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 5
           }
         ],
         "responses": {
@@ -1386,7 +1404,15 @@
             "name": "freeform",
             "in": "query",
             "allowEmptyValue": true,
-            "schema": {}
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "example": "{ \"X-Header1\": \"value1\", \"X-Header2\": \"value2\" }"
           }
         ],
         "responses": {
@@ -1406,7 +1432,15 @@
             "name": "freeform",
             "in": "query",
             "allowEmptyValue": true,
-            "schema": {}
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "example": "{ \"cookie1\": \"value1\", \"cookie2\": \"value2\" }"
           }
         ],
         "responses": {
@@ -1442,7 +1476,10 @@
             "name": "codes",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 200
           }
         ],
         "responses": {
@@ -1478,7 +1515,10 @@
             "name": "codes",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 200
           }
         ],
         "responses": {
@@ -1514,7 +1554,10 @@
             "name": "codes",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 200
           }
         ],
         "responses": {
@@ -1550,7 +1593,10 @@
             "name": "codes",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 200
           }
         ],
         "responses": {
@@ -1586,7 +1632,10 @@
             "name": "codes",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 200
           }
         ],
         "responses": {
@@ -1624,7 +1673,10 @@
             "name": "n",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 128
           }
         ],
         "responses": {
@@ -1646,7 +1698,10 @@
             "name": "n",
             "in": "path",
             "required": true,
-            "schema": {}
+            "schema": {
+              "type": "integer"
+            },
+            "example": 5
           }
         ],
         "responses": {
