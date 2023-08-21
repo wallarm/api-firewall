@@ -15,4 +15,4 @@
 vendor/
 .DS_Store
 .idea/
-dev/
+/dev/
