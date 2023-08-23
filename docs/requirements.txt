@@ -1,7 +1,7 @@
-mkdocs==1.4.3
-mkdocs-material==9.1.12
-pymdown-extensions==10.0
-pygments==2.14.0
+mkdocs==1.5.2
+mkdocs-material==9.1.21
+pymdown-extensions==10.1
+pygments==2.16.1
 mkdocs-minify-plugin==0.3.0
 prependnewline==1.2
 mkdocs-meta-descriptions-plugin==1.0.2
