@@ -94,7 +94,7 @@ func (f *FastHTTPWebSocketConn) SendError(messageType int, msgID string, request
 
 func (f *FastHTTPWebSocketConn) SendComplete(messageType int, id string) error {
 
-	completeMsg := []byte(fmt.Sprintf("{\"id\":\"%s\",\"type\":\"complete\"}", id))
+	completeMsg := []byte(fmt.Sprintf("{\"id\":%q,\"type\":\"complete\"}", id))
 	if err := f.WriteMessage(messageType, completeMsg); err != nil {
 		return err
 	}

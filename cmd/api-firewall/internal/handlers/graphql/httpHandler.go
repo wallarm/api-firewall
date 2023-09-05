@@ -79,7 +79,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 		return nil
 	}
 
-	gqlRequest, err := validator.ParseGraphQLRequest(ctx, h.schema)
+	gqlRequest, err := validator.ParseGraphQLRequest(ctx)
 	if err != nil {
 		h.logger.WithFields(logrus.Fields{
 			"error":      err,

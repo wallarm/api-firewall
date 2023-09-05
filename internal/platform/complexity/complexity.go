@@ -9,7 +9,6 @@ import (
 
 // ValidateQuery performs the query complexity checks
 func ValidateQuery(cfg *config.GraphQL, s *graphql.Schema, r *graphql.Request) graphql.RequestErrors {
-
 	result, err := r.CalculateComplexity(graphql.DefaultComplexityCalculator, s)
 	if err != nil {
 		return graphql.RequestErrorsFromError(err)

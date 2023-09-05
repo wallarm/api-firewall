@@ -3,17 +3,16 @@ package mid
 import (
 	"fmt"
 
-	"golang.org/x/exp/slices"
-
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"golang.org/x/exp/slices"
 )
 
 // ShadowAPIMonitor check each request for the params, methods or paths that are not specified
 // in the OpenAPI specification and log each violation
-func ShadowAPIMonitor(logger *logrus.Logger, config *config.ShadowAPI) web.Middleware {
+func ShadowAPIMonitor(logger *logrus.Logger, cfg *config.ShadowAPI) web.Middleware {
 
 	// This is the actual middleware function to be executed.
 	m := func(before web.Handler) web.Handler {
@@ -48,7 +47,7 @@ func ShadowAPIMonitor(logger *logrus.Logger, config *config.ShadowAPI) web.Middl
 
 			// check response status code
 			statusCode := ctx.Response.StatusCode()
-			idx := slices.IndexFunc(config.ExcludeList, func(c int) bool { return c == statusCode })
+			idx := slices.IndexFunc(cfg.ExcludeList, func(c int) bool { return c == statusCode })
 			// if response status code not found in the OpenAPI spec AND the code not in the exclude list
 			if isProxyStatusCodeNotFound && idx < 0 {
 				logger.WithFields(logrus.Fields{

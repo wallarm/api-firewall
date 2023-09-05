@@ -18,7 +18,6 @@ import (
 )
 
 var (
-	errFactoryNotHelp         = errors.New("factory is not able to fill the pool")
 	errInvalidCapacitySetting = errors.New("invalid capacity settings")
 	errClosed                 = errors.New("err: chan closed")
 )
@@ -27,9 +26,9 @@ type HTTPClient interface {
 	Do(req *fasthttp.Request, resp *fasthttp.Response) error
 }
 
-func factory(hostAddr string, options *Options, tlsConfig *tls.Config) (HTTPClient, error) {
+func factory(hostAddr string, options *Options, tlsConfig *tls.Config) HTTPClient {
 
-	var proxyClient = &fasthttp.Client{
+	proxyClient := fasthttp.Client{
 		Dial: func(addr string) (net.Conn, error) {
 			return fasthttp.DialTimeout(hostAddr, options.DialTimeout)
 		},
@@ -38,7 +37,7 @@ func factory(hostAddr string, options *Options, tlsConfig *tls.Config) (HTTPClie
 		ReadTimeout:     options.ReadTimeout,
 		WriteTimeout:    options.WriteTimeout,
 	}
-	return proxyClient, nil
+	return &proxyClient
 }
 
 type Pool interface {
@@ -99,7 +98,6 @@ func NewChanPool(hostAddr string, options *Options) (Pool, error) {
 	}
 
 	if options.RootCA != "" {
-
 		// Read in the cert file
 		certs, err := os.ReadFile(options.RootCA)
 		if err != nil {
@@ -129,10 +127,7 @@ func NewChanPool(hostAddr string, options *Options) (Pool, error) {
 	// create initial connections, if something goes wrong,
 	// just close the pool error out.
 	for i := 0; i < options.InitialPoolCapacity; i++ {
-		proxy, err := factory(hostAddr, options, tlsConfig)
-		if err != nil {
-			return nil, errFactoryNotHelp
-		}
+		proxy := factory(hostAddr, options, tlsConfig)
 		pool.reverseProxyChan <- proxy
 	}
 
@@ -164,7 +159,6 @@ func (p *chanPool) Close() {
 // Get a *ReverseProxy from pool, it will get an error while
 // reverseProxyChan is nil or pool has been closed
 func (p *chanPool) Get() (HTTPClient, error) {
-
 	if p.reverseProxyChan == nil {
 		return nil, errClosed
 	}
@@ -178,10 +172,7 @@ func (p *chanPool) Get() (HTTPClient, error) {
 		}
 		return proxy, nil
 	default:
-		proxy, err := factory(p.host, p.options, p.tlsConfig)
-		if err != nil {
-			return nil, err
-		}
+		proxy := factory(p.host, p.options, p.tlsConfig)
 		return proxy, nil
 	}
 }

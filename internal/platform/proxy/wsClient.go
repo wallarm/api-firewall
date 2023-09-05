@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/fasthttp/websocket"
 	"github.com/pkg/errors"
 	"github.com/savsgio/gotils/strconv"
+	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 )
 
@@ -43,7 +43,7 @@ type FastHTTPWebSocketClient struct {
 }
 
 var bufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return new(bytes.Buffer)
 	},
 }
@@ -99,7 +99,6 @@ func NewWSClient(logger *logrus.Logger, options *WSClientOptions) (WebSocketClie
 	}
 
 	if options.RootCA != "" {
-
 		// read in the cert file
 		certs, err := os.ReadFile(options.RootCA)
 		if err != nil {
@@ -137,7 +136,7 @@ func (f *FastHTTPWebSocketClient) GetConn(ctx *fasthttp.RequestCtx) (*FastHTTPWe
 	}
 
 	// copy response from ws to client response
-	if err = wsCopyResponse(&ctx.Response, backendResp); err != nil {
+	if err := wsCopyResponse(&ctx.Response, backendResp); err != nil {
 		return nil, err
 	}
 

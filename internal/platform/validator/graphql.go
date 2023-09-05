@@ -19,7 +19,7 @@ import (
 )
 
 var bufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return new(bytes.Buffer)
 	},
 }
@@ -85,7 +85,7 @@ func ValidateGraphQLRequest(cfg *config.GraphQL, schema *graphql.Schema, r *grap
 }
 
 // ParseGraphQLRequest function parses the GraphQL request
-func ParseGraphQLRequest(ctx *fasthttp.RequestCtx, schema *graphql.Schema) (*graphql.Request, error) {
+func ParseGraphQLRequest(ctx *fasthttp.RequestCtx) (*graphql.Request, error) {
 
 	gqlRequest := new(graphql.Request)
 
@@ -101,7 +101,7 @@ func ParseGraphQLRequest(ctx *fasthttp.RequestCtx, schema *graphql.Schema) (*gra
 	case fasthttp.MethodGet:
 
 		// build json query
-		query.Write([]byte("{\"query\":"))
+		query.WriteString("{\"query\":")
 		// unescape the query string and encode JSON special chars
 		queryArgQuery, err := url.QueryUnescape(strconv.B2S(ctx.Request.URI().QueryArgs().Peek("query")))
 		if err != nil {
@@ -111,9 +111,9 @@ func ParseGraphQLRequest(ctx *fasthttp.RequestCtx, schema *graphql.Schema) (*gra
 		if err != nil {
 			return nil, err
 		}
-		query.Write([]byte(",\"operationName\":\""))
+		query.WriteString(",\"operationName\":\"")
 		query.Write(ctx.Request.URI().QueryArgs().Peek("operationName"))
-		query.Write([]byte("\"}"))
+		query.WriteString("\"}")
 
 	case fasthttp.MethodPost:
 		query = bytes.NewBuffer(ctx.Request.Body())

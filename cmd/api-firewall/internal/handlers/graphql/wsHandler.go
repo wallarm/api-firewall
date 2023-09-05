@@ -139,7 +139,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 					}
 
 					msgType := string(msg.Get("type").GetStringBytes())
-					msgId := string(msg.Get("id").GetStringBytes())
+					msgID := string(msg.Get("id").GetStringBytes())
 
 					// skip message types that do not contain payload
 					if msgType != "subscribe" && msgType != "start" {
@@ -174,7 +174,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 
 						// block request and respond by error in BLOCK mode
 						if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
-							if err := clientConn.SendError(messageType, msgId, errors.New("invalid graphql request")); err != nil {
+							if err := clientConn.SendError(messageType, msgID, errors.New("invalid graphql request")); err != nil {
 								h.logger.WithFields(logrus.Fields{
 									"error":      err,
 									"protocol":   "websocket",
@@ -182,7 +182,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 								}).Debug("write to client")
 							}
 
-							if err := clientConn.SendComplete(messageType, msgId); err != nil {
+							if err := clientConn.SendComplete(messageType, msgID); err != nil {
 								h.logger.WithFields(logrus.Fields{
 									"error":      err,
 									"protocol":   "websocket",
@@ -192,7 +192,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 
 							continue
 						}
-						// send request to the backend server
+						// send request to the backend server (LOG_ONLY mode)
 						if err := backendWSConnect.WriteMessage(messageType, p); err != nil {
 							h.logger.WithFields(logrus.Fields{
 								"error":      err,
@@ -208,77 +208,75 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 					// validate request
 					// send error and complete messages to the client in case of the APIFW can't validate the request
 					// and do not proxy request to the backend
-					if request != nil {
-						validationResult, err := validator.ValidateGraphQLRequest(&h.cfg.Graphql, h.schema, request)
-						if err != nil {
-							h.logger.WithFields(logrus.Fields{
-								"error":      err,
-								"protocol":   "websocket",
-								"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-							}).Error("GraphQL query validation")
+					validationResult, err := validator.ValidateGraphQLRequest(&h.cfg.Graphql, h.schema, request)
+					if err != nil {
+						h.logger.WithFields(logrus.Fields{
+							"error":      err,
+							"protocol":   "websocket",
+							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+						}).Error("GraphQL query validation")
 
-							// block request and respond by error in BLOCK mode
-							if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
+						// block request and respond by error in BLOCK mode
+						if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
 
-								if err := clientConn.SendError(messageType, msgId, errors.New("invalid graphql request")); err != nil {
-									h.logger.WithFields(logrus.Fields{
-										"error":      err,
-										"protocol":   "websocket",
-										"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-									}).Debug("write to client")
-								}
-
-								if err := clientConn.SendComplete(messageType, msgId); err != nil {
-									h.logger.WithFields(logrus.Fields{
-										"error":      err,
-										"protocol":   "websocket",
-										"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-									}).Debug("write to client")
-								}
-								continue
-							}
-							// send request to the backend server
-							if err := backendWSConnect.WriteMessage(messageType, p); err != nil {
+							if err := clientConn.SendError(messageType, msgID, errors.New("invalid graphql request")); err != nil {
 								h.logger.WithFields(logrus.Fields{
 									"error":      err,
 									"protocol":   "websocket",
 									"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-								}).Debug("write to backend")
-
-								close(errClient)
-								return
+								}).Debug("write to client")
 							}
-						}
 
-						// send error and complete messages to the client in case of the validation has been failed
-						// and do not proxy request to the backend
-						if !validationResult.Valid {
+							if err := clientConn.SendComplete(messageType, msgID); err != nil {
+								h.logger.WithFields(logrus.Fields{
+									"error":      err,
+									"protocol":   "websocket",
+									"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+								}).Debug("write to client")
+							}
+							continue
+						}
+						// send request to the backend server
+						if err := backendWSConnect.WriteMessage(messageType, p); err != nil {
 							h.logger.WithFields(logrus.Fields{
-								"error":      validationResult.Errors,
+								"error":      err,
 								"protocol":   "websocket",
 								"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-							}).Error("GraphQL query validation")
+							}).Debug("write to backend")
 
-							// block request and respond by error in BLOCK mode
-							if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
+							close(errClient)
+							return
+						}
+					}
 
-								if err := clientConn.SendError(messageType, msgId, validationResult.Errors); err != nil {
-									h.logger.WithFields(logrus.Fields{
-										"error":      err,
-										"protocol":   "websocket",
-										"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-									}).Debug("write to client")
-								}
+					// send error and complete messages to the client in case of the validation has been failed
+					// and do not proxy request to the backend
+					if !validationResult.Valid {
+						h.logger.WithFields(logrus.Fields{
+							"error":      validationResult.Errors,
+							"protocol":   "websocket",
+							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+						}).Error("GraphQL query validation")
 
-								if err := clientConn.SendComplete(messageType, msgId); err != nil {
-									h.logger.WithFields(logrus.Fields{
-										"error":      err,
-										"protocol":   "websocket",
-										"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-									}).Debug("write to client")
-								}
-								continue
+						// block request and respond by error in BLOCK mode
+						if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
+
+							if err := clientConn.SendError(messageType, msgID, validationResult.Errors); err != nil {
+								h.logger.WithFields(logrus.Fields{
+									"error":      err,
+									"protocol":   "websocket",
+									"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+								}).Debug("write to client")
 							}
+
+							if err := clientConn.SendComplete(messageType, msgID); err != nil {
+								h.logger.WithFields(logrus.Fields{
+									"error":      err,
+									"protocol":   "websocket",
+									"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+								}).Debug("write to client")
+							}
+							continue
 						}
 					}
 

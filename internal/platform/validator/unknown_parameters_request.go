@@ -3,12 +3,12 @@ package validator
 import (
 	"bytes"
 	"encoding/csv"
-	"github.com/getkin/kin-openapi/routers"
 	"io"
 	"net/http"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers"
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
@@ -19,9 +19,6 @@ var ErrUnknownQueryParameter = errors.New("query parameter not defined in the Op
 
 // ErrUnknownBodyParameter is returned when a body parameter not defined in the OpenAPI specification.
 var ErrUnknownBodyParameter = errors.New("body parameter not defined in the OpenAPI specification")
-
-// ErrUnknownContentType is returned when the API FW can't parse the request body
-var ErrUnknownContentType = errors.New("unknown content type of the request body")
 
 // ErrDecodingFailed is returned when the API FW got error or unexpected value from the decoder
 var ErrDecodingFailed = errors.New("the decoder returned the error")

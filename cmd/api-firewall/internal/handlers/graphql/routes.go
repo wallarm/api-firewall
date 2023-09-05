@@ -32,7 +32,7 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 		Mode:                 web.GraphQLMode,
 		RequestValidation:    cfg.Graphql.RequestValidation,
 		DeleteAcceptEncoding: cfg.Server.DeleteAcceptEncoding,
-		ServerUrl:            serverURL,
+		ServerURL:            serverURL,
 	}
 
 	denylistOptions := mid.DenylistOptions{

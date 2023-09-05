@@ -21,7 +21,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
+func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -76,7 +76,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		Mode:                 web.ProxyMode,
 		RequestValidation:    cfg.RequestValidation,
 		DeleteAcceptEncoding: cfg.Server.DeleteAcceptEncoding,
-		ServerUrl:            serverURL,
+		ServerURL:            serverURL,
 	}
 
 	denylistOptions := mid.DenylistOptions{
@@ -91,7 +91,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 	for i := 0; i < len(swagRouter.Routes); i++ {
 		s := openapiWaf{
 			customRoute:    &swagRouter.Routes[i],
-			proxyPool:      proxy,
+			proxyPool:      httpClientsPool,
 			logger:         logger,
 			cfg:            cfg,
 			parserPool:     &parserPool,
@@ -107,7 +107,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 	// set handler for default behavior (404, 405)
 	s := openapiWaf{
 		customRoute: nil,
-		proxyPool:   proxy,
+		proxyPool:   httpClientsPool,
 		logger:      logger,
 		cfg:         cfg,
 		parserPool:  &parserPool,
