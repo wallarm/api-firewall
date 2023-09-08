@@ -1,0 +1,31 @@
+name: 'Publish Documentation'
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+
+permissions:
+  contents: write
+
+jobs:
+  deploy_documentation:
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+      - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV
+
+      - uses: actions/cache@v3
+        with:
+          key: mkdocs-material-${{ env.cache_id }}
+          path: .cache
+          restore-keys: |
+            mkdocs-material-
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r docs/requirements.txt
+      - run: mkdocs gh-deploy --force
