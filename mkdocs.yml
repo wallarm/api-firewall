@@ -77,7 +77,7 @@ markdown_extensions:
   - meta
 
 nav:
-  - Overview: index-2.md
+  - Overview: index.md
   - Changelog: release-notes.md
   - REST API:
     - Running API Firewall: installation-guides/docker-container.md

@@ -43,8 +43,8 @@ This page describes new releases of Wallarm API Firewall.
 ### New features
 
 * Ability to specify the URL address of the OpenAPI 3.0 specification instead of mounting the specification file into the Docker container (via the environment variable [`APIFW_API_SPECS`](installation-guides/docker-container.md#apifw-api-specs)).
-* Ability to use the custom `Content-Type` header when sending requests to the token introspection service (via the environment variable [`APIFW_SERVER_OAUTH_INTROSPECTION_CONTENT_TYPE`](installation-guides/docker-container.md#apifw-server-oauth-introspection-content-type)).
-* [Support for the authentication token denylists](installation-guides/docker-container.md#blocking-requests-with-compromised-authentication-tokens).
+* Ability to use the custom `Content-Type` header when sending requests to the token introspection service (via the environment variable [`APIFW_SERVER_OAUTH_INTROSPECTION_CONTENT_TYPE`](configuration-guides/validate-tokens.md)).
+* [Support for the authentication token denylists](configuration-guides/denylist-leaked-tokens.md).
 
 ## v0.6.7 (2022-01-25)
 
@@ -57,8 +57,8 @@ Wallarm API Firewall is now open source. There are the following related changes
 
 ### New features
 
-* Support for [OAuth 2.0 token validation](installation-guides/docker-container.md#validation-of-request-authentication-tokens).
-* [Connection](installation-guides/docker-container.md#protected-application-ssltls-settings) to the servers signed with the custom CA certificates and support for insecure connection flag.
+* Support for [OAuth 2.0 token validation](configuration-guides/validate-tokens.md).
+* [Connection](configuration-guides/ssl-tls.md) to the servers signed with the custom CA certificates and support for insecure connection flag.
 
 ### Bug fixes
 
