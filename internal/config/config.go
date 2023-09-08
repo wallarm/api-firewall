@@ -129,12 +129,12 @@ type ShadowAPI struct {
 }
 
 type GraphQL struct {
-	MaxQueryComplexity int      `conf:"default:0"`
-	MaxQueryDepth      int      `conf:"default:0"`
-	NodeCountLimit     int      `conf:"default:0"`
+	MaxQueryComplexity int      `conf:"required" validate:"required"`
+	MaxQueryDepth      int      `conf:"required" validate:"required"`
+	NodeCountLimit     int      `conf:"required" validate:"required"`
 	Playground         bool     `conf:"default:false"`
 	PlaygroundPath     string   `conf:"default:/" validate:"path"`
-	Introspection      bool     `conf:"default:false"`
+	Introspection      bool     `conf:"required" validate:"required"`
 	Schema             string   `conf:"required" validate:"required"`
 	WSCheckOrigin      bool     `conf:"default:false"`
 	WSOrigin           []string `conf:"" validate:"url"`
