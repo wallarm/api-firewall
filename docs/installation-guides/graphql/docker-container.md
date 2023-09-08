@@ -29,7 +29,7 @@ networks:
 services:
   api-firewall:
     container_name: api-firewall
-    image: wallarm/api-firewall:v0.6.12
+    image: wallarm/api-firewall:v0.6.13
     restart: on-failure
     volumes:
       - <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC>
@@ -39,6 +39,10 @@ services:
       APIFW_URL: <API_FIREWALL_URL>
       APIFW_SERVER_URL: <PROTECTED_APP_URL>
       APIFW_GRAPHQL_REQUEST_VALIDATION: <REQUEST_VALIDATION_MODE>
+      APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY: <MAX_QUERY_COMPLEXITY>
+      APIFW_GRAPHQL_MAX_QUERY_DEPTH: <MAX_QUERY_DEPTH>
+      APIFW_GRAPHQL_NODE_COUNT_LIMIT: <NODE_COUNT_LIMIT>
+      APIFW_GRAPHQL_INTROSPECTION: <ALLOW_INTROSPECTION_OR_NOT>
     ports:
       - "8088:8088"
     stop_grace_period: 1s
@@ -89,11 +93,11 @@ Pass API Firewall configuration in **docker-compose.yml** → `services.api-fire
 | `APIFW_URL` | URL for API Firewall. For example: `http://0.0.0.0:8088/`. The port value should correspond to the container port published to the host.<br><br>If API Firewall listens to the HTTPS protocol, please mount the generated SSL/TLS certificate and private key to the container, and pass to the container the **API Firewall SSL/TLS settings** described below. | Yes |
 | `APIFW_SERVER_URL` | URL of the application described in the mounted specification that should be protected with API Firewall. For example: `http://backend:80`. | Yes |
 | <a name="apifw-graphql-request-validation"></a>`APIFW_GRAPHQL_REQUEST_VALIDATION` | API Firewall mode when validating requests sent to the application URL:<ul><li>`BLOCK` blocks and logs requests not matching the mounted GraphQL schema, returning a `403 Forbidden`. Logs are sent to the [`STDOUT` and `STDERR` Docker services](https://docs.docker.com/config/containers/logging/).</li><li>`LOG_ONLY` logs (but does not block) mismatched requests.</li><li>`DISABLE` turns off request validation.</li></ul>This variable impacts all other parameters, except [`APIFW_GRAPHQL_WS_CHECK_ORIGIN`](websocket-origin-check.md). For instance, if `APIFW_GRAPHQL_INTROSPECTION` is `false` and the mode is `LOG_ONLY`, introspection requests reach the backend server, but API Firewall generates a corresponding error log. | Yes |
+| `APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY` | [Defines](limit-compliance.md) the maximum number of Node requests that might be needed to execute the query. Setting it to `0` disables the complexity check. The default value is `0`. | Yes |
+| `APIFW_GRAPHQL_MAX_QUERY_DEPTH` | [Specifies](limit-compliance.md) the maximum permitted depth of a GraphQL query. A value of `0` means the query depth check is skipped. | Yes |
+| `APIFW_GRAPHQL_NODE_COUNT_LIMIT` | [Sets](limit-compliance.md) the upper limit for the node count in a query. When set to `0`, the node count limit check is skipped. | Yes |
+| <a name="apifw-graphql-introspection"></a>`APIFW_GRAPHQL_INTROSPECTION` | Allows introspection queries, which disclose the layout of your GraphQL schema. When set to `true`, these queries are permitted. | Yes |
 | `APIFW_LOG_LEVEL` | API Firewall logging level. Possible values:<ul><li>`DEBUG` to log events of any type (INFO, ERROR, WARNING, and DEBUG).</li><li>`INFO` to log events of the INFO, WARNING, and ERROR types.</li><li>`WARNING` to log events of the WARNING and ERROR types.</li><li>`ERROR` to log events of only the ERROR type.</li><li>`TRACE` to log incoming requests and API Firewall responses, including their content.</li></ul> The default value is `DEBUG`. Logs on requests and responses that do not match the provided schema have the ERROR type. | No |
-| `APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY` | [Defines](limit-compliance.md) the maximum number of Node requests that might be needed to execute the query. Setting it to `0` disables the complexity check. The default value is `0`. | No |
-| `APIFW_GRAPHQL_MAX_QUERY_DEPTH` | [Specifies](limit-compliance.md) the maximum permitted depth of a GraphQL query. A value of `0` means the query depth check is skipped. The default value is `0`.  | No |
-| `APIFW_GRAPHQL_NODE_COUNT_LIMIT` | [Sets](limit-compliance.md) the upper limit for the node count in a query. When set to `0`, the node count limit check is skipped. The default value is `0`. | No |
-| `APIFW_GRAPHQL_INTROSPECTION` | Allows introspection queries, which disclose the layout of your GraphQL schema. By default (`false`), the API Firewall prevents such queries. When set to `true`, these queries are permitted. | No |
 | `APIFW_SERVER_DELETE_ACCEPT_ENCODING` | If it is set to `true`, the `Accept-Encoding` header is deleted from proxied requests. The default value is `false`. | No |
 | `APIFW_LOG_FORMAT` | The format of API Firewall logs. The value can be `TEXT` or `JSON`. The default value is `TEXT`. | No |
 
@@ -116,6 +120,8 @@ docker-compose logs -f
 ## Step 6. Test API Firewall operation
 
 To test API Firewall operation, send the request that does not match the mounted GraphQL specification to the API Firewall Docker container address.
+
+With `APIFW_GRAPHQL_REQUEST_VALIDATION` set to `BLOCK`, the firewall works as follows:
 
 * If the API Firewall allows the request, it proxies the request to the backend server. 
 * If the API Firewall cannot parse the request, it responds with the GraphQL error with a 500 status code.
@@ -173,6 +179,9 @@ To start API Firewall on Docker, you can also use regular Docker commands as in 
         -v <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC> -e APIFW_MODE=graphql \
         -e APIFW_GRAPHQL_SCHEMA=<PATH_TO_MOUNTED_SPEC> -e APIFW_URL=<API_FIREWALL_URL> \
         -e APIFW_SERVER_URL=<PROTECTED_APP_URL> -e APIFW_GRAPHQL_REQUEST_VALIDATION=<REQUEST_VALIDATION_MODE> \
-        -p 8088:8088 wallarm/api-firewall:v0.6.12
+        -e APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY=<MAX_QUERY_COMPLEXITY> \
+        -e APIFW_GRAPHQL_MAX_QUERY_DEPTH=<MAX_QUERY_DEPTH> -e APIFW_GRAPHQL_NODE_COUNT_LIMIT=<NODE_COUNT_LIMIT> \
+        -e APIFW_GRAPHQL_INTROSPECTION=<ALLOW_INTROSPECTION_OR_NOT> \
+        -p 8088:8088 wallarm/api-firewall:v0.6.13
     ```
 4. When the environment is started, test it and enable traffic on API Firewall following steps 6 and 7.

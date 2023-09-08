@@ -2,13 +2,13 @@
 
 You can configure the API Firewall to validate incoming GraphQL queries against predefined query constraints. By adhering to these limits, you can shield your GraphQL API from malicious queries, including potential DoS attacks. This guide explains how the firewall calculates query attributes like node requests, query depth, and complexity before aligning them with your set parameters.
 
-When [running](docker-container.md) the API Firewall Docker container for a GraphQL API, you set limits using the following optional environment variables:
+When [running](docker-container.md) the API Firewall Docker container for a GraphQL API, you set limits using the following environment variables:
 
 | Environment variable | Description |
 | -------------------- | ----------- |
-| `APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY` | Defines the maximum number of Node requests that might be needed to execute the query. Setting it to `0` disables the complexity check. The default value is `0`. |
-| `APIFW_GRAPHQL_MAX_QUERY_DEPTH` | Specifies the maximum permitted depth of a GraphQL query. A value of `0` means the query depth check is skipped. The default value is `0`.  |
-| `APIFW_GRAPHQL_NODE_COUNT_LIMIT` | Sets the upper limit for the node count in a query. When set to `0`, the node count limit check is skipped. The default value is `0`. | 
+| `APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY` | Defines the maximum number of Node requests that might be needed to execute the query. Setting it to `0` disables the complexity check. |
+| `APIFW_GRAPHQL_MAX_QUERY_DEPTH` | Specifies the maximum permitted depth of a GraphQL query. A value of `0` means the query depth check is skipped. |
+| `APIFW_GRAPHQL_NODE_COUNT_LIMIT` | Sets the upper limit for the node count in a query. When set to `0`, the node count limit check is skipped. | 
 
 ## How limit calculation works
 

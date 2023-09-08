@@ -7,6 +7,6 @@ By default, the WebSocket Origin validation feature is disabled. To activate it,
 | Environment variable | Description |
 | -------------------- | ----------- |
 | `APIFW_GRAPHQL_WS_CHECK_ORIGIN` | Enables the validation of the `Origin` header during the WebSocket upgrade phase. Default: `false`. |
-| `APIFW_GRAPHQL_WS_ORIGIN` (required if `APIFW_GRAPHQL_WS_CHECK_ORIGIN` is `true`) | The list of allowed origins for WebSocket connections. Origins are separated by `;`. Default value is `""`. |
+| `APIFW_GRAPHQL_WS_ORIGIN` (required if `APIFW_GRAPHQL_WS_CHECK_ORIGIN` is `true`) | The list of allowed origins for WebSocket connections. Origins are separated by `;`. |
 
 The `APIFW_GRAPHQL_WS_CHECK_ORIGIN` operates independently of [`APIFW_GRAPHQL_REQUEST_VALIDATION`](docker-container.md#apifw-graphql-request-validation). WebSocket requests with incorrect `Origin` headers will be blocked regardless of the request validation mode.
