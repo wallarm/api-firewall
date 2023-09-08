@@ -68,7 +68,7 @@ type APIMode struct {
 	CustomRoute   *router.CustomRoute
 	OpenAPIRouter *router.Router
 	Log           *logrus.Logger
-	Cfg           *config.APIFWConfigurationAPIMode
+	Cfg           *config.APIMode
 	ParserPool    *fastjson.ParserPool
 }
 

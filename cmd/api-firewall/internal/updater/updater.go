@@ -25,7 +25,7 @@ type Specification struct {
 	sqlLiteStorage database.DBOpenAPILoader
 	stop           chan struct{}
 	updateTime     time.Duration
-	cfg            *config.APIFWConfigurationAPIMode
+	cfg            *config.APIMode
 	api            *fasthttp.Server
 	shutdown       chan os.Signal
 	health         *handlersAPI.Health
@@ -33,7 +33,7 @@ type Specification struct {
 }
 
 // NewController function defines configuration updater controller
-func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIFWConfigurationAPIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health) Updater {
+func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health) Updater {
 	return &Specification{
 		logger:         logger,
 		sqlLiteStorage: sqlLiteStorage,
@@ -56,32 +56,37 @@ func getSchemaVersions(dbSpecs database.DBOpenAPILoader) map[int]string {
 	return result
 }
 
+// Run function performs update of the specification
+func (s *Specification) Run() {
+	updateTicker := time.NewTicker(s.updateTime)
+	for {
+		select {
+		case <-updateTicker.C:
+			beforeUpdateSpecs := getSchemaVersions(s.sqlLiteStorage)
+			if err := s.Update(); err != nil {
+				s.logger.WithFields(logrus.Fields{"error": err}).Error("updating OpenAPI specification")
+				continue
+			}
+			afterUpdateSpecs := getSchemaVersions(s.sqlLiteStorage)
+			if !reflect.DeepEqual(beforeUpdateSpecs, afterUpdateSpecs) {
+				s.logger.Debugf("OpenAPI specifications has been updated. Loaded OpenAPI specification versions: %v", afterUpdateSpecs)
+				s.lock.Lock()
+				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage)
+				s.health.OpenAPIDB = s.sqlLiteStorage
+				s.lock.Unlock()
+				continue
+			}
+			s.logger.Debugf("regular update checker: new OpenAPI specifications not found")
+		case <-s.stop:
+			updateTicker.Stop()
+			return
+		}
+	}
+}
+
 // Start function starts update process every ConfigurationUpdatePeriod
 func (s *Specification) Start() error {
-
-	go func() {
-		updateTicker := time.NewTicker(s.updateTime)
-		for {
-			select {
-			case <-updateTicker.C:
-				beforeUpdateSpecs := getSchemaVersions(s.sqlLiteStorage)
-				if err := s.Update(); err != nil {
-					s.logger.WithFields(logrus.Fields{"error": err}).Error("updating OpenAPI specification")
-					continue
-				}
-				afterUpdateSpecs := getSchemaVersions(s.sqlLiteStorage)
-				if !reflect.DeepEqual(beforeUpdateSpecs, afterUpdateSpecs) {
-					s.logger.Debugf("OpenAPI specifications has been updated. Loaded OpenAPI specification versions: %v", afterUpdateSpecs)
-					s.lock.Lock()
-					s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage)
-					s.health.OpenAPIDB = s.sqlLiteStorage
-					s.lock.Unlock()
-					continue
-				}
-				s.logger.Debugf("regular update checker: new OpenAPI specifications not found")
-			}
-		}
-	}()
+	go s.Run()
 
 	<-s.stop
 	return nil
@@ -90,7 +95,12 @@ func (s *Specification) Start() error {
 // Shutdown function stops update process
 func (s *Specification) Shutdown() error {
 	defer s.logger.Infof("specification updater: stopped")
-	s.stop <- struct{}{}
+
+	// close worker and finish Start function
+	for i := 0; i < 2; i++ {
+		s.stop <- struct{}{}
+	}
+
 	return nil
 }
 

@@ -21,7 +21,7 @@ const (
 	DefaultSchemaID = 1
 )
 
-var cfg = config.APIFWConfigurationAPIMode{
+var cfg = config.APIMode{
 	APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
 	SpecificationUpdatePeriod:  2 * time.Second,
 	PathToSpecDB:               "./wallarm_api_after_update.db",

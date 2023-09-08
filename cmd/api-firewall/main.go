@@ -19,6 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
+	handlersGQL "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
 	handlersProxy "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/updater"
 	"github.com/wallarm/api-firewall/internal/config"
@@ -27,6 +28,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 )
 
 var build = "develop"
@@ -35,6 +37,12 @@ const (
 	namespace   = "apifw"
 	logPrefix   = "main"
 	projectName = "Wallarm API-Firewall"
+)
+
+const (
+	initialPoolCapacity = 100
+	livenessEndpoint    = "/v1/liveness"
+	readinessEndpoint   = "/v1/readiness"
 )
 
 func main() {
@@ -65,6 +73,11 @@ func main() {
 			logger.Infof("%s: error: %s", logPrefix, err)
 			os.Exit(1)
 		}
+	case web.GraphQLMode:
+		if err := runGraphQLMode(logger); err != nil {
+			logger.Infof("%s: error: %s", logPrefix, err)
+			os.Exit(1)
+		}
 	default:
 		if err := runProxyMode(logger); err != nil {
 			logger.Infof("%s: error: %s", logPrefix, err)
@@ -79,7 +92,7 @@ func runAPIMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Configuration
 
-	var cfg config.APIFWConfigurationAPIMode
+	var cfg config.APIMode
 	cfg.Version.SVN = build
 	cfg.Version.Desc = projectName
 
@@ -106,7 +119,7 @@ func runAPIMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Logger
 
-	if strings.ToLower(cfg.LogFormat) == "json" {
+	if strings.EqualFold(cfg.LogFormat, "json") {
 		logger.SetFormatter(&logrus.JSONFormatter{})
 	}
 
@@ -173,11 +186,11 @@ func runAPIMode(logger *logrus.Logger) error {
 	// health service handler
 	healthHandler := func(ctx *fasthttp.RequestCtx) {
 		switch string(ctx.Path()) {
-		case "/v1/liveness":
+		case livenessEndpoint:
 			if err := healthData.Liveness(ctx); err != nil {
 				healthData.Logger.Errorf("%s: liveness: %s", logPrefix, err.Error())
 			}
-		case "/v1/readiness":
+		case readinessEndpoint:
 			if err := healthData.Readiness(ctx); err != nil {
 				healthData.Logger.Errorf("%s: readiness: %s", logPrefix, err.Error())
 			}
@@ -186,7 +199,7 @@ func runAPIMode(logger *logrus.Logger) error {
 		}
 	}
 
-	healthApi := fasthttp.Server{
+	healthAPI := fasthttp.Server{
 		Handler:               healthHandler,
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
@@ -197,7 +210,7 @@ func runAPIMode(logger *logrus.Logger) error {
 	// Start the service listening for requests.
 	go func() {
 		logger.Infof("%s: Health API listening on %s", logPrefix, cfg.HealthAPIHost)
-		serverErrors <- healthApi.ListenAndServe(cfg.HealthAPIHost)
+		serverErrors <- healthAPI.ListenAndServe(cfg.HealthAPIHost)
 	}()
 
 	// =========================================================================
@@ -285,12 +298,298 @@ func runAPIMode(logger *logrus.Logger) error {
 
 }
 
+func runGraphQLMode(logger *logrus.Logger) error {
+
+	// =========================================================================
+	// Configuration
+
+	var cfg config.GraphQLMode
+	cfg.Version.SVN = build
+	cfg.Version.Desc = projectName
+
+	if err := conf.Parse(os.Args[1:], namespace, &cfg); err != nil {
+		switch err {
+		case conf.ErrHelpWanted:
+			usage, err := conf.Usage(namespace, &cfg)
+			if err != nil {
+				return errors.Wrap(err, "generating config usage")
+			}
+			fmt.Println(usage)
+			return nil
+		case conf.ErrVersionWanted:
+			version, err := conf.VersionString(namespace, &cfg)
+			if err != nil {
+				return errors.Wrap(err, "generating config version")
+			}
+			fmt.Println(version)
+			return nil
+		}
+		return errors.Wrap(err, "parsing config")
+	}
+
+	// =========================================================================
+	// Init Logger
+
+	if strings.EqualFold(cfg.LogFormat, "json") {
+		logger.SetFormatter(&logrus.JSONFormatter{})
+	}
+
+	switch strings.ToLower(cfg.LogLevel) {
+	case "trace":
+		logger.SetLevel(logrus.TraceLevel)
+	case "debug":
+		logger.SetLevel(logrus.DebugLevel)
+	case "error":
+		logger.SetLevel(logrus.ErrorLevel)
+	case "warning":
+		logger.SetLevel(logrus.WarnLevel)
+	case "info":
+		logger.SetLevel(logrus.InfoLevel)
+	default:
+		return errors.New("invalid log level")
+	}
+
+	// Print the build version for our logs. Also expose it under /debug/vars.
+	expvar.NewString("build").Set(build)
+
+	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
+	defer logger.Infof("%s: Completed", logPrefix)
+
+	out, err := conf.String(&cfg)
+	if err != nil {
+		return errors.Wrap(err, "generating config for output")
+	}
+	logger.Infof("%s: Configuration Loaded :\n%v\n", logPrefix, out)
+
+	// Make a channel to listen for an interrupt or terminate signal from the OS.
+	// Use a buffered channel because the signal package requires it.
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	// Make a channel to listen for errors coming from the listener. Use a
+	// buffered channel so the goroutine can exit if we don't collect this error.
+	serverErrors := make(chan error, 1)
+
+	// =========================================================================
+	// Init GraphQL schema
+
+	// load file with GraphQL schema
+	f, err := os.Open(cfg.Graphql.Schema)
+	if err != nil {
+		logger.Fatalf("Loading GraphQL Schema error: %v", err)
+		return err
+	}
+
+	// parse the GraphQL schema
+	schema, err := graphql.NewSchemaFromReader(f)
+	if err != nil {
+		logger.Fatalf("Loading GraphQL Schema error: %v", err)
+		return err
+	}
+
+	validationRes, err := schema.Validate()
+	if err != nil {
+		logger.Fatalf("GraphQL Schema validation error: %v", err)
+		return err
+	}
+
+	if !validationRes.Valid {
+		logger.Fatalf("GraphQL Schema validation error: %v", validationRes.Errors)
+		return validationRes.Errors
+	}
+
+	if err := f.Close(); err != nil {
+		logger.Fatalf("Loading GraphQL Schema error: %v", err)
+		return err
+	}
+
+	// =========================================================================
+	// Init Proxy Pool
+
+	serverURL, err := url.ParseRequestURI(cfg.Server.URL)
+	if err != nil {
+		return errors.Wrap(err, "parsing proxy URL")
+	}
+	host := serverURL.Host
+	if serverURL.Port() == "" {
+		switch serverURL.Scheme {
+		case "https":
+			host += ":443"
+		case "http":
+			host += ":80"
+		}
+	}
+
+	initialCap := initialPoolCapacity
+
+	if cfg.Server.ClientPoolCapacity < initialPoolCapacity {
+		initialCap = 1
+	}
+
+	options := proxy.Options{
+		InitialPoolCapacity: initialCap,
+		ClientPoolCapacity:  cfg.Server.ClientPoolCapacity,
+		InsecureConnection:  cfg.Server.InsecureConnection,
+		RootCA:              cfg.Server.RootCA,
+		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
+		ReadTimeout:         cfg.Server.ReadTimeout,
+		WriteTimeout:        cfg.Server.WriteTimeout,
+		DialTimeout:         cfg.Server.DialTimeout,
+	}
+	pool, err := proxy.NewChanPool(host, &options)
+	if err != nil {
+		return errors.Wrap(err, "proxy pool init")
+	}
+
+	// =========================================================================
+	// Init WS Pool
+
+	wsScheme := "ws"
+	if serverURL.Scheme == "https" {
+		wsScheme = "wss"
+	}
+	wsConnPoolOptions := &proxy.WSClientOptions{
+		Scheme:             wsScheme,
+		Host:               serverURL.Host,
+		Path:               serverURL.Path,
+		InsecureConnection: cfg.Server.InsecureConnection,
+		RootCA:             cfg.Server.RootCA,
+		DialTimeout:        cfg.Server.DialTimeout,
+	}
+
+	wsPool, err := proxy.NewWSClient(logger, wsConnPoolOptions)
+	if err != nil {
+		return errors.Wrap(err, "ws connections pool init")
+	}
+
+	// =========================================================================
+	// Init Cache
+
+	logger.Infof("%s: Initializing Cache", logPrefix)
+
+	deniedTokens, err := denylist.New(&cfg.Denylist, logger)
+	if err != nil {
+		return errors.Wrap(err, "denylist init error")
+	}
+
+	switch deniedTokens {
+	case nil:
+		logger.Infof("%s: Denylist not configured", logPrefix)
+	default:
+		logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
+	}
+
+	// =========================================================================
+	// Init Handlers
+
+	requestHandlers := handlersGQL.Handlers(&cfg, schema, serverURL, shutdown, logger, pool, wsPool, deniedTokens)
+
+	// =========================================================================
+	// Start Health API Service
+
+	healthData := handlersProxy.Health{
+		Build:  build,
+		Logger: logger,
+		Pool:   pool,
+	}
+
+	// health service handler
+	healthHandler := func(ctx *fasthttp.RequestCtx) {
+		switch string(ctx.Path()) {
+		case livenessEndpoint:
+			if err := healthData.Liveness(ctx); err != nil {
+				healthData.Logger.Errorf("%s: liveness: %s", logPrefix, err.Error())
+			}
+		case readinessEndpoint:
+			if err := healthData.Readiness(ctx); err != nil {
+				healthData.Logger.Errorf("%s: readiness: %s", logPrefix, err.Error())
+			}
+		default:
+			ctx.Error("Unsupported path", fasthttp.StatusNotFound)
+		}
+	}
+
+	healthAPI := fasthttp.Server{
+		Handler:               healthHandler,
+		ReadTimeout:           cfg.ReadTimeout,
+		WriteTimeout:          cfg.WriteTimeout,
+		Logger:                logger,
+		NoDefaultServerHeader: true,
+	}
+
+	// Start the service listening for requests.
+	go func() {
+		logger.Infof("%s: Health API listening on %s", logPrefix, cfg.HealthAPIHost)
+		serverErrors <- healthAPI.ListenAndServe(cfg.HealthAPIHost)
+	}()
+
+	// =========================================================================
+	// Start API Service
+
+	logger.Infof("%s: Initializing API support", logPrefix)
+
+	apiHost, err := url.ParseRequestURI(cfg.APIHost)
+	if err != nil {
+		return errors.Wrap(err, "parsing API Host URL")
+	}
+
+	var isTLS bool
+
+	switch apiHost.Scheme {
+	case "http":
+		isTLS = false
+	case "https":
+		isTLS = true
+	}
+
+	api := fasthttp.Server{
+		Handler:               requestHandlers,
+		ReadTimeout:           cfg.ReadTimeout,
+		WriteTimeout:          cfg.WriteTimeout,
+		Logger:                logger,
+		NoDefaultServerHeader: true,
+	}
+
+	// Start the service listening for requests.
+	go func() {
+		logger.Infof("%s: API listening on %s", logPrefix, cfg.APIHost)
+		switch isTLS {
+		case false:
+			serverErrors <- api.ListenAndServe(apiHost.Host)
+		case true:
+			serverErrors <- api.ListenAndServeTLS(apiHost.Host, path.Join(cfg.TLS.CertsPath, cfg.TLS.CertFile),
+				path.Join(cfg.TLS.CertsPath, cfg.TLS.CertKey))
+		}
+	}()
+
+	// =========================================================================
+	// Shutdown
+
+	// Blocking main and waiting for shutdown.
+	select {
+	case err := <-serverErrors:
+		return errors.Wrap(err, "server error")
+
+	case sig := <-shutdown:
+		logger.Infof("%s: %v: Start shutdown", logPrefix, sig)
+
+		// Asking listener to shutdown and shed load.
+		if err := api.Shutdown(); err != nil {
+			return errors.Wrap(err, "could not stop server gracefully")
+		}
+		logger.Infof("%s: %v: Completed shutdown", logPrefix, sig)
+	}
+
+	return nil
+
+}
+
 func runProxyMode(logger *logrus.Logger) error {
 
 	// =========================================================================
 	// Configuration
 
-	var cfg config.APIFWConfiguration
+	var cfg config.ProxyMode
 	cfg.Version.SVN = build
 	cfg.Version.Desc = projectName
 
@@ -347,7 +646,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Logger
 
-	if strings.ToLower(cfg.LogFormat) == "json" {
+	if strings.EqualFold(cfg.LogFormat, "json") {
 		logger.SetFormatter(&logrus.JSONFormatter{})
 	}
 
@@ -397,19 +696,19 @@ func runProxyMode(logger *logrus.Logger) error {
 
 	var swagger *openapi3.T
 
-	apiSpecUrl, err := url.ParseRequestURI(cfg.APISpecs)
+	apiSpecURL, err := url.ParseRequestURI(cfg.APISpecs)
 	if err != nil {
 		logger.Debugf("%s: Trying to parse API Spec value as URL : %v\n", logPrefix, err.Error())
 	}
 
-	switch apiSpecUrl {
+	switch apiSpecURL {
 	case nil:
 		swagger, err = openapi3.NewLoader().LoadFromFile(cfg.APISpecs)
 		if err != nil {
 			return errors.Wrap(err, "loading swagwaf file")
 		}
 	default:
-		swagger, err = openapi3.NewLoader().LoadFromURI(apiSpecUrl)
+		swagger, err = openapi3.NewLoader().LoadFromURI(apiSpecURL)
 		if err != nil {
 			return errors.Wrap(err, "loading swagwaf url")
 		}
@@ -423,13 +722,13 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Proxy Client
 
-	serverUrl, err := url.ParseRequestURI(cfg.Server.URL)
+	serverURL, err := url.ParseRequestURI(cfg.Server.URL)
 	if err != nil {
 		return errors.Wrap(err, "parsing proxy URL")
 	}
-	host := serverUrl.Host
-	if serverUrl.Port() == "" {
-		switch serverUrl.Scheme {
+	host := serverURL.Host
+	if serverURL.Port() == "" {
+		switch serverURL.Scheme {
 		case "https":
 			host += ":443"
 		case "http":
@@ -437,13 +736,23 @@ func runProxyMode(logger *logrus.Logger) error {
 		}
 	}
 
-	initialCap := 100
+	initialCap := initialPoolCapacity
 
-	if cfg.Server.ClientPoolCapacity < 100 {
+	if cfg.Server.ClientPoolCapacity < initialPoolCapacity {
 		initialCap = 1
 	}
 
-	pool, err := proxy.NewChanPool(initialCap, cfg.Server.ClientPoolCapacity, host, &cfg.Server)
+	options := proxy.Options{
+		InitialPoolCapacity: initialCap,
+		ClientPoolCapacity:  cfg.Server.ClientPoolCapacity,
+		InsecureConnection:  cfg.Server.InsecureConnection,
+		RootCA:              cfg.Server.RootCA,
+		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
+		ReadTimeout:         cfg.Server.ReadTimeout,
+		WriteTimeout:        cfg.Server.WriteTimeout,
+		DialTimeout:         cfg.Server.DialTimeout,
+	}
+	pool, err := proxy.NewChanPool(host, &options)
 	if err != nil {
 		return errors.Wrap(err, "proxy pool init")
 	}
@@ -453,7 +762,7 @@ func runProxyMode(logger *logrus.Logger) error {
 
 	logger.Infof("%s: Initializing Cache", logPrefix)
 
-	deniedTokens, err := denylist.New(&cfg, logger)
+	deniedTokens, err := denylist.New(&cfg.Denylist, logger)
 	if err != nil {
 		return errors.Wrap(err, "denylist init error")
 	}
@@ -468,7 +777,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Handlers
 
-	requestHandlers = handlersProxy.Handlers(&cfg, serverUrl, shutdown, logger, pool, swagRouter, deniedTokens)
+	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens)
 
 	// =========================================================================
 	// Start Health API Service
@@ -482,11 +791,11 @@ func runProxyMode(logger *logrus.Logger) error {
 	// health service handler
 	healthHandler := func(ctx *fasthttp.RequestCtx) {
 		switch string(ctx.Path()) {
-		case "/v1/liveness":
+		case livenessEndpoint:
 			if err := healthData.Liveness(ctx); err != nil {
 				healthData.Logger.Errorf("%s: liveness: %s", logPrefix, err.Error())
 			}
-		case "/v1/readiness":
+		case readinessEndpoint:
 			if err := healthData.Readiness(ctx); err != nil {
 				healthData.Logger.Errorf("%s: readiness: %s", logPrefix, err.Error())
 			}
@@ -495,7 +804,7 @@ func runProxyMode(logger *logrus.Logger) error {
 		}
 	}
 
-	healthApi := fasthttp.Server{
+	healthAPI := fasthttp.Server{
 		Handler:               healthHandler,
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
@@ -506,7 +815,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// Start the service listening for requests.
 	go func() {
 		logger.Infof("%s: Health API listening on %s", logPrefix, cfg.HealthAPIHost)
-		serverErrors <- healthApi.ListenAndServe(cfg.HealthAPIHost)
+		serverErrors <- healthAPI.ListenAndServe(cfg.HealthAPIHost)
 	}()
 
 	// =========================================================================

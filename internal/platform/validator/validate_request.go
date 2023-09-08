@@ -291,12 +291,11 @@ func ValidateRequestBody(ctx context.Context, input *openapi3filter.RequestValid
 
 	// Validate JSON with the schema
 	if err := contentType.Schema.Value.VisitJSON(value, opts...); err != nil {
-		schemaId := getSchemaIdentifier(contentType.Schema)
-		schemaId = prependSpaceIfNeeded(schemaId)
+		schemaID := prependSpaceIfNeeded(getSchemaIdentifier(contentType.Schema))
 		return &openapi3filter.RequestError{
 			Input:       input,
 			RequestBody: requestBody,
-			Reason:      fmt.Sprintf("doesn't match schema %s", schemaId),
+			Reason:      fmt.Sprintf("doesn't match schema %s", schemaID),
 			Err:         err,
 		}
 	}

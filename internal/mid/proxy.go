@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -34,8 +34,15 @@ var (
 	acHeader = http.CanonicalHeaderKey("Accept-Encoding")
 )
 
+type ProxyOptions struct {
+	Mode                 string
+	RequestValidation    string
+	DeleteAcceptEncoding bool
+	ServerURL            *url.URL
+}
+
 // Proxy changes request scheme before request
-func Proxy(cfg *config.APIFWConfiguration, serverUrl *url.URL) web.Middleware {
+func Proxy(options *ProxyOptions) web.Middleware {
 
 	// This is the actual middleware function to be executed.
 	m := func(before web.Handler) web.Handler {
@@ -44,20 +51,30 @@ func Proxy(cfg *config.APIFWConfiguration, serverUrl *url.URL) web.Middleware {
 		h := func(ctx *fasthttp.RequestCtx) error {
 
 			for _, h := range hopHeaders {
+
+				if options.Mode == web.GraphQLMode {
+					// skip (not delete) ws required headers
+					if h == "Connection" && ctx.Request.Header.ConnectionUpgrade() { //strings.EqualFold(string(ctx.Request.Header.Peek("Connection")), "upgrade") {
+						continue
+					}
+					if h == "Upgrade" && strings.EqualFold(string(ctx.Request.Header.Peek("Upgrade")), "websocket") {
+						continue
+					}
+				}
 				ctx.Request.Header.Del(h)
 			}
 
-			if cfg.RequestValidation == web.ValidationBlock {
+			if strings.EqualFold(options.RequestValidation, web.ValidationBlock) {
 				// add apifw header to the request
 				ctx.Request.Header.Add(apifwHeaderName, fmt.Sprintf("%016X", ctx.ID()))
 			}
 
-			if !bytes.Equal([]byte(serverUrl.Scheme), ctx.Request.URI().Scheme()) {
-				ctx.Request.URI().SetSchemeBytes([]byte(serverUrl.Scheme))
+			if !bytes.Equal([]byte(options.ServerURL.Scheme), ctx.Request.URI().Scheme()) {
+				ctx.Request.URI().SetSchemeBytes([]byte(options.ServerURL.Scheme))
 			}
 
-			if !bytes.Equal([]byte(serverUrl.Host), ctx.Request.URI().Host()) {
-				ctx.Request.URI().SetHostBytes([]byte(serverUrl.Host))
+			if !bytes.Equal([]byte(options.ServerURL.Host), ctx.Request.URI().Host()) {
+				ctx.Request.URI().SetHostBytes([]byte(options.ServerURL.Host))
 			}
 
 			// update or set x-forwarded-for header
@@ -71,13 +88,23 @@ func Proxy(cfg *config.APIFWConfiguration, serverUrl *url.URL) web.Middleware {
 			}
 
 			// delete Accept-Encoding header
-			if cfg.Server.DeleteAcceptEncoding {
+			if options.DeleteAcceptEncoding {
 				ctx.Request.Header.Del(acHeader)
 			}
 
 			err := before(ctx)
 
 			for _, h := range hopHeaders {
+
+				if options.Mode == web.GraphQLMode {
+					// skip (not delete) ws required headers
+					if h == "Connection" && ctx.Response.Header.ConnectionUpgrade() {
+						continue
+					}
+					if h == "Upgrade" && strings.EqualFold(string(ctx.Response.Header.Peek("Upgrade")), "websocket") {
+						continue
+					}
+				}
 				ctx.Response.Header.Del(h)
 			}
 

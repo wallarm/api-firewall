@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"golang.org/x/exp/slices"
 	"io"
 	"net/http"
 
 	"github.com/klauspost/compress/flate"
 	"github.com/klauspost/compress/zlib"
 	"github.com/valyala/fasthttp"
+	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
+	"golang.org/x/exp/slices"
 )
 
 // List of the supported compression schemes
@@ -115,17 +116,16 @@ func RespondError(ctx *fasthttp.RequestCtx, statusCode int, statusHeader string)
 	return nil
 }
 
-// RespondOk sends an empty response with 200 status OK back to the client.
-func RespondOk(ctx *fasthttp.RequestCtx) error {
+// RespondGraphQLErrors sends errors back to the client via GraphQL
+func RespondGraphQLErrors(ctx *fasthttp.Response, errors error) error {
 
-	ctx.Error("", fasthttp.StatusOK)
+	gqlErrors := graphql.RequestErrorsFromError(errors)
 
-	return nil
-}
+	ctx.Header.Set("Content-Type", "application/json")
 
-// Redirect302 redirects client with code 302
-func Redirect302(ctx *fasthttp.RequestCtx, redirectUrl string) error {
+	if _, err := gqlErrors.WriteResponse(ctx.BodyWriter()); err != nil {
+		return err
+	}
 
-	ctx.Redirect(redirectUrl, 302)
 	return nil
 }

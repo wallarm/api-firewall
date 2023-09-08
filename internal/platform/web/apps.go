@@ -44,7 +44,7 @@ func (a *Apps) SetDefaultBehavior(schemaID int, handler Handler, mw ...Middlewar
 
 	}
 
-	//Set NOT FOUND behavior
+	// Set NOT FOUND behavior
 	a.Routers[schemaID].NotFound = customHandler
 
 	// Set Method Not Allowed behavior
@@ -56,7 +56,7 @@ func NewApps(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DBOpenAP
 
 	schemaIDs := storedSpecs.SchemaIDs()
 
-	// init routers
+	// Init routers
 	routers := make(map[int]*router.Router)
 	for _, schemaID := range schemaIDs {
 		routers[schemaID] = router.New()
@@ -101,19 +101,19 @@ func (a *Apps) Handle(schemaID int, method string, path string, handler Handler,
 
 func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPILoader) (int, error) {
 
-	// get Wallarm Schema ID
+	// Get Wallarm Schema ID
 	xWallarmSchemaID := string(ctx.Request.Header.Peek(XWallarmSchemaIDHeader))
 	if xWallarmSchemaID == "" {
 		return 0, errors.New("required X-WALLARM-SCHEMA-ID header is missing")
 	}
 
-	// get schema version
+	// Get schema version
 	schemaID, err := strconv2.Atoi(xWallarmSchemaID)
 	if err != nil {
 		return 0, fmt.Errorf("error parsing  value: %v", err)
 	}
 
-	// check if schema ID is loaded
+	// Check if schema ID is loaded
 	if !storedSpecs.IsLoaded(schemaID) {
 		return 0, fmt.Errorf("provided via X-WALLARM-SCHEMA-ID header schema ID %d not found", schemaID)
 	}
@@ -143,10 +143,10 @@ func (a *Apps) APIModeHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	// add internal header to the context
+	// Add internal header to the context
 	ctx.SetUserValue(WallarmSchemaID, schemaID)
 
-	// delete internal header
+	// Delete internal header
 	ctx.Request.Header.Del(XWallarmSchemaIDHeader)
 
 	a.lock.RLock()
@@ -154,7 +154,7 @@ func (a *Apps) APIModeHandler(ctx *fasthttp.RequestCtx) {
 
 	a.Routers[schemaID].Handler(ctx)
 
-	// if pass request with OPTIONS method is enabled then log request
+	// If pass request with OPTIONS method is enabled then log request
 	if ctx.Response.StatusCode() == fasthttp.StatusOK && a.passOPTIONS && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 		a.Log.WithFields(logrus.Fields{
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),

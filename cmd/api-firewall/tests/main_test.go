@@ -443,7 +443,7 @@ func TestBasic(t *testing.T) {
 
 func (s *ServiceTests) testBlockMode(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -525,7 +525,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 		File:       "../../../resources/test/tokens/test.db",
 	}
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -538,7 +538,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 		}{Tokens: tokensCfg},
 	}
 
-	deniedTokens, err := denylist.New(&cfg, s.logger)
+	deniedTokens, err := denylist.New(&cfg.Denylist, s.logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -607,7 +607,7 @@ func (s *ServiceTests) testShadowAPI(t *testing.T) {
 		File:       "",
 	}
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "LOG_ONLY",
 		ResponseValidation:        "LOG_ONLY",
 		CustomBlockStatusCode:     403,
@@ -620,7 +620,7 @@ func (s *ServiceTests) testShadowAPI(t *testing.T) {
 		}{Tokens: tokensCfg},
 	}
 
-	deniedTokens, err := denylist.New(&cfg, s.logger)
+	deniedTokens, err := denylist.New(&cfg.Denylist, s.logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -668,7 +668,7 @@ func (s *ServiceTests) testShadowAPI(t *testing.T) {
 }
 
 func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "LOG_ONLY",
 		ResponseValidation:        "LOG_ONLY",
 		CustomBlockStatusCode:     403,
@@ -722,7 +722,7 @@ func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 
 func (s *ServiceTests) testDisableMode(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "DISABLE",
 		ResponseValidation:        "DISABLE",
 		CustomBlockStatusCode:     403,
@@ -773,7 +773,7 @@ func (s *ServiceTests) testDisableMode(t *testing.T) {
 
 func (s *ServiceTests) testBlockLogOnlyMode(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "LOG_ONLY",
 		CustomBlockStatusCode:     403,
@@ -825,7 +825,7 @@ func (s *ServiceTests) testBlockLogOnlyMode(t *testing.T) {
 
 func (s *ServiceTests) testLogOnlyBlockMode(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "LOG_ONLY",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -878,7 +878,7 @@ func (s *ServiceTests) testLogOnlyBlockMode(t *testing.T) {
 
 func (s *ServiceTests) testCommonParameters(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1000,18 +1000,20 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 	}
 
 	serverConf := config.Server{
-		URL:                "",
-		ClientPoolCapacity: 1000,
-		InsecureConnection: false,
-		RootCA:             "",
-		MaxConnsPerHost:    512,
-		ReadTimeout:        time.Second * 5,
-		WriteTimeout:       time.Second * 5,
-		DialTimeout:        time.Second * 5,
-		Oauth:              oauthConf,
+		Backend: config.Backend{
+			URL:                "",
+			ClientPoolCapacity: 1000,
+			InsecureConnection: false,
+			RootCA:             "",
+			MaxConnsPerHost:    512,
+			ReadTimeout:        time.Second * 5,
+			WriteTimeout:       time.Second * 5,
+			DialTimeout:        time.Second * 5,
+		},
+		Oauth: oauthConf,
 	}
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1085,18 +1087,20 @@ func (s *ServiceTests) testOauthIntrospectionReadUnsuccessful(t *testing.T) {
 	}
 
 	serverConf := config.Server{
-		URL:                "",
-		ClientPoolCapacity: 1000,
-		InsecureConnection: false,
-		RootCA:             "",
-		MaxConnsPerHost:    512,
-		ReadTimeout:        time.Second * 5,
-		WriteTimeout:       time.Second * 5,
-		DialTimeout:        time.Second * 5,
-		Oauth:              oauthConf,
+		Backend: config.Backend{
+			URL:                "",
+			ClientPoolCapacity: 1000,
+			InsecureConnection: false,
+			RootCA:             "",
+			MaxConnsPerHost:    512,
+			ReadTimeout:        time.Second * 5,
+			WriteTimeout:       time.Second * 5,
+			DialTimeout:        time.Second * 5,
+		},
+		Oauth: oauthConf,
 	}
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1149,18 +1153,20 @@ func (s *ServiceTests) testOauthIntrospectionInvalidResponse(t *testing.T) {
 	}
 
 	serverConf := config.Server{
-		URL:                "",
-		ClientPoolCapacity: 1000,
-		InsecureConnection: false,
-		RootCA:             "",
-		MaxConnsPerHost:    512,
-		ReadTimeout:        time.Second * 5,
-		WriteTimeout:       time.Second * 5,
-		DialTimeout:        time.Second * 5,
-		Oauth:              oauthConf,
+		Backend: config.Backend{
+			URL:                "",
+			ClientPoolCapacity: 1000,
+			InsecureConnection: false,
+			RootCA:             "",
+			MaxConnsPerHost:    512,
+			ReadTimeout:        time.Second * 5,
+			WriteTimeout:       time.Second * 5,
+			DialTimeout:        time.Second * 5,
+		},
+		Oauth: oauthConf,
 	}
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1213,18 +1219,20 @@ func (s *ServiceTests) testOauthIntrospectionReadWriteSuccess(t *testing.T) {
 	}
 
 	serverConf := config.Server{
-		URL:                "",
-		ClientPoolCapacity: 1000,
-		InsecureConnection: false,
-		RootCA:             "",
-		MaxConnsPerHost:    512,
-		ReadTimeout:        time.Second * 5,
-		WriteTimeout:       time.Second * 5,
-		DialTimeout:        time.Second * 5,
-		Oauth:              oauthConf,
+		Backend: config.Backend{
+			URL:                "",
+			ClientPoolCapacity: 1000,
+			InsecureConnection: false,
+			RootCA:             "",
+			MaxConnsPerHost:    512,
+			ReadTimeout:        time.Second * 5,
+			WriteTimeout:       time.Second * 5,
+			DialTimeout:        time.Second * 5,
+		},
+		Oauth: oauthConf,
 	}
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1282,18 +1290,20 @@ func (s *ServiceTests) testOauthIntrospectionContentTypeRequest(t *testing.T) {
 	}
 
 	serverConf := config.Server{
-		URL:                "",
-		ClientPoolCapacity: 1000,
-		InsecureConnection: false,
-		RootCA:             "",
-		MaxConnsPerHost:    512,
-		ReadTimeout:        time.Second * 5,
-		WriteTimeout:       time.Second * 5,
-		DialTimeout:        time.Second * 5,
-		Oauth:              oauthConf,
+		Backend: config.Backend{
+			URL:                "",
+			ClientPoolCapacity: 1000,
+			InsecureConnection: false,
+			RootCA:             "",
+			MaxConnsPerHost:    512,
+			ReadTimeout:        time.Second * 5,
+			WriteTimeout:       time.Second * 5,
+			DialTimeout:        time.Second * 5,
+		},
+		Oauth: oauthConf,
 	}
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1343,18 +1353,20 @@ func (s *ServiceTests) testOauthJWTRS256(t *testing.T) {
 	}
 
 	serverConf := config.Server{
-		URL:                "",
-		ClientPoolCapacity: 1000,
-		InsecureConnection: false,
-		RootCA:             "",
-		MaxConnsPerHost:    512,
-		ReadTimeout:        time.Second * 5,
-		WriteTimeout:       time.Second * 5,
-		DialTimeout:        time.Second * 5,
-		Oauth:              oauthConf,
+		Backend: config.Backend{
+			URL:                "",
+			ClientPoolCapacity: 1000,
+			InsecureConnection: false,
+			RootCA:             "",
+			MaxConnsPerHost:    512,
+			ReadTimeout:        time.Second * 5,
+			WriteTimeout:       time.Second * 5,
+			DialTimeout:        time.Second * 5,
+		},
+		Oauth: oauthConf,
 	}
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1418,18 +1430,20 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 	}
 
 	serverConf := config.Server{
-		URL:                "",
-		ClientPoolCapacity: 1000,
-		InsecureConnection: false,
-		RootCA:             "",
-		MaxConnsPerHost:    512,
-		ReadTimeout:        time.Second * 5,
-		WriteTimeout:       time.Second * 5,
-		DialTimeout:        time.Second * 5,
-		Oauth:              oauthConf,
+		Backend: config.Backend{
+			URL:                "",
+			ClientPoolCapacity: 1000,
+			InsecureConnection: false,
+			RootCA:             "",
+			MaxConnsPerHost:    512,
+			ReadTimeout:        time.Second * 5,
+			WriteTimeout:       time.Second * 5,
+			DialTimeout:        time.Second * 5,
+		},
+		Oauth: oauthConf,
 	}
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1478,7 +1492,7 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 
 func (s *ServiceTests) testRequestHeaders(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1535,7 +1549,7 @@ func (s *ServiceTests) testRequestHeaders(t *testing.T) {
 
 func (s *ServiceTests) testResponseHeaders(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1596,7 +1610,7 @@ func (s *ServiceTests) testResponseHeaders(t *testing.T) {
 
 func (s *ServiceTests) testRequestBodyCompression(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1703,7 +1717,7 @@ func (s *ServiceTests) testRequestBodyCompression(t *testing.T) {
 
 func (s *ServiceTests) testResponseBodyCompression(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1792,7 +1806,7 @@ func (s *ServiceTests) testResponseBodyCompression(t *testing.T) {
 
 func (s *ServiceTests) requestOptionalCookies(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1880,7 +1894,7 @@ func (s *ServiceTests) requestOptionalCookies(t *testing.T) {
 
 func (s *ServiceTests) requestOptionalMinMaxCookies(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -1982,7 +1996,7 @@ func (s *ServiceTests) requestOptionalMinMaxCookies(t *testing.T) {
 
 func (s *ServiceTests) unknownParamQuery(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -2036,7 +2050,7 @@ func (s *ServiceTests) unknownParamQuery(t *testing.T) {
 
 func (s *ServiceTests) unknownParamPostBody(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -2092,7 +2106,7 @@ func (s *ServiceTests) unknownParamPostBody(t *testing.T) {
 
 func (s *ServiceTests) unknownParamJSONParam(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,
@@ -2173,7 +2187,7 @@ func (s *ServiceTests) unknownParamJSONParam(t *testing.T) {
 
 func (s *ServiceTests) unknownParamUnsupportedMimeType(t *testing.T) {
 
-	var cfg = config.APIFWConfiguration{
+	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,

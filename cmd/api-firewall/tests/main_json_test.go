@@ -73,7 +73,7 @@ components:
 
 var (
 	// basic APIFW configuration
-	apifwCfg = config.APIFWConfiguration{
+	apifwCfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
 		CustomBlockStatusCode:     403,

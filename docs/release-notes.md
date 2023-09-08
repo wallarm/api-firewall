@@ -1,10 +1,14 @@
-# API Firewall changelog
+# API Firewall Changelog
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.6.13 (2023-09-08)
+
+* [Support for GraphQL API requests validation](installation-guides/graphql/docker-container.md)
+
 ## v0.6.12 (2023-08-04)
 
-* Ability to set the general API Firewall mode using the `APIFW_MODE` environment variable. The default value is `PROXY`. When set to API, you can [validate individual API requests based on a provided OpenAPI specification without further proxying](installation-guides/docker-container.md#validating-individual-requests-without-proxying-for-v0612-and-above).
+* Ability to set the general API Firewall mode using the `APIFW_MODE` environment variable. The default value is `PROXY`. When set to API, you can [validate individual API requests based on a provided OpenAPI specification without further proxying](installation-guides/api-mode.md).
 * Introduced the ability to allow `OPTIONS` requests for endpoints specified in the OpenAPI, even if the `OPTIONS` method is not explicitly defined. This can be achieved using the `APIFW_PASS_OPTIONS` variable. The default value is `false`.
 * Introduced a feature that allows control over whether requests should be identified as non-matching the specification if their parameters do not align with those outlined in the OpenAPI specification. It is set to `true` by default.
 
@@ -39,8 +43,8 @@ This page describes new releases of Wallarm API Firewall.
 ### New features
 
 * Ability to specify the URL address of the OpenAPI 3.0 specification instead of mounting the specification file into the Docker container (via the environment variable [`APIFW_API_SPECS`](installation-guides/docker-container.md#apifw-api-specs)).
-* Ability to use the custom `Content-Type` header when sending requests to the token introspection service (via the environment variable [`APIFW_SERVER_OAUTH_INTROSPECTION_CONTENT_TYPE`](installation-guides/docker-container.md#apifw-server-oauth-introspection-content-type)).
-* [Support for the authentication token denylists](installation-guides/docker-container.md#blocking-requests-with-compromised-authentication-tokens).
+* Ability to use the custom `Content-Type` header when sending requests to the token introspection service (via the environment variable [`APIFW_SERVER_OAUTH_INTROSPECTION_CONTENT_TYPE`](configuration-guides/validate-tokens.md)).
+* [Support for the authentication token denylists](configuration-guides/denylist-leaked-tokens.md).
 
 ## v0.6.7 (2022-01-25)
 
@@ -53,8 +57,8 @@ Wallarm API Firewall is now open source. There are the following related changes
 
 ### New features
 
-* Support for [OAuth 2.0 token validation](installation-guides/docker-container.md#validation-of-request-authentication-tokens).
-* [Connection](installation-guides/docker-container.md#protected-application-ssltls-settings) to the servers signed with the custom CA certificates and support for insecure connection flag.
+* Support for [OAuth 2.0 token validation](configuration-guides/validate-tokens.md).
+* [Connection](configuration-guides/ssl-tls.md) to the servers signed with the custom CA certificates and support for insecure connection flag.
 
 ### Bug fixes
 

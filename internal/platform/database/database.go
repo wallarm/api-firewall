@@ -100,7 +100,7 @@ func (s *SQLLite) Load(dbStoragePath string) error {
 		entries[entry.SchemaID] = &entry
 	}
 
-	if err = rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return err
 	}
 

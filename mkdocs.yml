@@ -22,6 +22,7 @@ theme:
     - navigation.tracking
     - content.code.copy
     - content.action.edit
+    - navigation.sections
   logo: images/wallarm-logo.svg
   favicon: images/favicon.png
   font:
@@ -76,9 +77,21 @@ markdown_extensions:
   - meta
 
 nav:
-  - API Firewall overview: index.md
-  - Running API Firewall on Docker: installation-guides/docker-container.md
+  - Overview: index.md
+  - Changelog: release-notes.md
+  - REST API:
+    - Running API Firewall: installation-guides/docker-container.md
+    - Validating Individual Requests Without Proxying: installation-guides/api-mode.md
+  - GraphQL API:
+    - Running API Firewall: installation-guides/graphql/docker-container.md
+    - GraphQL Limits Compliance: installation-guides/graphql/limit-compliance.md
+    - WebSocket Origin Validation: installation-guides/graphql/websocket-origin-check.md
+    - GraphQL Playground: installation-guides/graphql/playground.md
+  - Additional Configuration:
+    - Validating Request Authentication Tokens: configuration-guides/validate-tokens.md
+    - Blocking Requests with Compromised Tokens: configuration-guides/denylist-leaked-tokens.md
+    - SSL/TLS Configuration: configuration-guides/ssl-tls.md
+    - System Settings: configuration-guides/system-settings.md
   - Demos:
-    - Running the example application and API Firewall with Docker Compose: demos/docker-compose.md
-    - Wallarm API Firewall demo with Kubernetes: demos/kubernetes-cluster.md
-  - API Firewall changelog: release-notes.md
+    - Docker Compose: demos/docker-compose.md
+    - Kubernetes: demos/kubernetes-cluster.md

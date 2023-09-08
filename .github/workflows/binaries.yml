@@ -160,7 +160,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_VERSION: "1.20.7-r0"
+      X_GO_VERSION: "1.20.8-r0"
     strategy:
       matrix:
         include:
