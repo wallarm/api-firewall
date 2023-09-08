@@ -73,6 +73,10 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 	var numOfElements int64
 	totalEntries10P := totalEntries / 10
 
+	if totalEntries10P == 0 {
+		totalEntries10P = 1
+	}
+
 	// 10% counter
 	counter10P := 0
 
