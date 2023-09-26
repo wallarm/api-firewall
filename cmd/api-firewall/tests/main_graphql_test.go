@@ -379,10 +379,6 @@ func (s *ServiceGraphQLTests) testGQLGETMutationFailed(t *testing.T) {
 		Request: *req,
 	}
 
-	//s.proxy.EXPECT().Get().Return(s.client, nil)
-	//s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	//s.proxy.EXPECT().Put(s.client).Return(nil)
-
 	handler(&reqCtx)
 
 	if reqCtx.Response.StatusCode() != 200 {
@@ -986,9 +982,12 @@ var (
 	msg1sWrongFromBackend = []byte("{\"id\":\"1\",\"type\":\"error\",\"payload\":[{\"message\":\"field: WrongParameter not defined on type: Message\"}]}")
 )
 
-func startWSBackendServer(t *testing.T, addr string) *fasthttp.Server {
+func StartWSBackendServer(t testing.TB, addr string) *fasthttp.Server {
 	upgrader := websocket.FastHTTPUpgrader{
 		Subprotocols: []string{"graphql-ws"},
+		CheckOrigin: func(ctx *fasthttp.RequestCtx) bool {
+			return true
+		},
 	}
 
 	gqlHandler := func(ctx *fasthttp.RequestCtx) {
@@ -1121,7 +1120,7 @@ func (s *ServiceGraphQLTests) testGQLSubscription(t *testing.T) {
 	}
 
 	// start backend
-	server := startWSBackendServer(t, "localhost:19090")
+	server := StartWSBackendServer(t, "localhost:19090")
 	defer server.Shutdown()
 
 	// parse the GraphQL schema
@@ -1295,7 +1294,7 @@ func (s *ServiceGraphQLTests) testGQLSubscriptionLogOnly(t *testing.T) {
 	}
 
 	// start backend
-	server := startWSBackendServer(t, "localhost:19092")
+	server := StartWSBackendServer(t, "localhost:19092")
 	defer server.Shutdown()
 
 	// parse the GraphQL schema

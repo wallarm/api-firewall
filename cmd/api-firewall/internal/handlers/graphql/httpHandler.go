@@ -1,7 +1,6 @@
 package graphql
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"net/url"
@@ -44,7 +43,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 
 	// respond with 403 status code in case of content-type of POST request is not application/json
 	if strconv.B2S(ctx.Request.Header.Method()) == fasthttp.MethodPost &&
-		!bytes.EqualFold(ctx.Request.Header.ContentType(), []byte("application/json")) {
+		!strings.EqualFold(strconv.B2S(ctx.Request.Header.ContentType()), "application/json") {
 		h.logger.WithFields(logrus.Fields{
 			"protocol":   "HTTP",
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
