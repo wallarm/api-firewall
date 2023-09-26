@@ -26,6 +26,16 @@ var (
 	ErrAPITokenMissed   = errors.New("missing API keys for authorization")
 )
 
+type SecurityRequirementsError struct {
+	Field     string
+	IsMissing bool
+	Message   string
+}
+
+func (e *SecurityRequirementsError) Error() string {
+	return e.Message
+}
+
 var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 	MultiError: true,
 	AuthenticationFunc: func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
@@ -35,28 +45,48 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 			case "basic":
 				bHeader := input.RequestValidationInput.Request.Header.Get("Authorization")
 				if bHeader == "" || !strings.HasPrefix(strings.ToLower(bHeader), "basic ") {
-					return fmt.Errorf("%w: basic authentication is required", ErrAuthHeaderMissed)
+					return &SecurityRequirementsError{
+						Field:     "Authorization",
+						IsMissing: true,
+						Message:   fmt.Sprintf("%v: basic authentication is required", ErrAuthHeaderMissed),
+					}
 				}
 			case "bearer":
 				bHeader := input.RequestValidationInput.Request.Header.Get("Authorization")
 				if bHeader == "" || !strings.HasPrefix(strings.ToLower(bHeader), "bearer ") {
-					return fmt.Errorf("%w: bearer authentication is required", ErrAuthHeaderMissed)
+					return &SecurityRequirementsError{
+						Field:     "Authorization",
+						IsMissing: true,
+						Message:   fmt.Sprintf("%v: bearer authentication is required", ErrAuthHeaderMissed),
+					}
 				}
 			}
 		case "apiKey":
 			switch input.SecurityScheme.In {
 			case "header":
 				if input.RequestValidationInput.Request.Header.Get(input.SecurityScheme.Name) == "" {
-					return fmt.Errorf("%w: missing %s header", ErrAPITokenMissed, input.SecurityScheme.Name)
+					return &SecurityRequirementsError{
+						Field:     input.SecurityScheme.Name,
+						IsMissing: true,
+						Message:   fmt.Sprintf("%v: missing %s header", ErrAPITokenMissed, input.SecurityScheme.Name),
+					}
 				}
 			case "query":
 				if input.RequestValidationInput.Request.URL.Query().Get(input.SecurityScheme.Name) == "" {
-					return fmt.Errorf("%w: missing %s query parameter", ErrAPITokenMissed, input.SecurityScheme.Name)
+					return &SecurityRequirementsError{
+						Field:     input.SecurityScheme.Name,
+						IsMissing: true,
+						Message:   fmt.Sprintf("%v: missing %s query parameter", ErrAPITokenMissed, input.SecurityScheme.Name),
+					}
 				}
 			case "cookie":
 				_, err := input.RequestValidationInput.Request.Cookie(input.SecurityScheme.Name)
 				if err != nil {
-					return fmt.Errorf("%w: missing %s cookie", ErrAPITokenMissed, input.SecurityScheme.Name)
+					return &SecurityRequirementsError{
+						Field:     input.SecurityScheme.Name,
+						IsMissing: true,
+						Message:   fmt.Sprintf("%v: missing %s cookie", ErrAPITokenMissed, input.SecurityScheme.Name),
+					}
 				}
 			}
 		}
@@ -296,16 +326,20 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 
 	case *openapi3filter.SecurityRequirementsError:
 
-		response := ValidationError{}
-
-		secErrors := ""
 		for _, secError := range err.Errors {
-			secErrors += secError.Error() + ","
+			response := ValidationError{}
+			if err, ok := secError.(*SecurityRequirementsError); ok {
+				response.Code = ErrCodeSecRequirementsFailed
+				response.Message = err.Message
+				response.Fields = []string{err.Field}
+				responseErrors = append(responseErrors, &response)
+				continue
+			}
+			// in case of security requirement err is unknown
+			response.Code = ErrCodeSecRequirementsFailed
+			response.Message = secError.Error()
+			responseErrors = append(responseErrors, &response)
 		}
-
-		response.Code = ErrCodeSecRequirementsFailed
-		response.Message = secErrors
-		responseErrors = append(responseErrors, &response)
 	}
 
 	// set the error as unknown
