@@ -131,11 +131,19 @@ var (
 	ErrMissedRequiredParameters = errors.New("required parameters missed")
 )
 
+type FieldTypeError struct {
+	Name         string `json:"name"`
+	ExpectedType string `json:"expected_type,omitempty"`
+	Pattern      string `json:"pattern,omitempty"`
+	CurrentValue string `json:"current_value"`
+}
+
 type ValidationError struct {
-	Message       string   `json:"message"`
-	Code          string   `json:"code"`
-	SchemaVersion string   `json:"schema_version,omitempty"`
-	Fields        []string `json:"related_fields,omitempty"`
+	Message       string           `json:"message"`
+	Code          string           `json:"code"`
+	SchemaVersion string           `json:"schema_version,omitempty"`
+	Fields        []string         `json:"related_fields,omitempty"`
+	FieldsDetails []FieldTypeError `json:"related_fields_details,omitempty"`
 }
 
 type Response struct {
@@ -150,7 +158,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 	case *openapi3filter.RequestError:
 		if err.Parameter != nil {
 
-			// required parameter is missed
+			// Required parameter is missed
 			if errors.Is(err, validator.ErrInvalidRequired) || errors.Is(err, validator.ErrInvalidEmptyValue) {
 				response := ValidationError{}
 				switch err.Parameter.In {
@@ -168,7 +176,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 				responseErrors = append(responseErrors, &response)
 			}
 
-			// invalid parameter value
+			// Invalid parameter value
 			if strings.HasSuffix(err.Error(), "invalid syntax") {
 				response := ValidationError{}
 				switch err.Parameter.In {
@@ -183,10 +191,29 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 				}
 				response.Message = err.Error()
 				response.Fields = []string{err.Parameter.Name}
+				if parseErr, ok := err.Err.(*validator.ParseError); ok {
+					response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+						Name:         err.Parameter.Name,
+						ExpectedType: parseErr.ExpectedType,
+						CurrentValue: parseErr.ValueStr,
+					})
+				}
+				schemaError, ok := err.Err.(*openapi3.SchemaError)
+				if ok {
+					if schemaError.SchemaField == "pattern" {
+						response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+							Name:         err.Parameter.Name,
+							ExpectedType: schemaError.Schema.Type,
+							Pattern:      schemaError.Schema.Pattern,
+							CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+						})
+					}
+				}
+
 				responseErrors = append(responseErrors, &response)
 			}
 
-			// validation of the required parameter error
+			// Validation of the required parameter error
 			switch multiErrors := err.Err.(type) {
 			case openapi3.MultiError:
 				for _, multiErr := range multiErrors {
@@ -217,6 +244,21 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 							}
 							response.Fields = []string{err.Parameter.Name}
 							response.Message = schemaError.Error()
+							if parseErr, ok := err.Err.(*validator.ParseError); ok {
+								response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+									Name:         err.Parameter.Name,
+									ExpectedType: parseErr.ExpectedType,
+									CurrentValue: parseErr.ValueStr,
+								})
+							}
+							if schemaError.SchemaField == "pattern" {
+								response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+									Name:         err.Parameter.Name,
+									ExpectedType: schemaError.Schema.Type,
+									Pattern:      schemaError.Schema.Pattern,
+									CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+								})
+							}
 							responseErrors = append(responseErrors, &response)
 						}
 					}
@@ -249,6 +291,21 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 						}
 						response.Fields = []string{err.Parameter.Name}
 						response.Message = schemaError.Error()
+						if parseErr, ok := err.Err.(*validator.ParseError); ok {
+							response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+								Name:         err.Parameter.Name,
+								ExpectedType: parseErr.ExpectedType,
+								CurrentValue: parseErr.ValueStr,
+							})
+						}
+						if schemaError.SchemaField == "pattern" {
+							response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+								Name:         err.Parameter.Name,
+								ExpectedType: schemaError.Schema.Type,
+								Pattern:      schemaError.Schema.Pattern,
+								CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+							})
+						}
 						responseErrors = append(responseErrors, &response)
 					}
 				}
@@ -256,7 +313,11 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 
 		}
 
-		// validation of the required body error
+		if len(responseErrors) > 0 {
+			return responseErrors, nil
+		}
+
+		// Validation of the required body error
 		switch multiErrors := err.Err.(type) {
 		case openapi3.MultiError:
 			for _, multiErr := range multiErrors {
@@ -273,6 +334,21 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 						response.Code = ErrCodeRequiredBodyParameterInvalidValue
 						response.Fields = schemaError.JSONPointer()
 						response.Message = schemaError.Error()
+						if parseErr, ok := err.Err.(*validator.ParseError); ok && len(response.Fields) > 0 {
+							response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+								Name:         response.Fields[0],
+								ExpectedType: parseErr.ExpectedType,
+								CurrentValue: parseErr.ValueStr,
+							})
+						}
+						if schemaError.SchemaField == "pattern" && len(response.Fields) > 0 {
+							response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+								Name:         response.Fields[0],
+								ExpectedType: schemaError.Schema.Type,
+								Pattern:      schemaError.Schema.Pattern,
+								CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+							})
+						}
 						responseErrors = append(responseErrors, &response)
 					}
 				}
@@ -291,15 +367,30 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 					response.Code = ErrCodeRequiredBodyParameterInvalidValue
 					response.Fields = schemaError.JSONPointer()
 					response.Message = schemaError.Error()
+					if parseErr, ok := err.Err.(*validator.ParseError); ok && len(response.Fields) > 0 {
+						response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+							Name:         response.Fields[0],
+							ExpectedType: parseErr.ExpectedType,
+							CurrentValue: parseErr.ValueStr,
+						})
+					}
+					if schemaError.SchemaField == "pattern" && len(response.Fields) > 0 {
+						response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+							Name:         response.Fields[0],
+							ExpectedType: schemaError.Schema.Type,
+							Pattern:      schemaError.Schema.Pattern,
+							CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+						})
+					}
 					responseErrors = append(responseErrors, &response)
 				}
 			}
 		}
 
-		// handle request body errors
+		// Handle request body errors
 		if err.RequestBody != nil {
 
-			// body required but missed
+			// Body required but missed
 			if err.RequestBody.Required {
 				if err.Err != nil && err.Err.Error() == validator.ErrInvalidRequired.Error() {
 					response := ValidationError{}
@@ -309,12 +400,12 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 				}
 			}
 
-			// body parser not found
+			// Body parser not found
 			if strings.HasPrefix(err.Error(), "request body has an error: failed to decode request body: unsupported content type") {
 				return nil, err
 			}
 
-			// body parse errors
+			// Body parse errors
 			_, isParseErr := err.Err.(*validator.ParseError)
 			if isParseErr || strings.HasPrefix(err.Error(), "request body has an error: header Content-Type has unexpected value") {
 				response := ValidationError{}
@@ -335,14 +426,14 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 				responseErrors = append(responseErrors, &response)
 				continue
 			}
-			// in case of security requirement err is unknown
+			// In case of security requirement err is unknown
 			response.Code = ErrCodeSecRequirementsFailed
 			response.Message = secError.Error()
 			responseErrors = append(responseErrors, &response)
 		}
 	}
 
-	// set the error as unknown
+	// Set the error as unknown
 	if len(responseErrors) == 0 {
 		response := ValidationError{}
 		response.Code = ErrCodeUnknownValidationError
@@ -356,7 +447,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 // APIModeHandler validates request and respond with 200, 403 (with error) or 500 status code
 func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
-	// route not found
+	// Route not found
 	if s.CustomRoute == nil {
 		s.Log.WithFields(logrus.Fields{
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -364,7 +455,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		return web.Respond(ctx, Response{Errors: []*ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound}}}, fasthttp.StatusForbidden)
 	}
 
-	// get path parameters
+	// Get path parameters
 	var pathParams map[string]string
 
 	if s.CustomRoute.ParametersNumberInPath > 0 {
@@ -388,8 +479,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		return web.RespondError(ctx, fasthttp.StatusBadRequest, "")
 	}
 
-	// decode request body
-	requestContentEncoding := string(ctx.Request.Header.ContentEncoding())
+	// Decode request body
+	requestContentEncoding := strconv.B2S(ctx.Request.Header.ContentEncoding())
 	if requestContentEncoding != "" {
 		var err error
 		if req.Body, err = web.GetDecompressedRequestBody(&ctx.Request, requestContentEncoding); err != nil {
@@ -427,7 +518,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	var valUPReqErrors error
 	var upResults []validator.RequestUnknownParameterError
 
-	// validate unknown parameters
+	// Validate unknown parameters
 	if s.Cfg.UnknownParametersDetection {
 		wg.Add(1)
 		go func() {
@@ -452,7 +543,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		case openapi3.MultiError:
 
 			for _, currentErr := range valErr {
-				// parse validation error and build the response
+				// Parse validation error and build the response
 				parsedValErrs, unknownErr := getErrorResponse(currentErr)
 				if unknownErr != nil {
 					return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
@@ -471,7 +562,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			}).Error("request validation error")
 		default:
-			// parse validation error and build the response
+			// Parse validation error and build the response
 			parsedValErrs, unknownErr := getErrorResponse(valErr)
 			if unknownErr != nil {
 				return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
@@ -482,7 +573,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 				}).Warning("request validation error")
 
-				// set schema version for each validation
+				// Set schema version for each validation
 				if len(parsedValErrs) > 0 {
 					for i := range parsedValErrs {
 						parsedValErrs[i].SchemaVersion = s.OpenAPIRouter.SchemaVersion
@@ -498,12 +589,12 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			}).Error("request validation error")
 
-			// validation function returned unknown error
+			// Validation function returned unknown error
 			return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
 		}
 	}
 
-	// validate unknown parameters
+	// Validate unknown parameters
 	if s.Cfg.UnknownParametersDetection {
 
 		if valUPReqErrors != nil {
@@ -512,8 +603,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			}).Error("searching for undefined parameters")
 
-			// if it is not a parsing error then return 500
-			// if it is a parsing error then it already handled by the request validator
+			// If it is not a parsing error then return 500
+			// If it is a parsing error then it already handled by the request validator
 			if _, ok := valUPReqErrors.(*validator.ParseError); !ok {
 				return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
 			}
@@ -536,11 +627,11 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		}
 	}
 
-	// respond 403 with errors
+	// Respond 403 with errors
 	if len(respErrors) > 0 {
 		return web.Respond(ctx, Response{Errors: respErrors}, fasthttp.StatusForbidden)
 	}
 
-	// request successfully validated
+	// Request successfully validated
 	return web.RespondError(ctx, fasthttp.StatusOK, "")
 }

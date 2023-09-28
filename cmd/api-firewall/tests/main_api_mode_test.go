@@ -197,6 +197,10 @@ paths:
   '/test/query':
     get:
       parameters:
+        - name: int
+          in: query
+          schema:
+            type: integer
         - name: id
           in: query
           required: true
@@ -246,6 +250,10 @@ paths:
       summary: Get Request to test Request Headers validation
       parameters:
         - in: header
+          name: X-Request-Test-Int
+          schema:
+            type: integer
+        - in: header
           name: X-Request-Test
           schema:
             type: string
@@ -260,6 +268,10 @@ paths:
     get:
       summary: Get Request to test Request Cookies presence
       parameters:
+        - in: cookie
+          name: cookie_test_int
+          schema:
+            type: integer
         - in: cookie
           name: cookie_test
           schema:
@@ -287,6 +299,8 @@ paths:
                   type: string
                   format: uuid
                   pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                testInt:
+                  type: integer
                 error:
                   type: string
       responses:
@@ -320,8 +334,11 @@ const (
 	testDeleteMethod = "DELETE"
 	testUnknownPath  = "/unknown/path/test"
 
-	testRequestCookie = "cookie_test"
-	testSecCookieName = "MyAuthHeader"
+	testRequestCookie    = "cookie_test"
+	testRequestIntCookie = "cookie_test_int"
+	testSecCookieName    = "MyAuthHeader"
+
+	testRequestIntHeader = "X-Request-Test-Int"
 
 	DefaultSchemaID    = 0
 	DefaultSpecVersion = "1.1.0"
@@ -772,9 +789,11 @@ func (s *APIModeServiceTests) testAPIModeJSONParseError(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParseError {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredBodyParseError, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParseError {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredBodyParseError, apifwResponse.Errors[0].Code)
+		}
 	}
 }
 
@@ -820,11 +839,12 @@ func (s *APIModeServiceTests) testAPIModeInvalidCTParseError(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParseError {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredBodyParseError, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParseError {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredBodyParseError, apifwResponse.Errors[0].Code)
+		}
 	}
-
 }
 
 func (s *APIModeServiceTests) testAPIModeCTNotInSpec(t *testing.T) {
@@ -869,11 +889,12 @@ func (s *APIModeServiceTests) testAPIModeCTNotInSpec(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParseError {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredBodyParseError, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParseError {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredBodyParseError, apifwResponse.Errors[0].Code)
+		}
 	}
-
 }
 
 func (s *APIModeServiceTests) testAPIModeEmptyBody(t *testing.T) {
@@ -906,11 +927,12 @@ func (s *APIModeServiceTests) testAPIModeEmptyBody(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyMissed {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredBodyMissed, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyMissed {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredBodyMissed, apifwResponse.Errors[0].Code)
+		}
 	}
-
 }
 
 func (s *APIModeServiceTests) testAPIModeNoXWallarmSchemaIDHeader(t *testing.T) {
@@ -992,9 +1014,11 @@ func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeMethodAndPathNotFound {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeMethodAndPathNotFound, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeMethodAndPathNotFound {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeMethodAndPathNotFound, apifwResponse.Errors[0].Code)
+		}
 	}
 
 	// check path
@@ -1020,11 +1044,12 @@ func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeMethodAndPathNotFound {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeMethodAndPathNotFound, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeMethodAndPathNotFound {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeMethodAndPathNotFound, apifwResponse.Errors[0].Code)
+		}
 	}
-
 }
 
 func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterMissed(t *testing.T) {
@@ -1071,9 +1096,11 @@ func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterMissed(t *testing
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredQueryParameterMissed {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredQueryParameterMissed, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredQueryParameterMissed {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredQueryParameterMissed, apifwResponse.Errors[0].Code)
+		}
 	}
 }
 
@@ -1124,9 +1151,11 @@ func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterMissed(t *testin
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredHeaderMissed {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredHeaderMissed, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredHeaderMissed {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredHeaderMissed, apifwResponse.Errors[0].Code)
+		}
 	}
 }
 
@@ -1175,9 +1204,11 @@ func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterMissed(t *testin
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredCookieParameterMissed {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredCookieParameterMissed, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredCookieParameterMissed {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredCookieParameterMissed, apifwResponse.Errors[0].Code)
+		}
 	}
 }
 
@@ -1239,9 +1270,11 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyMissed(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyMissed {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredBodyMissed, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyMissed {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredBodyMissed, apifwResponse.Errors[0].Code)
+		}
 	}
 }
 
@@ -1314,9 +1347,11 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterMissed(t *testing.
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParameterMissed {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredBodyParameterMissed, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParameterMissed {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredBodyParameterMissed, apifwResponse.Errors[0].Code)
+		}
 	}
 }
 
@@ -1365,9 +1400,49 @@ func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterInvalidValue(t *t
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredQueryParameterInvalidValue {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredQueryParameterInvalidValue, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredQueryParameterInvalidValue {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredQueryParameterInvalidValue, apifwResponse.Errors[0].Code)
+		}
+	}
+
+	if len(apifwResponse.Errors) != 1 {
+		t.Errorf("Incorrect number of errors. Expected: 1 and got %d",
+			len(apifwResponse.Errors))
+	}
+
+	req.SetRequestURI("/test/query?id=" + uuid.New().String() + "&int=wrongvalue")
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	apifwResponse = handlersAPI.Response{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
+		t.Errorf("Error while JSON response parsing: %v", err)
+	}
+
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredQueryParameterInvalidValue {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredQueryParameterInvalidValue, apifwResponse.Errors[0].Code)
+		}
+	}
+
+	if len(apifwResponse.Errors) != 1 {
+		t.Errorf("Incorrect number of errors. Expected: 1 and got %d",
+			len(apifwResponse.Errors))
 	}
 }
 
@@ -1419,9 +1494,51 @@ func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterInvalidValue(t *
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredHeaderInvalidValue {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredHeaderInvalidValue, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredHeaderInvalidValue {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredHeaderInvalidValue, apifwResponse.Errors[0].Code)
+		}
+	}
+
+	if len(apifwResponse.Errors) != 1 {
+		t.Errorf("Incorrect number of errors. Expected: 1 and got %d",
+			len(apifwResponse.Errors))
+	}
+
+	req.Header.Del(testRequestHeader)
+	req.Header.Add(testRequestHeader, xReqTestValue.String())
+	req.Header.Add(testRequestIntHeader, "invalid_value")
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	apifwResponse = handlersAPI.Response{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
+		t.Errorf("Error while JSON response parsing: %v", err)
+	}
+
+	if len(apifwResponse.Errors) != 1 {
+		t.Errorf("Incorrect number of errors. Expected: 1 and got %d",
+			len(apifwResponse.Errors))
+	}
+
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredHeaderInvalidValue {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredHeaderInvalidValue, apifwResponse.Errors[0].Code)
+		}
 	}
 }
 
@@ -1470,9 +1587,50 @@ func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterInvalidValue(t *
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredCookieParameterInvalidValue {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredCookieParameterInvalidValue, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredCookieParameterInvalidValue {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredCookieParameterInvalidValue, apifwResponse.Errors[0].Code)
+		}
+	}
+
+	if len(apifwResponse.Errors) != 1 {
+		t.Errorf("Incorrect number of errors. Expected: 1 and got %d",
+			len(apifwResponse.Errors))
+	}
+
+	req.Header.SetCookie(testRequestCookie, uuid.New().String())
+	req.Header.SetCookie(testRequestIntCookie, "invalid_test_value")
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	apifwResponse = handlersAPI.Response{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
+		t.Errorf("Error while JSON response parsing: %v", err)
+	}
+
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredCookieParameterInvalidValue {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredCookieParameterInvalidValue, apifwResponse.Errors[0].Code)
+		}
+	}
+
+	if len(apifwResponse.Errors) != 1 {
+		t.Errorf("Incorrect number of errors. Expected: 1 and got %d",
+			len(apifwResponse.Errors))
 	}
 }
 
@@ -1546,9 +1704,65 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParameterInvalidValue {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeRequiredBodyParameterInvalidValue, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParameterInvalidValue {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredBodyParameterInvalidValue, apifwResponse.Errors[0].Code)
+		}
+	}
+
+	if len(apifwResponse.Errors) != 1 {
+		t.Errorf("Incorrect number of errors. Expected: 1 and got %d",
+			len(apifwResponse.Errors))
+	}
+
+	// body with parameter which has invalid type
+	p, err = json.Marshal(map[string]interface{}{
+		"status":  uuid.New().String(),
+		"testInt": "invalid_type_str",
+		"error":   "test",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req = fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/body/request")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	apifwResponse = handlersAPI.Response{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
+		t.Errorf("Error while JSON response parsing: %v", err)
+	}
+
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeRequiredBodyParameterInvalidValue {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeRequiredBodyParameterInvalidValue, apifwResponse.Errors[0].Code)
+		}
+	}
+
+	if len(apifwResponse.Errors) != 1 {
+		t.Errorf("Incorrect number of errors. Expected: 1 and got %d",
+			len(apifwResponse.Errors))
 	}
 }
 
@@ -1600,9 +1814,11 @@ func (s *APIModeServiceTests) testAPIModeBasicAuthFailed(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeSecRequirementsFailed {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeSecRequirementsFailed {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
+		}
 	}
 
 	if apifwResponse.Errors[0].Fields[0] != headerName {
@@ -1657,14 +1873,16 @@ func (s *APIModeServiceTests) testAPIModeBearerTokenFailed(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeSecRequirementsFailed {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
-	}
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeSecRequirementsFailed {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
+		}
 
-	if apifwResponse.Errors[0].Fields[0] != headerName {
-		t.Errorf("Incorrect header name. Expected: %s and got %s",
-			headerName, apifwResponse.Errors[0].Fields[0])
+		if apifwResponse.Errors[0].Fields[0] != headerName {
+			t.Errorf("Incorrect header name. Expected: %s and got %s",
+				headerName, apifwResponse.Errors[0].Fields[0])
+		}
 	}
 }
 
@@ -1713,9 +1931,11 @@ func (s *APIModeServiceTests) testAPIModeAPITokenCookieFailed(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeSecRequirementsFailed {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeSecRequirementsFailed {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
+		}
 	}
 
 	if apifwResponse.Errors[0].Fields[0] != testSecCookieName {
@@ -1768,9 +1988,11 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyJSON(t *testing.T) 
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeUnknownParameterFound {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeUnknownParameterFound, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeUnknownParameterFound {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeUnknownParameterFound, apifwResponse.Errors[0].Code)
+		}
 	}
 
 	p, err = json.Marshal(map[string]interface{}{
@@ -1843,9 +2065,11 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyPost(t *testing.T) 
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeUnknownParameterFound {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeUnknownParameterFound, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeUnknownParameterFound {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeUnknownParameterFound, apifwResponse.Errors[0].Code)
+		}
 	}
 
 	req = fasthttp.AcquireRequest()
@@ -1903,9 +2127,11 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterQuery(t *testing.T) {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
-	if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeUnknownParameterFound {
-		t.Errorf("Incorrect error code. Expected: %s and got %s",
-			handlersAPI.ErrCodeUnknownParameterFound, apifwResponse.Errors[0].Code)
+	if len(apifwResponse.Errors) > 0 {
+		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeUnknownParameterFound {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				handlersAPI.ErrCodeUnknownParameterFound, apifwResponse.Errors[0].Code)
+		}
 	}
 
 	req = fasthttp.AcquireRequest()

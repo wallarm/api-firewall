@@ -40,10 +40,12 @@ const (
 
 // ParseError describes errors which happens while parse operation's parameters, requestBody, or response.
 type ParseError struct {
-	Kind   ParseErrorKind
-	Value  interface{}
-	Reason string
-	Cause  error
+	Kind         ParseErrorKind
+	Value        interface{}
+	Reason       string
+	ExpectedType string
+	ValueStr     string
+	Cause        error
 
 	path []interface{}
 }
@@ -899,32 +901,32 @@ func parsePrimitive(raw string, schema *openapi3.SchemaRef) (interface{}, error)
 			// parse int as float because of the comparison with float enum values
 			v, err := strconv.ParseFloat(raw, 64)
 			if err != nil {
-				return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+				return nil, &ParseError{Kind: KindInvalidFormat, ValueStr: raw, ExpectedType: schema.Value.Type, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
 			}
 			return v, nil
 		}
 		if schema.Value.Format == "int32" {
 			v, err := strconv.ParseInt(raw, 0, 32)
 			if err != nil {
-				return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+				return nil, &ParseError{Kind: KindInvalidFormat, ValueStr: raw, ExpectedType: schema.Value.Type, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
 			}
 			return int32(v), nil
 		}
 		v, err := strconv.ParseInt(raw, 0, 64)
 		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+			return nil, &ParseError{Kind: KindInvalidFormat, ValueStr: raw, ExpectedType: schema.Value.Type, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
 		}
 		return v, nil
 	case "number":
 		v, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+			return nil, &ParseError{Kind: KindInvalidFormat, ValueStr: raw, ExpectedType: schema.Value.Type, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
 		}
 		return v, nil
 	case "boolean":
 		v, err := strconv.ParseBool(raw)
 		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+			return nil, &ParseError{Kind: KindInvalidFormat, ValueStr: raw, ExpectedType: schema.Value.Type, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
 		}
 		return v, nil
 	case "string":
