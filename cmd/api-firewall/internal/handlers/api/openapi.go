@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,11 +20,6 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-var (
-	ErrAuthHeaderMissed = errors.New("missing Authorization header")
-	ErrAPITokenMissed   = errors.New("missing API keys for authorization")
-)
-
 var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 	MultiError: true,
 	AuthenticationFunc: func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
@@ -35,28 +29,43 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 			case "basic":
 				bHeader := input.RequestValidationInput.Request.Header.Get("Authorization")
 				if bHeader == "" || !strings.HasPrefix(strings.ToLower(bHeader), "basic ") {
-					return fmt.Errorf("%w: basic authentication is required", ErrAuthHeaderMissed)
+					return &SecurityRequirementsParameterIsMissingError{
+						Field:   "Authorization",
+						Message: fmt.Sprintf("%v: basic authentication is required", ErrAuthHeaderMissed),
+					}
 				}
 			case "bearer":
 				bHeader := input.RequestValidationInput.Request.Header.Get("Authorization")
 				if bHeader == "" || !strings.HasPrefix(strings.ToLower(bHeader), "bearer ") {
-					return fmt.Errorf("%w: bearer authentication is required", ErrAuthHeaderMissed)
+					return &SecurityRequirementsParameterIsMissingError{
+						Field:   "Authorization",
+						Message: fmt.Sprintf("%v: bearer authentication is required", ErrAuthHeaderMissed),
+					}
 				}
 			}
 		case "apiKey":
 			switch input.SecurityScheme.In {
 			case "header":
 				if input.RequestValidationInput.Request.Header.Get(input.SecurityScheme.Name) == "" {
-					return fmt.Errorf("%w: missing %s header", ErrAPITokenMissed, input.SecurityScheme.Name)
+					return &SecurityRequirementsParameterIsMissingError{
+						Field:   input.SecurityScheme.Name,
+						Message: fmt.Sprintf("%v: missing %s header", ErrAPITokenMissed, input.SecurityScheme.Name),
+					}
 				}
 			case "query":
 				if input.RequestValidationInput.Request.URL.Query().Get(input.SecurityScheme.Name) == "" {
-					return fmt.Errorf("%w: missing %s query parameter", ErrAPITokenMissed, input.SecurityScheme.Name)
+					return &SecurityRequirementsParameterIsMissingError{
+						Field:   input.SecurityScheme.Name,
+						Message: fmt.Sprintf("%v: missing %s query parameter", ErrAPITokenMissed, input.SecurityScheme.Name),
+					}
 				}
 			case "cookie":
 				_, err := input.RequestValidationInput.Request.Cookie(input.SecurityScheme.Name)
 				if err != nil {
-					return fmt.Errorf("%w: missing %s cookie", ErrAPITokenMissed, input.SecurityScheme.Name)
+					return &SecurityRequirementsParameterIsMissingError{
+						Field:   input.SecurityScheme.Name,
+						Message: fmt.Sprintf("%v: missing %s cookie", ErrAPITokenMissed, input.SecurityScheme.Name),
+					}
 				}
 			}
 		}
@@ -73,249 +82,13 @@ type APIMode struct {
 	SchemaID      string
 }
 
-const (
-	ErrCodeMethodAndPathNotFound               = "method_and_path_not_found"
-	ErrCodeRequiredBodyMissed                  = "required_body_missed"
-	ErrCodeRequiredBodyParseError              = "required_body_parse_error"
-	ErrCodeRequiredBodyParameterMissed         = "required_body_parameter_missed"
-	ErrCodeRequiredBodyParameterInvalidValue   = "required_body_parameter_invalid_value"
-	ErrCodeRequiredPathParameterMissed         = "required_path_parameter_missed"
-	ErrCodeRequiredPathParameterInvalidValue   = "required_path_parameter_invalid_value"
-	ErrCodeRequiredQueryParameterMissed        = "required_query_parameter_missed"
-	ErrCodeRequiredQueryParameterInvalidValue  = "required_query_parameter_invalid_value"
-	ErrCodeRequiredCookieParameterMissed       = "required_cookie_parameter_missed"
-	ErrCodeRequiredCookieParameterInvalidValue = "required_cookie_parameter_invalid_value"
-	ErrCodeRequiredHeaderMissed                = "required_header_missed"
-	ErrCodeRequiredHeaderInvalidValue          = "required_header_invalid_value"
-
-	ErrCodeSecRequirementsFailed = "required_security_requirements_failed"
-
-	ErrCodeUnknownParameterFound = "unknown_parameter_found"
-
-	ErrCodeUnknownValidationError = "unknown_validation_error"
-)
-
-var (
-	ErrMethodAndPathNotFound = errors.New("method and path are not found")
-
-	ErrRequiredBodyIsMissing    = errors.New("required body is missing")
-	ErrMissedRequiredParameters = errors.New("required parameters missed")
-)
-
-func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
-	var responseErrors []*web.ValidationError
-
-	switch err := validationError.(type) {
-
-	case *openapi3filter.RequestError:
-		if err.Parameter != nil {
-
-			// required parameter is missed
-			if errors.Is(err, validator.ErrInvalidRequired) || errors.Is(err, validator.ErrInvalidEmptyValue) {
-				response := web.ValidationError{}
-				switch err.Parameter.In {
-				case "path":
-					response.Code = ErrCodeRequiredPathParameterMissed
-				case "query":
-					response.Code = ErrCodeRequiredQueryParameterMissed
-				case "cookie":
-					response.Code = ErrCodeRequiredCookieParameterMissed
-				case "header":
-					response.Code = ErrCodeRequiredHeaderMissed
-				}
-				response.Message = err.Error()
-				response.Fields = []string{err.Parameter.Name}
-				responseErrors = append(responseErrors, &response)
-			}
-
-			// invalid parameter value
-			if strings.HasSuffix(err.Error(), "invalid syntax") {
-				response := web.ValidationError{}
-				switch err.Parameter.In {
-				case "path":
-					response.Code = ErrCodeRequiredPathParameterInvalidValue
-				case "query":
-					response.Code = ErrCodeRequiredQueryParameterInvalidValue
-				case "cookie":
-					response.Code = ErrCodeRequiredCookieParameterInvalidValue
-				case "header":
-					response.Code = ErrCodeRequiredHeaderInvalidValue
-				}
-				response.Message = err.Error()
-				response.Fields = []string{err.Parameter.Name}
-				responseErrors = append(responseErrors, &response)
-			}
-
-			// validation of the required parameter error
-			switch multiErrors := err.Err.(type) {
-			case openapi3.MultiError:
-				for _, multiErr := range multiErrors {
-					schemaError, ok := multiErr.(*openapi3.SchemaError)
-					if ok {
-						response := web.ValidationError{}
-						switch schemaError.SchemaField {
-						case "required":
-							switch err.Parameter.In {
-							case "query":
-								response.Code = ErrCodeRequiredQueryParameterMissed
-							case "cookie":
-								response.Code = ErrCodeRequiredCookieParameterMissed
-							case "header":
-								response.Code = ErrCodeRequiredHeaderMissed
-							}
-							response.Fields = schemaError.JSONPointer()
-							response.Message = ErrMissedRequiredParameters.Error()
-							responseErrors = append(responseErrors, &response)
-						default:
-							switch err.Parameter.In {
-							case "query":
-								response.Code = ErrCodeRequiredQueryParameterInvalidValue
-							case "cookie":
-								response.Code = ErrCodeRequiredCookieParameterInvalidValue
-							case "header":
-								response.Code = ErrCodeRequiredHeaderInvalidValue
-							}
-							response.Fields = []string{err.Parameter.Name}
-							response.Message = schemaError.Error()
-							responseErrors = append(responseErrors, &response)
-						}
-					}
-				}
-			default:
-				schemaError, ok := multiErrors.(*openapi3.SchemaError)
-				if ok {
-					response := web.ValidationError{}
-					switch schemaError.SchemaField {
-					case "required":
-						switch err.Parameter.In {
-						case "query":
-							response.Code = ErrCodeRequiredQueryParameterMissed
-						case "cookie":
-							response.Code = ErrCodeRequiredCookieParameterMissed
-						case "header":
-							response.Code = ErrCodeRequiredHeaderMissed
-						}
-						response.Fields = schemaError.JSONPointer()
-						response.Message = ErrMissedRequiredParameters.Error()
-						responseErrors = append(responseErrors, &response)
-					default:
-						switch err.Parameter.In {
-						case "query":
-							response.Code = ErrCodeRequiredQueryParameterInvalidValue
-						case "cookie":
-							response.Code = ErrCodeRequiredCookieParameterInvalidValue
-						case "header":
-							response.Code = ErrCodeRequiredHeaderInvalidValue
-						}
-						response.Fields = []string{err.Parameter.Name}
-						response.Message = schemaError.Error()
-						responseErrors = append(responseErrors, &response)
-					}
-				}
-			}
-
-		}
-
-		// validation of the required body error
-		switch multiErrors := err.Err.(type) {
-		case openapi3.MultiError:
-			for _, multiErr := range multiErrors {
-				schemaError, ok := multiErr.(*openapi3.SchemaError)
-				if ok {
-					response := web.ValidationError{}
-					switch schemaError.SchemaField {
-					case "required":
-						response.Code = ErrCodeRequiredBodyParameterMissed
-						response.Fields = schemaError.JSONPointer()
-						response.Message = schemaError.Error()
-						responseErrors = append(responseErrors, &response)
-					default:
-						response.Code = ErrCodeRequiredBodyParameterInvalidValue
-						response.Fields = schemaError.JSONPointer()
-						response.Message = schemaError.Error()
-						responseErrors = append(responseErrors, &response)
-					}
-				}
-			}
-		default:
-			schemaError, ok := multiErrors.(*openapi3.SchemaError)
-			if ok {
-				response := web.ValidationError{}
-				switch schemaError.SchemaField {
-				case "required":
-					response.Code = ErrCodeRequiredBodyParameterMissed
-					response.Fields = schemaError.JSONPointer()
-					response.Message = schemaError.Error()
-					responseErrors = append(responseErrors, &response)
-				default:
-					response.Code = ErrCodeRequiredBodyParameterInvalidValue
-					response.Fields = schemaError.JSONPointer()
-					response.Message = schemaError.Error()
-					responseErrors = append(responseErrors, &response)
-				}
-			}
-		}
-
-		// handle request body errors
-		if err.RequestBody != nil {
-
-			// body required but missed
-			if err.RequestBody.Required {
-				if err.Err != nil && err.Err.Error() == validator.ErrInvalidRequired.Error() {
-					response := web.ValidationError{}
-					response.Code = ErrCodeRequiredBodyMissed
-					response.Message = ErrRequiredBodyIsMissing.Error()
-					responseErrors = append(responseErrors, &response)
-				}
-			}
-
-			// body parser not found
-			if strings.HasPrefix(err.Error(), "request body has an error: failed to decode request body: unsupported content type") {
-				return nil, err
-			}
-
-			// body parse errors
-			_, isParseErr := err.Err.(*validator.ParseError)
-			if isParseErr || strings.HasPrefix(err.Error(), "request body has an error: header Content-Type has unexpected value") {
-				response := web.ValidationError{}
-				response.Code = ErrCodeRequiredBodyParseError
-				response.Message = err.Error()
-				responseErrors = append(responseErrors, &response)
-			}
-		}
-
-	case *openapi3filter.SecurityRequirementsError:
-
-		response := web.ValidationError{}
-
-		secErrors := ""
-		for _, secError := range err.Errors {
-			secErrors += secError.Error() + ","
-		}
-
-		response.Code = ErrCodeSecRequirementsFailed
-		response.Message = secErrors
-		responseErrors = append(responseErrors, &response)
-	}
-
-	// set the error as unknown
-	if len(responseErrors) == 0 {
-		response := web.ValidationError{}
-		response.Code = ErrCodeUnknownValidationError
-		response.Message = validationError.Error()
-		responseErrors = append(responseErrors, &response)
-	}
-
-	return responseErrors, nil
-}
-
 // APIModeHandler validates request and respond with 200, 403 (with error) or 500 status code
 func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
 	keyValidationErrors := s.SchemaID + web.APIModePostfixValidationErrors
 	keyStatusCode := s.SchemaID + web.APIModePostfixStatusCode
 
-	// route not found
+	// Route not found
 	if s.CustomRoute == nil {
 		s.Log.WithFields(logrus.Fields{
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -325,7 +98,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		return nil
 	}
 
-	// get path parameters
+	// Get path parameters
 	var pathParams map[string]string
 
 	if s.CustomRoute.ParametersNumberInPath > 0 {
@@ -347,8 +120,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		return nil
 	}
 
-	// decode request body
-	requestContentEncoding := string(ctx.Request.Header.ContentEncoding())
+	// Decode request body
+	requestContentEncoding := strconv.B2S(ctx.Request.Header.ContentEncoding())
 	if requestContentEncoding != "" {
 		var err error
 		if req.Body, err = web.GetDecompressedRequestBody(&ctx.Request, requestContentEncoding); err != nil {
@@ -412,7 +185,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		case openapi3.MultiError:
 
 			for _, currentErr := range valErr {
-				// parse validation error and build the response
+				// Parse validation error and build the response
 				parsedValErrs, unknownErr := getErrorResponse(currentErr)
 				if unknownErr != nil {
 					ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
@@ -432,7 +205,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			}).Error("request validation error")
 		default:
-			// parse validation error and build the response
+			// Parse validation error and build the response
 			parsedValErrs, unknownErr := getErrorResponse(valErr)
 			if unknownErr != nil {
 				ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
@@ -444,7 +217,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 				}).Warning("request validation error")
 
-				// set schema version for each validation
+				// Set schema version for each validation
 				if len(parsedValErrs) > 0 {
 					for i := range parsedValErrs {
 						parsedValErrs[i].SchemaVersion = s.OpenAPIRouter.SchemaVersion
@@ -466,7 +239,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		}
 	}
 
-	// validate unknown parameters
+	// Validate unknown parameters
 	if s.Cfg.UnknownParametersDetection {
 
 		if valUPReqErrors != nil {
@@ -475,8 +248,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			}).Error("searching for undefined parameters")
 
-			// if it is not a parsing error then return 500
-			// if it is a parsing error then it already handled by the request validator
+			// If it is not a parsing error then return 500
+			// If it is a parsing error then it already handled by the request validator
 			if _, ok := valUPReqErrors.(*validator.ParseError); !ok {
 				ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
 				return nil
@@ -500,7 +273,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		}
 	}
 
-	// respond 403 with errors
+	// Respond 403 with errors
 	if len(respErrors) > 0 {
 		// add schema IDs to the validation error messages
 		for _, r := range respErrors {

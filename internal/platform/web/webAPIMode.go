@@ -21,12 +21,20 @@ const (
 	APIModePostfixValidationErrors = "_validation_errors"
 )
 
+type FieldTypeError struct {
+	Name         string `json:"name"`
+	ExpectedType string `json:"expected_type,omitempty"`
+	Pattern      string `json:"pattern,omitempty"`
+	CurrentValue string `json:"current_value"`
+}
+
 type ValidationError struct {
-	Message       string   `json:"message"`
-	Code          string   `json:"code"`
-	SchemaVersion string   `json:"schema_version,omitempty"`
-	SchemaID      string   `json:"schema_id,omitempty"`
-	Fields        []string `json:"related_fields,omitempty"`
+	Message       string           `json:"message"`
+	Code          string           `json:"code"`
+	SchemaVersion string           `json:"schema_version,omitempty"`
+	SchemaID      string           `json:"schema_id,omitempty"`
+	Fields        []string         `json:"related_fields,omitempty"`
+	FieldsDetails []FieldTypeError `json:"related_fields_details,omitempty"`
 }
 
 type APIModeResponse struct {
