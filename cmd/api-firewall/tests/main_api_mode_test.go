@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	strconv2 "strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -323,7 +324,9 @@ const (
 	testRequestCookie = "cookie_test"
 	testSecCookieName = "MyAuthHeader"
 
+	MissedSchemaID     = 11
 	DefaultSchemaID    = 0
+	SecondSchemaID     = 1
 	DefaultSpecVersion = "1.1.0"
 	UpdatedSpecVersion = "1.1.1"
 )
@@ -384,10 +387,14 @@ func TestAPIModeBasic(t *testing.T) {
 		t.Fatalf("loading swagwaf file: %s", err.Error())
 	}
 
-	dbSpec.EXPECT().SchemaIDs().Return([]int{DefaultSchemaID}).AnyTimes()
+	dbSpec.EXPECT().SchemaIDs().Return([]int{DefaultSchemaID, SecondSchemaID}).AnyTimes()
 	dbSpec.EXPECT().Specification(DefaultSchemaID).Return(swagger).AnyTimes()
+	dbSpec.EXPECT().Specification(SecondSchemaID).Return(swagger).AnyTimes()
 	dbSpec.EXPECT().SpecificationVersion(DefaultSchemaID).Return(DefaultSpecVersion).AnyTimes()
+	dbSpec.EXPECT().SpecificationVersion(SecondSchemaID).Return(DefaultSpecVersion).AnyTimes()
 	dbSpec.EXPECT().IsLoaded(DefaultSchemaID).Return(true).AnyTimes()
+	dbSpec.EXPECT().IsLoaded(SecondSchemaID).Return(true).AnyTimes()
+	dbSpec.EXPECT().IsLoaded(MissedSchemaID).Return(false).AnyTimes()
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
@@ -404,6 +411,9 @@ func TestAPIModeBasic(t *testing.T) {
 	t.Run("testAPIModeSuccess", apifwTests.testAPIModeSuccess)
 	t.Run("testAPIModeMissedMultipleReqParams", apifwTests.testAPIModeMissedMultipleReqParams)
 	t.Run("testAPIModeNoXWallarmSchemaIDHeader", apifwTests.testAPIModeNoXWallarmSchemaIDHeader)
+
+	t.Run("testAPIModeOneSchemeMultipleIDs", apifwTests.testAPIModeOneSchemeMultipleIDs)
+	t.Run("testAPIModeTwoSchemesMultipleIDs", apifwTests.testAPIModeTwoSchemesMultipleIDs)
 
 	t.Run("testAPIModeMethodAndPathNotFound", apifwTests.testAPIModeMethodAndPathNotFound)
 
@@ -594,7 +604,7 @@ func (s *APIModeServiceTests) testAPIModeMissedMultipleReqParams(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -734,6 +744,143 @@ func (s *APIModeServiceTests) testAPIModeSuccessMultipartStringParameter(t *test
 
 }
 
+func (s *APIModeServiceTests) testAPIModeOneSchemeMultipleIDs(t *testing.T) {
+
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+
+	// one schema
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signup")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	req.Header.Set(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d, %d", DefaultSchemaID, MissedSchemaID))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 500 {
+		t.Errorf("Incorrect response status code. Expected: 500 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+}
+
+func (s *APIModeServiceTests) testAPIModeTwoSchemesMultipleIDs(t *testing.T) {
+
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signup")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d, %d", DefaultSchemaID, SecondSchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	// Repeat request with invalid email
+	reqInvalidEmail, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.SetBodyStream(bytes.NewReader(reqInvalidEmail), -1)
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	response := web.APIModeResponse{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &response); err != nil {
+		t.Errorf("error while unmarshal response: %v", err)
+	}
+
+	if len(response.Errors) != 2 {
+		t.Errorf("Incorrect number of errors. Expected: 2 and got %d",
+			len(response.Errors))
+		return
+	}
+
+	if !(response.Errors[0].SchemaID == strconv2.Itoa(DefaultSchemaID) && response.Errors[1].SchemaID == strconv2.Itoa(SecondSchemaID) ||
+		response.Errors[1].SchemaID == strconv2.Itoa(DefaultSchemaID) && response.Errors[0].SchemaID == strconv2.Itoa(SecondSchemaID)) {
+		t.Errorf("Incorrect errors. Expected the following list of schema IDs: %d, %d and got the following errors: %v",
+			DefaultSchemaID, SecondSchemaID, response.Errors)
+	}
+
+}
+
 func (s *APIModeServiceTests) testAPIModeJSONParseError(t *testing.T) {
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
@@ -756,7 +903,7 @@ func (s *APIModeServiceTests) testAPIModeJSONParseError(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -801,7 +948,7 @@ func (s *APIModeServiceTests) testAPIModeInvalidCTParseError(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -849,7 +996,7 @@ func (s *APIModeServiceTests) testAPIModeCTNotInSpec(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -885,7 +1032,7 @@ func (s *APIModeServiceTests) testAPIModeEmptyBody(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -931,6 +1078,25 @@ func (s *APIModeServiceTests) testAPIModeNoXWallarmSchemaIDHeader(t *testing.T) 
 	}
 
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	for _, headerValue := range []string{fmt.Sprintf("%d", MissedSchemaID), "invalidValue", "", " ", " , , "} {
+
+		req.Header.Set(web.XWallarmSchemaIDHeader, headerValue)
+
+		reqCtx = fasthttp.RequestCtx{
+			Request: *req,
+		}
+
+		handler(&reqCtx)
+
+		if reqCtx.Response.StatusCode() != 500 {
+			t.Errorf("Incorrect response status code. Expected: 500 and got %d",
+				reqCtx.Response.StatusCode())
+		}
+
+		t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	}
 }
 
 func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
@@ -967,7 +1133,7 @@ func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -994,7 +1160,7 @@ func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = handlersAPI.Response{}
+	apifwResponse = web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1043,7 +1209,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterMissed(t *testing
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1094,7 +1260,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterMissed(t *testin
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1143,7 +1309,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterMissed(t *testin
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1205,7 +1371,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyMissed(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1278,7 +1444,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterMissed(t *testing.
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1327,7 +1493,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterInvalidValue(t *t
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1379,7 +1545,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterInvalidValue(t *
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1428,7 +1594,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterInvalidValue(t *
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1502,7 +1668,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1552,7 +1718,7 @@ func (s *APIModeServiceTests) testAPIModeBasicAuthFailed(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1601,7 +1767,7 @@ func (s *APIModeServiceTests) testAPIModeBearerTokenFailed(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1650,7 +1816,7 @@ func (s *APIModeServiceTests) testAPIModeAPITokenCookieFailed(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1701,7 +1867,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyJSON(t *testing.T) 
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1774,7 +1940,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyPost(t *testing.T) 
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1832,7 +1998,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterQuery(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := handlersAPI.Response{}
+	apifwResponse := web.APIModeResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}

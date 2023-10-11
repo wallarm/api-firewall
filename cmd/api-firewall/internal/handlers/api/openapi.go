@@ -70,6 +70,7 @@ type APIMode struct {
 	Log           *logrus.Logger
 	Cfg           *config.APIMode
 	ParserPool    *fastjson.ParserPool
+	SchemaID      string
 }
 
 const (
@@ -101,19 +102,8 @@ var (
 	ErrMissedRequiredParameters = errors.New("required parameters missed")
 )
 
-type ValidationError struct {
-	Message       string   `json:"message"`
-	Code          string   `json:"code"`
-	SchemaVersion string   `json:"schema_version,omitempty"`
-	Fields        []string `json:"related_fields,omitempty"`
-}
-
-type Response struct {
-	Errors []*ValidationError `json:"errors"`
-}
-
-func getErrorResponse(validationError error) ([]*ValidationError, error) {
-	var responseErrors []*ValidationError
+func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
+	var responseErrors []*web.ValidationError
 
 	switch err := validationError.(type) {
 
@@ -122,7 +112,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 
 			// required parameter is missed
 			if errors.Is(err, validator.ErrInvalidRequired) || errors.Is(err, validator.ErrInvalidEmptyValue) {
-				response := ValidationError{}
+				response := web.ValidationError{}
 				switch err.Parameter.In {
 				case "path":
 					response.Code = ErrCodeRequiredPathParameterMissed
@@ -140,7 +130,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 
 			// invalid parameter value
 			if strings.HasSuffix(err.Error(), "invalid syntax") {
-				response := ValidationError{}
+				response := web.ValidationError{}
 				switch err.Parameter.In {
 				case "path":
 					response.Code = ErrCodeRequiredPathParameterInvalidValue
@@ -162,7 +152,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 				for _, multiErr := range multiErrors {
 					schemaError, ok := multiErr.(*openapi3.SchemaError)
 					if ok {
-						response := ValidationError{}
+						response := web.ValidationError{}
 						switch schemaError.SchemaField {
 						case "required":
 							switch err.Parameter.In {
@@ -194,7 +184,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 			default:
 				schemaError, ok := multiErrors.(*openapi3.SchemaError)
 				if ok {
-					response := ValidationError{}
+					response := web.ValidationError{}
 					switch schemaError.SchemaField {
 					case "required":
 						switch err.Parameter.In {
@@ -232,7 +222,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 			for _, multiErr := range multiErrors {
 				schemaError, ok := multiErr.(*openapi3.SchemaError)
 				if ok {
-					response := ValidationError{}
+					response := web.ValidationError{}
 					switch schemaError.SchemaField {
 					case "required":
 						response.Code = ErrCodeRequiredBodyParameterMissed
@@ -250,7 +240,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 		default:
 			schemaError, ok := multiErrors.(*openapi3.SchemaError)
 			if ok {
-				response := ValidationError{}
+				response := web.ValidationError{}
 				switch schemaError.SchemaField {
 				case "required":
 					response.Code = ErrCodeRequiredBodyParameterMissed
@@ -272,7 +262,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 			// body required but missed
 			if err.RequestBody.Required {
 				if err.Err != nil && err.Err.Error() == validator.ErrInvalidRequired.Error() {
-					response := ValidationError{}
+					response := web.ValidationError{}
 					response.Code = ErrCodeRequiredBodyMissed
 					response.Message = ErrRequiredBodyIsMissing.Error()
 					responseErrors = append(responseErrors, &response)
@@ -287,7 +277,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 			// body parse errors
 			_, isParseErr := err.Err.(*validator.ParseError)
 			if isParseErr || strings.HasPrefix(err.Error(), "request body has an error: header Content-Type has unexpected value") {
-				response := ValidationError{}
+				response := web.ValidationError{}
 				response.Code = ErrCodeRequiredBodyParseError
 				response.Message = err.Error()
 				responseErrors = append(responseErrors, &response)
@@ -296,7 +286,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 
 	case *openapi3filter.SecurityRequirementsError:
 
-		response := ValidationError{}
+		response := web.ValidationError{}
 
 		secErrors := ""
 		for _, secError := range err.Errors {
@@ -310,7 +300,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 
 	// set the error as unknown
 	if len(responseErrors) == 0 {
-		response := ValidationError{}
+		response := web.ValidationError{}
 		response.Code = ErrCodeUnknownValidationError
 		response.Message = validationError.Error()
 		responseErrors = append(responseErrors, &response)
@@ -322,12 +312,17 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 // APIModeHandler validates request and respond with 200, 403 (with error) or 500 status code
 func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
+	keyValidationErrors := s.SchemaID + web.APIModePostfixValidationErrors
+	keyStatusCode := s.SchemaID + web.APIModePostfixStatusCode
+
 	// route not found
 	if s.CustomRoute == nil {
 		s.Log.WithFields(logrus.Fields{
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 		}).Debug("method or path were not found")
-		return web.Respond(ctx, Response{Errors: []*ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound}}}, fasthttp.StatusForbidden)
+		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: s.SchemaID}})
+		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
+		return nil
 	}
 
 	// get path parameters
@@ -337,10 +332,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		pathParams = make(map[string]string)
 
 		ctx.VisitUserValues(func(key []byte, value interface{}) {
-			keyStr := strconv.B2S(key)
-			if keyStr != web.WallarmSchemaID {
-				pathParams[keyStr] = value.(string)
-			}
+			pathParams[strconv.B2S(key)] = value.(string)
 		})
 	}
 
@@ -351,7 +343,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			"error":      err,
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 		}).Error("error while converting http request")
-		return web.RespondError(ctx, fasthttp.StatusBadRequest, "")
+		ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+		return nil
 	}
 
 	// decode request body
@@ -363,7 +356,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			}).Error("request body decompression error")
-			return err
+			ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+			return nil
 		}
 	}
 
@@ -393,7 +387,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	var valUPReqErrors error
 	var upResults []validator.RequestUnknownParameterError
 
-	// validate unknown parameters
+	// Validate unknown parameters
 	if s.Cfg.UnknownParametersDetection {
 		wg.Add(1)
 		go func() {
@@ -409,7 +403,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
 	wg.Wait()
 
-	var respErrors []*ValidationError
+	var respErrors []*web.ValidationError
 
 	if valReqErrors != nil {
 
@@ -421,7 +415,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				// parse validation error and build the response
 				parsedValErrs, unknownErr := getErrorResponse(currentErr)
 				if unknownErr != nil {
-					return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
+					ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+					return nil
 				}
 
 				if len(parsedValErrs) > 0 {
@@ -440,7 +435,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			// parse validation error and build the response
 			parsedValErrs, unknownErr := getErrorResponse(valErr)
 			if unknownErr != nil {
-				return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
+				ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+				return nil
 			}
 			if parsedValErrs != nil {
 				s.Log.WithFields(logrus.Fields{
@@ -465,7 +461,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			}).Error("request validation error")
 
 			// validation function returned unknown error
-			return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
+			ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+			return nil
 		}
 	}
 
@@ -481,7 +478,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			// if it is not a parsing error then return 500
 			// if it is a parsing error then it already handled by the request validator
 			if _, ok := valUPReqErrors.(*validator.ParseError); !ok {
-				return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
+				ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+				return nil
 			}
 		}
 
@@ -492,7 +490,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 				}).Error("searching for undefined parameters")
 
-				response := ValidationError{}
+				response := web.ValidationError{}
 				response.SchemaVersion = s.OpenAPIRouter.SchemaVersion
 				response.Message = upResult.Err.Error()
 				response.Code = ErrCodeUnknownParameterFound
@@ -504,9 +502,16 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
 	// respond 403 with errors
 	if len(respErrors) > 0 {
-		return web.Respond(ctx, Response{Errors: respErrors}, fasthttp.StatusForbidden)
+		// add schema IDs to the validation error messages
+		for _, r := range respErrors {
+			r.SchemaID = s.SchemaID
+		}
+		ctx.SetUserValue(keyValidationErrors, respErrors)
+		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
+		return nil
 	}
 
 	// request successfully validated
-	return web.RespondError(ctx, fasthttp.StatusOK, "")
+	ctx.SetUserValue(keyStatusCode, fasthttp.StatusOK)
+	return nil
 }
