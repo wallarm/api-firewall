@@ -79,21 +79,23 @@ type APIMode struct {
 	Log           *logrus.Logger
 	Cfg           *config.APIMode
 	ParserPool    *fastjson.ParserPool
-}
-
-type Response struct {
-	Errors []*ValidationError `json:"errors"`
+	SchemaID      string
 }
 
 // APIModeHandler validates request and respond with 200, 403 (with error) or 500 status code
 func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
+
+	keyValidationErrors := s.SchemaID + web.APIModePostfixValidationErrors
+	keyStatusCode := s.SchemaID + web.APIModePostfixStatusCode
 
 	// Route not found
 	if s.CustomRoute == nil {
 		s.Log.WithFields(logrus.Fields{
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 		}).Debug("method or path were not found")
-		return web.Respond(ctx, Response{Errors: []*ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound}}}, fasthttp.StatusForbidden)
+		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: s.SchemaID}})
+		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
+		return nil
 	}
 
 	// Get path parameters
@@ -103,10 +105,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		pathParams = make(map[string]string)
 
 		ctx.VisitUserValues(func(key []byte, value interface{}) {
-			keyStr := strconv.B2S(key)
-			if keyStr != web.WallarmSchemaID {
-				pathParams[keyStr] = value.(string)
-			}
+			pathParams[strconv.B2S(key)] = value.(string)
 		})
 	}
 
@@ -117,7 +116,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			"error":      err,
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 		}).Error("error while converting http request")
-		return web.RespondError(ctx, fasthttp.StatusBadRequest, "")
+		ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+		return nil
 	}
 
 	// Decode request body
@@ -129,7 +129,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			}).Error("request body decompression error")
-			return err
+			ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+			return nil
 		}
 	}
 
@@ -175,7 +176,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
 	wg.Wait()
 
-	var respErrors []*ValidationError
+	var respErrors []*web.ValidationError
 
 	if valReqErrors != nil {
 
@@ -187,7 +188,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				// Parse validation error and build the response
 				parsedValErrs, unknownErr := getErrorResponse(currentErr)
 				if unknownErr != nil {
-					return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
+					ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+					return nil
 				}
 
 				if len(parsedValErrs) > 0 {
@@ -206,7 +208,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			// Parse validation error and build the response
 			parsedValErrs, unknownErr := getErrorResponse(valErr)
 			if unknownErr != nil {
-				return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
+				ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+				return nil
 			}
 			if parsedValErrs != nil {
 				s.Log.WithFields(logrus.Fields{
@@ -230,8 +233,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			}).Error("request validation error")
 
-			// Validation function returned unknown error
-			return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
+			// validation function returned unknown error
+			ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+			return nil
 		}
 	}
 
@@ -247,7 +251,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			// If it is not a parsing error then return 500
 			// If it is a parsing error then it already handled by the request validator
 			if _, ok := valUPReqErrors.(*validator.ParseError); !ok {
-				return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
+				ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
+				return nil
 			}
 		}
 
@@ -258,7 +263,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 				}).Error("searching for undefined parameters")
 
-				response := ValidationError{}
+				response := web.ValidationError{}
 				response.SchemaVersion = s.OpenAPIRouter.SchemaVersion
 				response.Message = upResult.Err.Error()
 				response.Code = ErrCodeUnknownParameterFound
@@ -270,9 +275,16 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
 	// Respond 403 with errors
 	if len(respErrors) > 0 {
-		return web.Respond(ctx, Response{Errors: respErrors}, fasthttp.StatusForbidden)
+		// add schema IDs to the validation error messages
+		for _, r := range respErrors {
+			r.SchemaID = s.SchemaID
+		}
+		ctx.SetUserValue(keyValidationErrors, respErrors)
+		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
+		return nil
 	}
 
-	// Request successfully validated
-	return web.RespondError(ctx, fasthttp.StatusOK, "")
+	// request successfully validated
+	ctx.SetUserValue(keyStatusCode, fasthttp.StatusOK)
+	return nil
 }

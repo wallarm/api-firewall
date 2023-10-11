@@ -8,6 +8,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/pkg/errors"
 	"github.com/wallarm/api-firewall/internal/platform/validator"
+	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
 const (
@@ -41,21 +42,6 @@ var (
 	ErrMissedRequiredParameters = errors.New("required parameters missed")
 )
 
-type FieldTypeError struct {
-	Name         string `json:"name"`
-	ExpectedType string `json:"expected_type,omitempty"`
-	Pattern      string `json:"pattern,omitempty"`
-	CurrentValue string `json:"current_value"`
-}
-
-type ValidationError struct {
-	Message       string           `json:"message"`
-	Code          string           `json:"code"`
-	SchemaVersion string           `json:"schema_version,omitempty"`
-	Fields        []string         `json:"related_fields,omitempty"`
-	FieldsDetails []FieldTypeError `json:"related_fields_details,omitempty"`
-}
-
 type SecurityRequirementsParameterIsMissingError struct {
 	Field   string
 	Message string
@@ -65,8 +51,8 @@ func (e *SecurityRequirementsParameterIsMissingError) Error() string {
 	return e.Message
 }
 
-func getErrorResponse(validationError error) ([]*ValidationError, error) {
-	var responseErrors []*ValidationError
+func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
+	var responseErrors []*web.ValidationError
 
 	switch err := validationError.(type) {
 
@@ -75,7 +61,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 
 			// Required parameter is missed
 			if errors.Is(err, validator.ErrInvalidRequired) || errors.Is(err, validator.ErrInvalidEmptyValue) {
-				response := ValidationError{}
+				response := web.ValidationError{}
 				switch err.Parameter.In {
 				case "path":
 					response.Code = ErrCodeRequiredPathParameterMissed
@@ -93,7 +79,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 
 			// Invalid parameter value
 			if strings.HasSuffix(err.Error(), "invalid syntax") {
-				response := ValidationError{}
+				response := web.ValidationError{}
 				switch err.Parameter.In {
 				case "path":
 					response.Code = ErrCodeRequiredPathParameterInvalidValue
@@ -107,7 +93,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 				response.Message = err.Error()
 				response.Fields = []string{err.Parameter.Name}
 				if parseErr, ok := err.Err.(*validator.ParseError); ok {
-					response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+					response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
 						Name:         err.Parameter.Name,
 						ExpectedType: parseErr.ExpectedType,
 						CurrentValue: parseErr.ValueStr,
@@ -116,7 +102,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 				schemaError, ok := err.Err.(*openapi3.SchemaError)
 				if ok {
 					if schemaError.SchemaField == "pattern" {
-						response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+						response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
 							Name:         err.Parameter.Name,
 							ExpectedType: schemaError.Schema.Type,
 							Pattern:      schemaError.Schema.Pattern,
@@ -134,7 +120,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 				for _, multiErr := range multiErrors {
 					schemaError, ok := multiErr.(*openapi3.SchemaError)
 					if ok {
-						response := ValidationError{}
+						response := web.ValidationError{}
 						switch schemaError.SchemaField {
 						case "required":
 							switch err.Parameter.In {
@@ -160,14 +146,14 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 							response.Fields = []string{err.Parameter.Name}
 							response.Message = schemaError.Error()
 							if parseErr, ok := err.Err.(*validator.ParseError); ok {
-								response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+								response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
 									Name:         err.Parameter.Name,
 									ExpectedType: parseErr.ExpectedType,
 									CurrentValue: parseErr.ValueStr,
 								})
 							}
 							if schemaError.SchemaField == "pattern" {
-								response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+								response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
 									Name:         err.Parameter.Name,
 									ExpectedType: schemaError.Schema.Type,
 									Pattern:      schemaError.Schema.Pattern,
@@ -181,7 +167,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 			default:
 				schemaError, ok := multiErrors.(*openapi3.SchemaError)
 				if ok {
-					response := ValidationError{}
+					response := web.ValidationError{}
 					switch schemaError.SchemaField {
 					case "required":
 						switch err.Parameter.In {
@@ -207,14 +193,14 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 						response.Fields = []string{err.Parameter.Name}
 						response.Message = schemaError.Error()
 						if parseErr, ok := err.Err.(*validator.ParseError); ok {
-							response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
 								Name:         err.Parameter.Name,
 								ExpectedType: parseErr.ExpectedType,
 								CurrentValue: parseErr.ValueStr,
 							})
 						}
 						if schemaError.SchemaField == "pattern" {
-							response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
 								Name:         err.Parameter.Name,
 								ExpectedType: schemaError.Schema.Type,
 								Pattern:      schemaError.Schema.Pattern,
@@ -238,7 +224,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 			for _, multiErr := range multiErrors {
 				schemaError, ok := multiErr.(*openapi3.SchemaError)
 				if ok {
-					response := ValidationError{}
+					response := web.ValidationError{}
 					switch schemaError.SchemaField {
 					case "required":
 						response.Code = ErrCodeRequiredBodyParameterMissed
@@ -250,14 +236,14 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 						response.Fields = schemaError.JSONPointer()
 						response.Message = schemaError.Error()
 						if parseErr, ok := err.Err.(*validator.ParseError); ok && len(response.Fields) > 0 {
-							response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
 								Name:         response.Fields[0],
 								ExpectedType: parseErr.ExpectedType,
 								CurrentValue: parseErr.ValueStr,
 							})
 						}
 						if schemaError.SchemaField == "pattern" && len(response.Fields) > 0 {
-							response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
 								Name:         response.Fields[0],
 								ExpectedType: schemaError.Schema.Type,
 								Pattern:      schemaError.Schema.Pattern,
@@ -271,7 +257,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 		default:
 			schemaError, ok := multiErrors.(*openapi3.SchemaError)
 			if ok {
-				response := ValidationError{}
+				response := web.ValidationError{}
 				switch schemaError.SchemaField {
 				case "required":
 					response.Code = ErrCodeRequiredBodyParameterMissed
@@ -283,14 +269,14 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 					response.Fields = schemaError.JSONPointer()
 					response.Message = schemaError.Error()
 					if parseErr, ok := err.Err.(*validator.ParseError); ok && len(response.Fields) > 0 {
-						response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+						response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
 							Name:         response.Fields[0],
 							ExpectedType: parseErr.ExpectedType,
 							CurrentValue: parseErr.ValueStr,
 						})
 					}
 					if schemaError.SchemaField == "pattern" && len(response.Fields) > 0 {
-						response.FieldsDetails = append(response.FieldsDetails, FieldTypeError{
+						response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
 							Name:         response.Fields[0],
 							ExpectedType: schemaError.Schema.Type,
 							Pattern:      schemaError.Schema.Pattern,
@@ -308,7 +294,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 			// Body required but missed
 			if err.RequestBody.Required {
 				if err.Err != nil && err.Err.Error() == validator.ErrInvalidRequired.Error() {
-					response := ValidationError{}
+					response := web.ValidationError{}
 					response.Code = ErrCodeRequiredBodyMissed
 					response.Message = ErrRequiredBodyIsMissing.Error()
 					responseErrors = append(responseErrors, &response)
@@ -323,7 +309,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 			// Body parse errors
 			_, isParseErr := err.Err.(*validator.ParseError)
 			if isParseErr || strings.HasPrefix(err.Error(), "request body has an error: header Content-Type has unexpected value") {
-				response := ValidationError{}
+				response := web.ValidationError{}
 				response.Code = ErrCodeRequiredBodyParseError
 				response.Message = err.Error()
 				responseErrors = append(responseErrors, &response)
@@ -333,7 +319,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 	case *openapi3filter.SecurityRequirementsError:
 
 		for _, secError := range err.Errors {
-			response := ValidationError{}
+			response := web.ValidationError{}
 			if err, ok := secError.(*SecurityRequirementsParameterIsMissingError); ok {
 				response.Code = ErrCodeSecRequirementsFailed
 				response.Message = err.Message
@@ -350,7 +336,7 @@ func getErrorResponse(validationError error) ([]*ValidationError, error) {
 
 	// Set the error as unknown
 	if len(responseErrors) == 0 {
-		response := ValidationError{}
+		response := web.ValidationError{}
 		response.Code = ErrCodeUnknownValidationError
 		response.Message = validationError.Error()
 		responseErrors = append(responseErrors, &response)

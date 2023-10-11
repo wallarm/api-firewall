@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	strconv2 "strconv"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -23,7 +24,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 	schemaIDs := storedSpecs.SchemaIDs()
 
 	// Construct the web.App which holds all routes as well as common Middleware.
-	apps := web.NewApps(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
+	apps := web.NewAPIModeApp(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
 
 	for _, schemaID := range schemaIDs {
 
@@ -56,6 +57,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 				Cfg:           cfg,
 				ParserPool:    &parserPool,
 				OpenAPIRouter: newSwagRouter,
+				SchemaID:      strconv2.Itoa(schemaID),
 			}
 			updRoutePath := path.Join(serverURL.Path, newSwagRouter.Routes[i].Path)
 
@@ -71,6 +73,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 			Cfg:           cfg,
 			ParserPool:    &parserPool,
 			OpenAPIRouter: newSwagRouter,
+			SchemaID:      strconv2.Itoa(schemaID),
 		}
 		apps.SetDefaultBehavior(schemaID, s.APIModeHandler)
 	}
