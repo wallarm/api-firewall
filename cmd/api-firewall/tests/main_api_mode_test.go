@@ -30,6 +30,50 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
+const secondApiModeOpenAPISpecAPIModeTest = `
+openapi: 3.0.1
+info:
+  title: Service
+  version: 1.1.0
+servers:
+  - url: /
+paths:
+  /test/signup:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  pattern: '^[0-9a-zA-Z]+@[0-9a-zA-Z\.]+$'
+                  example: example@mail.com
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  error:
+                    type: string
+        '403':
+          description: operation forbidden
+          content: {}
+`
+
 const apiModeOpenAPISpecAPIModeTest = `
 openapi: 3.0.1
 info:
@@ -341,11 +385,12 @@ const (
 
 	testRequestIntHeader = "X-Request-Test-Int"
 
-	MissedSchemaID     = 11
-	DefaultSchemaID    = 0
-	SecondSchemaID     = 1
-	DefaultSpecVersion = "1.1.0"
-	UpdatedSpecVersion = "1.1.1"
+	MissedSchemaID      = 11
+	DefaultSchemaID     = 0
+	DefaultCopySchemaID = 1
+	SecondSchemaID      = 2
+	DefaultSpecVersion  = "1.1.0"
+	UpdatedSpecVersion  = "1.1.1"
 )
 
 const apiModeOpenAPISpecAPIModeTestUpdated = `
@@ -404,12 +449,20 @@ func TestAPIModeBasic(t *testing.T) {
 		t.Fatalf("loading swagwaf file: %s", err.Error())
 	}
 
-	dbSpec.EXPECT().SchemaIDs().Return([]int{DefaultSchemaID, SecondSchemaID}).AnyTimes()
+	secondSwagger, err := openapi3.NewLoader().LoadFromData([]byte(secondApiModeOpenAPISpecAPIModeTest))
+	if err != nil {
+		t.Fatalf("loading swagwaf file: %s", err.Error())
+	}
+
+	dbSpec.EXPECT().SchemaIDs().Return([]int{DefaultSchemaID, DefaultCopySchemaID, SecondSchemaID}).AnyTimes()
 	dbSpec.EXPECT().Specification(DefaultSchemaID).Return(swagger).AnyTimes()
-	dbSpec.EXPECT().Specification(SecondSchemaID).Return(swagger).AnyTimes()
+	dbSpec.EXPECT().Specification(DefaultCopySchemaID).Return(swagger).AnyTimes()
+	dbSpec.EXPECT().Specification(SecondSchemaID).Return(secondSwagger).AnyTimes()
 	dbSpec.EXPECT().SpecificationVersion(DefaultSchemaID).Return(DefaultSpecVersion).AnyTimes()
+	dbSpec.EXPECT().SpecificationVersion(DefaultCopySchemaID).Return(DefaultSpecVersion).AnyTimes()
 	dbSpec.EXPECT().SpecificationVersion(SecondSchemaID).Return(DefaultSpecVersion).AnyTimes()
 	dbSpec.EXPECT().IsLoaded(DefaultSchemaID).Return(true).AnyTimes()
+	dbSpec.EXPECT().IsLoaded(DefaultCopySchemaID).Return(true).AnyTimes()
 	dbSpec.EXPECT().IsLoaded(SecondSchemaID).Return(true).AnyTimes()
 	dbSpec.EXPECT().IsLoaded(MissedSchemaID).Return(false).AnyTimes()
 
@@ -431,6 +484,7 @@ func TestAPIModeBasic(t *testing.T) {
 
 	t.Run("testAPIModeOneSchemeMultipleIDs", apifwTests.testAPIModeOneSchemeMultipleIDs)
 	t.Run("testAPIModeTwoSchemesMultipleIDs", apifwTests.testAPIModeTwoSchemesMultipleIDs)
+	t.Run("testAPIModeTwoDifferentSchemesMultipleIDs", apifwTests.testAPIModeTwoDifferentSchemesMultipleIDs)
 
 	t.Run("testAPIModeMethodAndPathNotFound", apifwTests.testAPIModeMethodAndPathNotFound)
 
@@ -823,6 +877,104 @@ func (s *APIModeServiceTests) testAPIModeOneSchemeMultipleIDs(t *testing.T) {
 
 }
 
+func (s *APIModeServiceTests) testAPIModeTwoDifferentSchemesMultipleIDs(t *testing.T) {
+
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+
+	// one schema
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signup")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	req.Header.Set(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", SecondSchemaID))
+
+	p, err = json.Marshal(map[string]interface{}{
+		"email": "test@wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.SetBodyStream(bytes.NewReader(p), -1)
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	req.Header.Set(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d, %d, %d", DefaultSchemaID, DefaultCopySchemaID, SecondSchemaID))
+
+	req.SetBodyStream(bytes.NewReader(p), -1)
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	response := web.APIModeResponse{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &response); err != nil {
+		t.Errorf("error while unmarshal response: %v", err)
+	}
+
+	if len(response.Errors) != 4 {
+		t.Errorf("Incorrect number of errors. Expected: 4 and got %d",
+			len(response.Errors))
+		return
+	}
+
+	if !((response.Errors[0].SchemaID == strconv2.Itoa(DefaultSchemaID) && response.Errors[1].SchemaID == strconv2.Itoa(DefaultSchemaID) &&
+		response.Errors[2].SchemaID == strconv2.Itoa(DefaultCopySchemaID) && response.Errors[3].SchemaID == strconv2.Itoa(DefaultCopySchemaID)) ||
+		(response.Errors[3].SchemaID == strconv2.Itoa(DefaultSchemaID) && response.Errors[2].SchemaID == strconv2.Itoa(DefaultSchemaID) &&
+			response.Errors[1].SchemaID == strconv2.Itoa(DefaultCopySchemaID) && response.Errors[0].SchemaID == strconv2.Itoa(DefaultCopySchemaID))) {
+		t.Errorf("Incorrect errors. Expected the following list of schema IDs: %d, %d and got the following errors: %v",
+			DefaultSchemaID, DefaultCopySchemaID, response.Errors)
+	}
+
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+}
+
 func (s *APIModeServiceTests) testAPIModeTwoSchemesMultipleIDs(t *testing.T) {
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
@@ -844,7 +996,7 @@ func (s *APIModeServiceTests) testAPIModeTwoSchemesMultipleIDs(t *testing.T) {
 	req.Header.SetMethod("POST")
 	req.SetBodyStream(bytes.NewReader(p), -1)
 	req.Header.SetContentType("application/json")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d, %d", DefaultSchemaID, SecondSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d, %d", DefaultSchemaID, DefaultCopySchemaID))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -898,10 +1050,10 @@ func (s *APIModeServiceTests) testAPIModeTwoSchemesMultipleIDs(t *testing.T) {
 		return
 	}
 
-	if !(response.Errors[0].SchemaID == strconv2.Itoa(DefaultSchemaID) && response.Errors[1].SchemaID == strconv2.Itoa(SecondSchemaID) ||
-		response.Errors[1].SchemaID == strconv2.Itoa(DefaultSchemaID) && response.Errors[0].SchemaID == strconv2.Itoa(SecondSchemaID)) {
+	if !(response.Errors[0].SchemaID == strconv2.Itoa(DefaultSchemaID) && response.Errors[1].SchemaID == strconv2.Itoa(DefaultCopySchemaID) ||
+		response.Errors[1].SchemaID == strconv2.Itoa(DefaultSchemaID) && response.Errors[0].SchemaID == strconv2.Itoa(DefaultCopySchemaID)) {
 		t.Errorf("Incorrect errors. Expected the following list of schema IDs: %d, %d and got the following errors: %v",
-			DefaultSchemaID, SecondSchemaID, response.Errors)
+			DefaultSchemaID, DefaultCopySchemaID, response.Errors)
 	}
 
 }
