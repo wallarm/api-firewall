@@ -4,7 +4,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	strconv2 "strconv"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -57,7 +56,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 				Cfg:           cfg,
 				ParserPool:    &parserPool,
 				OpenAPIRouter: newSwagRouter,
-				SchemaID:      strconv2.Itoa(schemaID),
+				SchemaID:      schemaID,
 			}
 			updRoutePath := path.Join(serverURL.Path, newSwagRouter.Routes[i].Path)
 
@@ -73,7 +72,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 			Cfg:           cfg,
 			ParserPool:    &parserPool,
 			OpenAPIRouter: newSwagRouter,
-			SchemaID:      strconv2.Itoa(schemaID),
+			SchemaID:      schemaID,
 		}
 		apps.SetDefaultBehavior(schemaID, s.APIModeHandler)
 	}

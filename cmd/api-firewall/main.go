@@ -165,8 +165,7 @@ func runAPIMode(logger *logrus.Logger) error {
 	// load spec from the database
 	specStorage, err := database.NewOpenAPIDB(logger, cfg.PathToSpecDB)
 	if err != nil {
-		logger.Fatalf("%s: trying to load API Spec value from SQLLite Database : %v\n", logPrefix, err.Error())
-		return err
+		logger.Errorf("%s: trying to load API Spec value from SQLLite Database : %v\n", logPrefix, err.Error())
 	}
 
 	// =========================================================================

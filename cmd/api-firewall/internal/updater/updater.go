@@ -1,7 +1,6 @@
 package updater
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"sync"
@@ -17,7 +16,7 @@ import (
 type Updater interface {
 	Start() error
 	Shutdown() error
-	Update() error
+	Load() (database.DBOpenAPILoader, error)
 }
 
 type Specification struct {
@@ -63,14 +62,16 @@ func (s *Specification) Run() {
 		select {
 		case <-updateTicker.C:
 			beforeUpdateSpecs := getSchemaVersions(s.sqlLiteStorage)
-			if err := s.Update(); err != nil {
+			newSpecDB, err := s.Load()
+			if err != nil {
 				s.logger.WithFields(logrus.Fields{"error": err}).Error("updating OpenAPI specification")
 				continue
 			}
-			afterUpdateSpecs := getSchemaVersions(s.sqlLiteStorage)
+			afterUpdateSpecs := getSchemaVersions(newSpecDB)
 			if !reflect.DeepEqual(beforeUpdateSpecs, afterUpdateSpecs) {
 				s.logger.Debugf("OpenAPI specifications has been updated. Loaded OpenAPI specification versions: %v", afterUpdateSpecs)
 				s.lock.Lock()
+				s.sqlLiteStorage = newSpecDB
 				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage)
 				s.health.OpenAPIDB = s.sqlLiteStorage
 				s.lock.Unlock()
@@ -104,13 +105,9 @@ func (s *Specification) Shutdown() error {
 	return nil
 }
 
-// Update function performs a specification update
-func (s *Specification) Update() error {
+// Load function reads DB file and returns it
+func (s *Specification) Load() (database.DBOpenAPILoader, error) {
 
-	// Update specification
-	if err := s.sqlLiteStorage.Load(s.cfg.PathToSpecDB); err != nil {
-		return fmt.Errorf("error while spicification update: %w", err)
-	}
-
-	return nil
+	// Load specification
+	return database.NewOpenAPIDB(s.logger, s.cfg.PathToSpecDB)
 }

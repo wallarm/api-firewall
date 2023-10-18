@@ -21,6 +21,11 @@ const (
 	APIModePostfixValidationErrors = "_validation_errors"
 )
 
+var (
+	statusOK            = fasthttp.StatusOK
+	statusInternalError = fasthttp.StatusInternalServerError
+)
+
 type FieldTypeError struct {
 	Name         string `json:"name"`
 	ExpectedType string `json:"expected_type,omitempty"`
@@ -32,13 +37,19 @@ type ValidationError struct {
 	Message       string           `json:"message"`
 	Code          string           `json:"code"`
 	SchemaVersion string           `json:"schema_version,omitempty"`
-	SchemaID      string           `json:"schema_id,omitempty"`
+	SchemaID      *int             `json:"schema_id"`
 	Fields        []string         `json:"related_fields,omitempty"`
 	FieldsDetails []FieldTypeError `json:"related_fields_details,omitempty"`
 }
 
+type APIModeResponseSummary struct {
+	SchemaID   *int `json:"schema_id"`
+	StatusCode *int `json:"status_code"`
+}
+
 type APIModeResponse struct {
-	Errors []*ValidationError `json:"errors"`
+	Summary []*APIModeResponseSummary `json:"summary"`
+	Errors  []*ValidationError        `json:"errors,omitempty"`
 }
 
 // APIModeApp is the entrypoint into our application and what configures our context
@@ -125,12 +136,17 @@ func (a *APIModeApp) Handle(schemaID int, method string, path string, handler Ha
 	a.Routers[schemaID].Handle(method, path, h)
 }
 
-func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPILoader) ([]int, error) {
+// getWallarmSchemaID returns lists of found schema IDs in the DB, not found schema IDs in the DB and errors
+func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPILoader) (found []int, notFound []int, err error) {
+
+	if !storedSpecs.IsReady() {
+		return nil, nil, errors.New("DB with schemas has not loaded")
+	}
 
 	// Get Wallarm Schema ID
 	xWallarmSchemaIDsStr := string(ctx.Request.Header.Peek(XWallarmSchemaIDHeader))
 	if xWallarmSchemaIDsStr == "" {
-		return nil, errors.New("required X-WALLARM-SCHEMA-ID header is missing")
+		return nil, nil, errors.New("required X-WALLARM-SCHEMA-ID header is missing")
 	}
 
 	xWallarmSchemaIDs := strings.Split(xWallarmSchemaIDsStr, ",")
@@ -141,23 +157,23 @@ func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPI
 		// Get schema version
 		schemaID, err := strconv2.Atoi(strings.TrimSpace(schemaIDStr))
 		if err != nil {
-			return nil, fmt.Errorf("error parsing  value: %v", err)
+			return nil, nil, fmt.Errorf("error parsing  value: %v", err)
 		}
 
 		// Check if schema ID is loaded
 		if !storedSpecs.IsLoaded(schemaID) {
-			return nil, fmt.Errorf("provided via X-WALLARM-SCHEMA-ID header schema ID %d not found", schemaID)
+			notFound = append(notFound, schemaID)
+			continue
 		}
 
 		schemaIDsMap[schemaID] = struct{}{}
 	}
 
-	schemaIDs := make([]int, 0, len(schemaIDsMap))
 	for id := range schemaIDsMap {
-		schemaIDs = append(schemaIDs, id)
+		found = append(found, id)
 	}
 
-	return schemaIDs, nil
+	return
 }
 
 // APIModeHandler routes request to the appropriate handler according to the OpenAPI specification schema ID
@@ -172,7 +188,7 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 		}
 	}()
 
-	schemaIDs, err := getWallarmSchemaID(ctx, a.storedSpecs)
+	schemaIDs, notFoundSchemaIDs, err := getWallarmSchemaID(ctx, a.storedSpecs)
 	if err != nil {
 		defer LogRequestResponseAtTraceLevel(ctx, a.Log)
 
@@ -202,41 +218,47 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 		a.Routers[schemaID].Handler(ctx)
 	}
 
-	response := APIModeResponse{}
-	for _, schemaID := range schemaIDs {
-		statusCode, ok := ctx.UserValue(strconv2.Itoa(schemaID) + APIModePostfixStatusCode).(int)
-		if !ok {
-			return
-		}
-		switch statusCode {
-		case fasthttp.StatusOK:
-			continue
-		case fasthttp.StatusInternalServerError:
-			if err := RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
-				a.Log.WithFields(logrus.Fields{
-					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-					"error":      err,
-				}).Error("respond error")
-			}
-			return
-		case fasthttp.StatusForbidden:
-			if validationErrors, ok := ctx.UserValue(strconv2.Itoa(schemaID) + APIModePostfixValidationErrors).([]*ValidationError); ok && validationErrors != nil {
-				response.Errors = append(response.Errors, validationErrors...)
-			}
-		}
-	}
+	responseSummary := make([]*APIModeResponseSummary, 0, len(schemaIDs))
+	responseErrors := make([]*ValidationError, 0)
 
-	if len(response.Errors) == 0 {
-		if err := RespondError(ctx, fasthttp.StatusOK, ""); err != nil {
+	for i := 0; i < len(schemaIDs); i++ {
+		statusCode, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + APIModePostfixStatusCode).(int)
+		if !ok {
+			// set summary for the schema ID in pass Options mode
+			if a.passOPTIONS && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
+				responseSummary = append(responseSummary, &APIModeResponseSummary{
+					SchemaID:   &schemaIDs[i],
+					StatusCode: &statusOK,
+				})
+				continue
+			}
+
 			a.Log.WithFields(logrus.Fields{
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-				"error":      err,
+				"error":      errors.New("the validation status for the following schema ID is not found: " + strconv2.Itoa(schemaIDs[i])),
 			}).Error("respond error")
+			continue
 		}
-		return
+
+		responseSummary = append(responseSummary, &APIModeResponseSummary{
+			SchemaID:   &schemaIDs[i],
+			StatusCode: &statusCode,
+		})
+
+		if validationErrors, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + APIModePostfixValidationErrors).([]*ValidationError); ok && validationErrors != nil {
+			responseErrors = append(responseErrors, validationErrors...)
+		}
 	}
 
-	if err := Respond(ctx, response, fasthttp.StatusForbidden); err != nil {
+	// add schema IDs that were not found in the DB to the response
+	for i := 0; i < len(notFoundSchemaIDs); i++ {
+		responseSummary = append(responseSummary, &APIModeResponseSummary{
+			SchemaID:   &notFoundSchemaIDs[i],
+			StatusCode: &statusInternalError,
+		})
+	}
+
+	if err := Respond(ctx, APIModeResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
 		a.Log.WithFields(logrus.Fields{
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 			"error":      err,

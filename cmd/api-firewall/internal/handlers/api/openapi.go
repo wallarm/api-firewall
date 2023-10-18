@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	strconv2 "strconv"
 	"strings"
 	"sync"
 
@@ -79,21 +80,21 @@ type APIMode struct {
 	Log           *logrus.Logger
 	Cfg           *config.APIMode
 	ParserPool    *fastjson.ParserPool
-	SchemaID      string
+	SchemaID      int
 }
 
 // APIModeHandler validates request and respond with 200, 403 (with error) or 500 status code
 func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
-	keyValidationErrors := s.SchemaID + web.APIModePostfixValidationErrors
-	keyStatusCode := s.SchemaID + web.APIModePostfixStatusCode
+	keyValidationErrors := strconv2.Itoa(s.SchemaID) + web.APIModePostfixValidationErrors
+	keyStatusCode := strconv2.Itoa(s.SchemaID) + web.APIModePostfixStatusCode
 
 	// Route not found
 	if s.CustomRoute == nil {
 		s.Log.WithFields(logrus.Fields{
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
 		}).Debug("method or path were not found")
-		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: s.SchemaID}})
+		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
 		return nil
 	}
@@ -277,7 +278,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	if len(respErrors) > 0 {
 		// add schema IDs to the validation error messages
 		for _, r := range respErrors {
-			r.SchemaID = s.SchemaID
+			r.SchemaID = &s.SchemaID
 		}
 		ctx.SetUserValue(keyValidationErrors, respErrors)
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
