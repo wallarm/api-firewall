@@ -213,7 +213,7 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	// validate requests against list of schemas
+	// Validate requests against list of schemas
 	for _, schemaID := range schemaIDs {
 		a.Routers[schemaID].Handler(ctx)
 	}
@@ -233,11 +233,10 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 				continue
 			}
 
-			a.Log.WithFields(logrus.Fields{
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-				"error":      errors.New("the validation status for the following schema ID is not found: " + strconv2.Itoa(schemaIDs[i])),
-			}).Error("respond error")
-			continue
+			// Didn't receive the response code. It means that the router respond to the request because it was not valid.
+			// The API Firewall should respond by 500 status code in this case.
+			ctx.Response.Header.Reset()
+			statusCode = fasthttp.StatusInternalServerError
 		}
 
 		responseSummary = append(responseSummary, &APIModeResponseSummary{
@@ -250,7 +249,7 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 		}
 	}
 
-	// add schema IDs that were not found in the DB to the response
+	// Add schema IDs that were not found in the DB to the response
 	for i := 0; i < len(notFoundSchemaIDs); i++ {
 		responseSummary = append(responseSummary, &APIModeResponseSummary{
 			SchemaID:   &notFoundSchemaIDs[i],

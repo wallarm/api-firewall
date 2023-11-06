@@ -500,6 +500,10 @@ func TestAPIModeBasic(t *testing.T) {
 	t.Run("testAPIModePassOptionsRequest", apifwTests.testAPIModePassOptionsRequest)
 
 	t.Run("testAPIModeMultipartOptionalParams", apifwTests.testAPIModeMultipartOptionalParams)
+
+	// invalid route
+	t.Run("testAPIModeInvalidRouteInRequest", apifwTests.testAPIModeInvalidRouteInRequest)
+	t.Run("testAPIModeInvalidRouteInRequestInMultipleSchemas", apifwTests.testAPIModeInvalidRouteInRequestInMultipleSchemas)
 }
 
 func createForm(form map[string]string) (string, io.Reader, error) {
@@ -2475,4 +2479,118 @@ func (s *APIModeServiceTests) testAPIModeMultipartOptionalParams(t *testing.T) {
 
 	// check response status code and response body
 	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParseError})
+}
+
+func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequest(t *testing.T) {
+
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	// invalid route (with a slash in the end)
+	req.SetRequestURI("/test/signup/")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	// check response status code and response body
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	apifwResponse := web.APIModeResponse{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
+		t.Errorf("Error while JSON response parsing: %v", err)
+	}
+
+	if len(apifwResponse.Summary) > 0 {
+		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+			t.Errorf("Incorrect error code. Expected: %d and got %d",
+				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+		}
+		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusInternalServerError {
+			t.Errorf("Incorrect result status. Expected: %d and got %d",
+				fasthttp.StatusInternalServerError, *apifwResponse.Summary[0].StatusCode)
+		}
+	}
+}
+
+func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequestInMultipleSchemas(t *testing.T) {
+
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	// invalid route (with a slash in the end)
+	req.SetRequestURI("/test/signup/")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d, %d", DefaultSchemaID, DefaultCopySchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	// check response status code and response body
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	apifwResponse := web.APIModeResponse{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
+		t.Errorf("Error while JSON response parsing: %v", err)
+	}
+
+	if len(apifwResponse.Summary) > 0 {
+		for i := range apifwResponse.Summary {
+			if *apifwResponse.Summary[i].SchemaID != DefaultSchemaID && *apifwResponse.Summary[i].SchemaID != DefaultCopySchemaID {
+				t.Errorf("Incorrect error code. Expected: %d or %d and got %d",
+					DefaultSchemaID, DefaultCopySchemaID, *apifwResponse.Summary[0].SchemaID)
+			}
+			if *apifwResponse.Summary[i].StatusCode != fasthttp.StatusInternalServerError {
+				t.Errorf("Incorrect result status. Expected: %d and got %d",
+					fasthttp.StatusInternalServerError, *apifwResponse.Summary[0].StatusCode)
+			}
+		}
+	}
 }
