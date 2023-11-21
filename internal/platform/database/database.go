@@ -34,9 +34,11 @@ type DBOpenAPILoader interface {
 	Specification(schemaID int) *openapi3.T
 	IsLoaded(schemaID int) bool
 	SchemaIDs() []int
+	IsReady() bool
 }
 
 type SQLLite struct {
+	isReady     bool
 	Log         *logrus.Logger
 	RawSpecs    map[int]*SpecificationEntry
 	LastUpdate  time.Time
@@ -51,12 +53,16 @@ func getSpecBytes(spec string) []byte {
 func NewOpenAPIDB(log *logrus.Logger, dbStoragePath string) (DBOpenAPILoader, error) {
 
 	sqlObj := SQLLite{
-		Log:  log,
-		lock: &sync.RWMutex{},
+		Log:         log,
+		lock:        &sync.RWMutex{},
+		RawSpecs:    make(map[int]*SpecificationEntry),
+		OpenAPISpec: make(map[int]*openapi3.T),
+		isReady:     true,
 	}
 
 	if err := sqlObj.Load(dbStoragePath); err != nil {
-		return nil, err
+		sqlObj.isReady = false
+		return &sqlObj, err
 	}
 
 	log.Debugf("OpenAPI specifications with the following IDs has been loaded: %v", sqlObj.SchemaIDs())
@@ -127,10 +133,6 @@ func (s *SQLLite) Load(dbStoragePath string) error {
 		specs[spec.SchemaID] = parsedSpec
 	}
 
-	if len(specs) == 0 {
-		return errors.New("no OpenAPI specs has been loaded")
-	}
-
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -185,10 +187,17 @@ func (s *SQLLite) SchemaIDs() []int {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
-	var schemaIDs []int
+	var schemaIDs = make([]int, 0)
 	for _, spec := range s.RawSpecs {
 		schemaIDs = append(schemaIDs, spec.SchemaID)
 	}
 
 	return schemaIDs
+}
+
+func (s *SQLLite) IsReady() bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	return s.isReady
 }

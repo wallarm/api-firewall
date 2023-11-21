@@ -10,7 +10,7 @@ RUN apk add --no-cache                       \
         musl-dev
 
 WORKDIR /build
-COPY .. .
+COPY . .
 
 RUN go mod download -x                    && \
     go build                                 \

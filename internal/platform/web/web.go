@@ -19,7 +19,6 @@ const (
 	ValidationStatus = "APIFW-Validation-Status"
 
 	XWallarmSchemaIDHeader = "X-WALLARM-SCHEMA-ID"
-	WallarmSchemaID        = "WallarmSchemaID"
 
 	ValidationDisable = "disable"
 	ValidationBlock   = "block"

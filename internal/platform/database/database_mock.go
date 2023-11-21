@@ -48,6 +48,20 @@ func (mr *MockDBOpenAPILoaderMockRecorder) IsLoaded(schemaID interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLoaded", reflect.TypeOf((*MockDBOpenAPILoader)(nil).IsLoaded), schemaID)
 }
 
+// IsReady mocks base method.
+func (m *MockDBOpenAPILoader) IsReady() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsReady")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsReady indicates an expected call of IsReady.
+func (mr *MockDBOpenAPILoaderMockRecorder) IsReady() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsReady", reflect.TypeOf((*MockDBOpenAPILoader)(nil).IsReady))
+}
+
 // Load mocks base method.
 func (m *MockDBOpenAPILoader) Load(dbStoragePath string) error {
 	m.ctrl.T.Helper()
