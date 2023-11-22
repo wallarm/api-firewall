@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/url"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/complexity"
+	"github.com/wundergraph/graphql-go-tools/pkg/ast"
 	"github.com/wundergraph/graphql-go-tools/pkg/astparser"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 	"github.com/wundergraph/graphql-go-tools/pkg/operationreport"
@@ -28,6 +30,7 @@ var (
 	ErrNotAllowIntrospectionQuery        = errors.New("introspection query is not allowed")
 	ErrGraphQLQueryNotFound              = errors.New("GraphQL query not found in the request")
 	ErrWrongGraphQLQueryTypeInGETRequest = errors.New("wrong GraphQL query type in GET request")
+	ErrFieldDuplicationFound             = errors.New("duplicate fields were found in the GraphQL document")
 )
 
 // ValidateGraphQLRequest validates the GraphQL request
@@ -46,9 +49,26 @@ func ValidateGraphQLRequest(cfg *config.GraphQL, schema *graphql.Schema, r *grap
 
 	}
 
-	// validate operation name value
-	if err := validateOperationName(r); err != nil {
+	// parse the GraphQL document
+	document, _ := astparser.ParseGraphqlDocumentString(r.Query)
+
+	// validate that there are no duplication fields
+	if err := validateOperationName(&document, r); err != nil {
 		return &graphql.ValidationResult{Valid: false, Errors: graphql.RequestErrorsFromError(err)}, nil
+	}
+
+	if cfg.MaxAliasesNum > 0 {
+		// validate max aliases in the GraphQL document
+		if err := validateAliasesNum(&document, cfg.MaxAliasesNum); err != nil {
+			return &graphql.ValidationResult{Valid: false, Errors: graphql.RequestErrorsFromError(err)}, nil
+		}
+	}
+
+	if cfg.FieldDuplication {
+		// validate operation name value
+		if err := validateDuplicateFields(&document); err != nil {
+			return &graphql.ValidationResult{Valid: false, Errors: graphql.RequestErrorsFromError(err)}, nil
+		}
 	}
 
 	// skip query complexity check if it is not configured
@@ -140,9 +160,66 @@ func ParseGraphQLRequest(ctx *fasthttp.RequestCtx) (*graphql.Request, error) {
 	return nil, ErrGraphQLQueryNotFound
 }
 
-func validateOperationName(gqlRequest *graphql.Request) error {
+// validateAliasesNum validates that the total amount of aliases in the GraphQL document does not exceed the configured max value
+func validateAliasesNum(document *ast.Document, MaxAliasesNum int) error {
 
-	operation, _ := astparser.ParseGraphqlDocumentString(gqlRequest.Query)
+	numOfAliases := getNumOfAliases(document)
+	if numOfAliases > MaxAliasesNum {
+		return fmt.Errorf("the maximum number of aliases in the GraphQL document has been exceeded. The maximum number of aliases value is %d. The current number of aliases is %d", MaxAliasesNum, numOfAliases)
+	}
+
+	return nil
+}
+
+// getNumOfAliases returns amount of aliases in the GraphQL documents
+func getNumOfAliases(document *ast.Document) int {
+	numOfAliases := 0
+
+	for _, f := range document.Fields {
+		if f.Alias.IsDefined {
+			numOfAliases += 1
+		}
+	}
+
+	return numOfAliases
+}
+
+// validateDuplicateFields checks that there are now duplicates fields in the document
+func validateDuplicateFields(document *ast.Document) error {
+
+	for _, ss := range document.SelectionSets {
+		fieldsRepeatMap := make(map[string]int)
+		for _, cs := range ss.SelectionRefs {
+			field := document.Fields[document.Selections[cs].Ref]
+			fieldName := document.FieldNameString(document.Selections[cs].Ref)
+
+			// skip objects
+			if field.HasSelections {
+				continue
+			}
+
+			currentNum, ok := fieldsRepeatMap[fieldName]
+			if !ok {
+				fieldsRepeatMap[fieldName] = 1
+				continue
+			}
+
+			currentNum += 1
+			fieldsRepeatMap[fieldName] = currentNum
+		}
+
+		for f := range fieldsRepeatMap {
+			if fieldsRepeatMap[f] > 1 {
+				return ErrFieldDuplicationFound
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateOperationName(operation *ast.Document, gqlRequest *graphql.Request) error {
+
 	numOfOperations := operation.NumOfOperationDefinitions()
 	operationName := strings.TrimSpace(gqlRequest.OperationName)
 	report := &operationreport.Report{}

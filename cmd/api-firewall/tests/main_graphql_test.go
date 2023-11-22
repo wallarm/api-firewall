@@ -21,6 +21,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 )
 
@@ -43,6 +44,7 @@ type Chatroom {
 type Message {
     id: ID!
     text: String!
+    name: String!
     createdBy: String!
     createdAt: Time!
 }
@@ -118,6 +120,9 @@ func TestGraphQLBasic(t *testing.T) {
 	// the sequence of messages in the tests: hello -> invalid gql message (<- response from APIFW) -> valid gql message -> complete -> stop
 	t.Run("basicGraphQLQuerySubscription", apifwTests.testGQLSubscription)
 	t.Run("basicGraphQLQuerySubscriptionLogOnly", apifwTests.testGQLSubscriptionLogOnly)
+
+	t.Run("basicGraphQLMaxAliasesNum", apifwTests.testGQLMaxAliasesNum)
+	t.Run("basicGraphQLDuplicateFields", apifwTests.testGQLDuplicateFields)
 }
 
 func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {
@@ -194,9 +199,9 @@ func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Get().Return(s.client, nil).Times(1)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp).Times(1)
+	s.proxy.EXPECT().Put(s.client).Return(nil).Times(1)
 
 	handler(&reqCtx)
 
@@ -271,13 +276,7 @@ func (s *ServiceGraphQLTests) testGQLGETSuccess(t *testing.T) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/query")
 	req.Header.SetMethod("GET")
-	//req.SetBodyStream(bytes.NewReader(jsonValue), -1)
 	req.URI().QueryArgs().Add("query", url.QueryEscape(query))
-
-	testqqq, _ := url.QueryUnescape(url.QueryEscape(query))
-	t.Log(url.QueryEscape(query))
-	t.Log(testqqq)
-	//req.Header.SetContentType("application/json")
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -288,9 +287,9 @@ func (s *ServiceGraphQLTests) testGQLGETSuccess(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Get().Return(s.client, nil).Times(1)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp).Times(1)
+	s.proxy.EXPECT().Put(s.client).Return(nil).Times(1)
 
 	handler(&reqCtx)
 
@@ -343,45 +342,14 @@ func (s *ServiceGraphQLTests) testGQLGETMutationFailed(t *testing.T) {
 }
 	`
 
-	responseBody := `{
-    "data": {
-        "room": {
-            "name": "GeneralChat",
-            "messages": [
-                {
-                    "id": "TrsXJcKa",
-                    "text": "Hello, world!",
-                    "createdBy": "TestUser",
-                    "createdAt": "2023-01-01T00:00:00+00:00"
-                }
-            ]
-        }
-    }
-}`
-
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/query")
 	req.Header.SetMethod("GET")
-	//req.SetBodyStream(bytes.NewReader(jsonValue), -1)
 	req.URI().QueryArgs().Add("query", url.QueryEscape(query))
-
-	testqqq, _ := url.QueryUnescape(url.QueryEscape(query))
-	t.Log(url.QueryEscape(query))
-	t.Log(testqqq)
-	//req.Header.SetContentType("application/json")
-
-	resp := fasthttp.AcquireResponse()
-	resp.SetStatusCode(fasthttp.StatusOK)
-	resp.Header.SetContentType("application/json")
-	resp.SetBody([]byte(responseBody))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
 	}
-
-	//s.proxy.EXPECT().Get().Return(s.client, nil)
-	//s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	//s.proxy.EXPECT().Put(s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -610,22 +578,6 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxComplexity(t *testing.T) {
 		"query": query,
 	}
 
-	responseBody := `{
-    "data": {
-        "room": {
-            "name": "GeneralChat",
-            "messages": [
-                {
-                    "id": "TrsXJcKa",
-                    "text": "Hello, world!",
-                    "createdBy": "TestUser",
-                    "createdAt": "2023-01-01T00:00:00+00:00"
-                }
-            ]
-        }
-    }
-}`
-
 	jsonValue, _ := json.Marshal(requestBody)
 
 	req := fasthttp.AcquireRequest()
@@ -633,11 +585,6 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxComplexity(t *testing.T) {
 	req.Header.SetMethod("POST")
 	req.SetBodyStream(bytes.NewReader(jsonValue), -1)
 	req.Header.SetContentType("application/json")
-
-	resp := fasthttp.AcquireResponse()
-	resp.SetStatusCode(fasthttp.StatusOK)
-	resp.Header.SetContentType("application/json")
-	resp.SetBody([]byte(responseBody))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -711,22 +658,6 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxDepth(t *testing.T) {
 		"query": query,
 	}
 
-	responseBody := `{
-    "data": {
-        "room": {
-            "name": "GeneralChat",
-            "messages": [
-                {
-                    "id": "TrsXJcKa",
-                    "text": "Hello, world!",
-                    "createdBy": "TestUser",
-                    "createdAt": "2023-01-01T00:00:00+00:00"
-                }
-            ]
-        }
-    }
-}`
-
 	jsonValue, _ := json.Marshal(requestBody)
 
 	req := fasthttp.AcquireRequest()
@@ -734,11 +665,6 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxDepth(t *testing.T) {
 	req.Header.SetMethod("POST")
 	req.SetBodyStream(bytes.NewReader(jsonValue), -1)
 	req.Header.SetContentType("application/json")
-
-	resp := fasthttp.AcquireResponse()
-	resp.SetStatusCode(fasthttp.StatusOK)
-	resp.Header.SetContentType("application/json")
-	resp.SetBody([]byte(responseBody))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -813,22 +739,6 @@ func (s *ServiceGraphQLTests) testGQLInvalidNodeLimit(t *testing.T) {
 		"query": query,
 	}
 
-	responseBody := `{
-    "data": {
-        "room": {
-            "name": "GeneralChat",
-            "messages": [
-                {
-                    "id": "TrsXJcKa",
-                    "text": "Hello, world!",
-                    "createdBy": "TestUser",
-                    "createdAt": "2023-01-01T00:00:00+00:00"
-                }
-            ]
-        }
-    }
-}`
-
 	jsonValue, _ := json.Marshal(requestBody)
 
 	req := fasthttp.AcquireRequest()
@@ -836,11 +746,6 @@ func (s *ServiceGraphQLTests) testGQLInvalidNodeLimit(t *testing.T) {
 	req.Header.SetMethod("POST")
 	req.SetBodyStream(bytes.NewReader(jsonValue), -1)
 	req.Header.SetContentType("application/json")
-
-	resp := fasthttp.AcquireResponse()
-	resp.SetStatusCode(fasthttp.StatusOK)
-	resp.Header.SetContentType("application/json")
-	resp.SetBody([]byte(responseBody))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -1409,5 +1314,266 @@ func (s *ServiceGraphQLTests) testGQLSubscriptionLogOnly(t *testing.T) {
 	wsClientConn.Close()
 
 	time.Sleep(1 * time.Second)
+
+}
+
+func (s *ServiceGraphQLTests) testGQLMaxAliasesNum(t *testing.T) {
+
+	gqlCfg := config.GraphQL{
+		MaxQueryComplexity: 0,
+		MaxQueryDepth:      0,
+		NodeCountLimit:     0,
+		MaxAliasesNum:      1,
+		Playground:         false,
+		Introspection:      false,
+		Schema:             "",
+		RequestValidation:  "BLOCK",
+	}
+	var cfg = config.GraphQLMode{
+		Graphql: gqlCfg,
+	}
+
+	// parse the GraphQL schema
+	schema, err := graphql.NewSchemaFromString(testSchema)
+	if err != nil {
+		t.Fatalf("Loading GraphQL Schema error: %v", err)
+	}
+
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+
+	// Construct GraphQL request payload
+	query := `
+		query {
+    a0:room(name: "GeneralChat") {
+        name
+        messages {
+            id
+            text
+            createdBy
+            createdAt
+        }
+    }
+    a1:room(name: "GeneralChat") {
+        name
+        messages {
+            id
+            text
+            createdBy
+            createdAt
+        }
+    }
+}
+	`
+	var requestBody = map[string]interface{}{
+		"query": query,
+	}
+
+	jsonValue, _ := json.Marshal(requestBody)
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/query")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(jsonValue), -1)
+	req.Header.SetContentType("application/json")
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	gqlResp := new(Response)
+
+	if err := json.Unmarshal(reqCtx.Response.Body(), &gqlResp); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(gqlResp.Errors) != 1 {
+		t.Errorf("Incorrect amount of errors in the response. Expected: 1 and got %d",
+			len(gqlResp.Errors))
+	}
+
+	expectedErrMsg := "the maximum number of aliases in the GraphQL document has been exceeded. The maximum number of aliases value is 1. The current number of aliases is 2"
+
+	if gqlResp.Errors[0].Message != expectedErrMsg {
+		t.Errorf("Incorrect error message. Expected: \"%s\" and got \"%s\"",
+			expectedErrMsg, gqlResp.Errors[0].Message)
+	}
+
+}
+
+func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
+
+	gqlCfg := config.GraphQL{
+		MaxQueryComplexity: 0,
+		MaxQueryDepth:      0,
+		NodeCountLimit:     0,
+		MaxAliasesNum:      0,
+		FieldDuplication:   true,
+		Playground:         false,
+		Introspection:      false,
+		Schema:             "",
+		RequestValidation:  "BLOCK",
+	}
+	var cfg = config.GraphQLMode{
+		Graphql: gqlCfg,
+	}
+
+	// parse the GraphQL schema
+	schema, err := graphql.NewSchemaFromString(testSchema)
+	if err != nil {
+		t.Fatalf("Loading GraphQL Schema error: %v", err)
+	}
+
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+
+	// Construct GraphQL request payload
+	query := `
+		query {
+    a0:room(name: "GeneralChat") {
+        name
+        messages {
+            id
+            text
+            createdBy
+            createdAt
+        }
+    }
+    a1:room(name: "GeneralChat") {
+        name
+        messages {
+            id
+            name
+            text
+            createdBy
+            createdAt
+        }
+    }
+}
+	`
+	var requestBody = map[string]interface{}{
+		"query": query,
+	}
+
+	jsonValue, _ := json.Marshal(requestBody)
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/query")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(jsonValue), -1)
+	req.Header.SetContentType("application/json")
+
+	responseBody := `{
+    "data": {
+        "room": {
+            "name": "GeneralChat",
+            "messages": [
+                {
+                    "id": "TrsXJcKa",
+                    "text": "Hello, world!",
+                    "createdBy": "TestUser",
+                    "createdAt": "2023-01-01T00:00:00+00:00"
+                }
+            ]
+        }
+    }
+}`
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte(responseBody))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, nil).AnyTimes()
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp).AnyTimes()
+	s.proxy.EXPECT().Put(s.client).Return(nil).AnyTimes()
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	recvBody := strings.TrimSpace(string(reqCtx.Response.Body()))
+
+	if recvBody != responseBody {
+		t.Errorf("Incorrect response status code. Expected: %s and got %s",
+			responseBody, recvBody)
+	}
+
+	// query with duplication of the name field
+	query = `
+		query {
+    a0:room(name: "GeneralChat") {
+        name
+        messages {
+            id
+            text
+            createdBy
+            createdAt
+        }
+    }
+    a1:room(name: "GeneralChat") {
+        name
+        messages {
+            id
+            name
+            name
+            text
+            createdBy
+            createdAt
+        }
+    }
+}
+	`
+
+	requestBody = map[string]interface{}{
+		"query": query,
+	}
+
+	jsonValue, _ = json.Marshal(requestBody)
+
+	req = fasthttp.AcquireRequest()
+	req.SetRequestURI("/query")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(jsonValue), -1)
+	req.Header.SetContentType("application/json")
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	gqlResp := new(Response)
+
+	if err := json.Unmarshal(reqCtx.Response.Body(), &gqlResp); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(gqlResp.Errors) != 1 {
+		t.Errorf("Incorrect amount of errors in the response. Expected: 1 and got %d",
+			len(gqlResp.Errors))
+	}
+
+	if gqlResp.Errors[0].Message != validator.ErrFieldDuplicationFound.Error() {
+		t.Errorf("Incorrect error message. Expected: \"%s\" and got \"%s\"",
+			validator.ErrFieldDuplicationFound.Error(), gqlResp.Errors[0].Message)
+	}
 
 }
