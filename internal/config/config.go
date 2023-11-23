@@ -131,7 +131,9 @@ type ShadowAPI struct {
 type GraphQL struct {
 	MaxQueryComplexity int      `conf:"required" validate:"required"`
 	MaxQueryDepth      int      `conf:"required" validate:"required"`
+	MaxAliasesNum      int      `conf:"required" validate:"required"`
 	NodeCountLimit     int      `conf:"required" validate:"required"`
+	FieldDuplication   bool     `conf:"default:false"`
 	Playground         bool     `conf:"default:false"`
 	PlaygroundPath     string   `conf:"default:/" validate:"path"`
 	Introspection      bool     `conf:"required" validate:"required"`
