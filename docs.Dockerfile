@@ -13,3 +13,5 @@ RUN rm -rf docs
 EXPOSE 8000
 ENTRYPOINT ["mkdocs"]
 CMD ["serve", "--dev-addr=0.0.0.0:8000", "--config-file=mkdocs.yml"]
+
+# docker run --rm -it -p 8000:8000/tcp -v ${PWD}:/docs docs-apifirewall:latest
