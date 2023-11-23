@@ -8,7 +8,9 @@ When [running](docker-container.md) the API Firewall Docker container for a Grap
 | -------------------- | ----------- |
 | `APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY` | Defines the maximum number of Node requests that might be needed to execute the query. Setting it to `0` disables the complexity check. |
 | `APIFW_GRAPHQL_MAX_QUERY_DEPTH` | Specifies the maximum permitted depth of a GraphQL query. A value of `0` means the query depth check is skipped. |
-| `APIFW_GRAPHQL_NODE_COUNT_LIMIT` | Sets the upper limit for the node count in a query. When set to `0`, the node count limit check is skipped. | 
+| `APIFW_GRAPHQL_NODE_COUNT_LIMIT` | Sets the upper limit for the node count in a query. When set to `0`, the node count limit check is skipped. |
+| `APIFW_GRAPHQL_MAX_ALIASES_NUM` | Sets a limit on the number of aliases that can be used in a GraphQL document. If this variable is set to `0`, it implies that there is no limit on the number of aliases that can be used. | Yes |
+| `APIFW_GRAPHQL_FIELD_DUPLICATION` | Defines whether to allow or prevent the duplication of fields in a GraphQL document. The default value is `false` (prevent). |
 
 ## How limit calculation works
 
