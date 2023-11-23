@@ -51,7 +51,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.20.10.linux-amd64.tar.gz"
+      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.20.11.linux-amd64.tar.gz"
     strategy:
       matrix:
         include:
@@ -160,7 +160,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_VERSION: "1.20.10-r0"
+      X_GO_VERSION: "1.20.11-r0"
     strategy:
       matrix:
         include:
@@ -267,11 +267,11 @@ jobs:
         include:
           - arch: armv6
             distro: bullseye
-            go_distribution: https://go.dev/dl/go1.20.10.linux-armv6l.tar.gz
+            go_distribution: https://go.dev/dl/go1.20.11.linux-armv6l.tar.gz
             artifact: armv6-libc
           - arch: aarch64
             distro: bullseye
-            go_distribution: https://go.dev/dl/go1.20.10.linux-arm64.tar.gz
+            go_distribution: https://go.dev/dl/go1.20.11.linux-arm64.tar.gz
             artifact: arm64-libc
           - arch: armv6
             distro: alpine_latest
