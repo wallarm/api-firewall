@@ -2,6 +2,11 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.6.14 (2023-11-23)
+
+* Introduced new environment variables to limit GraphQL queries: `APIFW_GRAPHQL_MAX_ALIASES_NUM` and `APIFW_GRAPHQL_FIELD_DUPLICATION`.
+* Implemented more [detailed responses](installation-guides/api-mode.md#understanding-api-firewall-responses) for requests that do not match mounted specifications in the **API non-proxy mode**.
+
 ## v0.6.13 (2023-09-08)
 
 * [Support for GraphQL API requests validation](installation-guides/graphql/docker-container.md)
