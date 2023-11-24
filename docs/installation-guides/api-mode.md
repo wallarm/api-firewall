@@ -36,6 +36,9 @@ You can pass to the container the following variables:
 | `APIFW_SPECIFICATION_UPDATE_PERIOD` | Determines the frequency of fetching updates from the original database. If set to `0`, the database update is disabled. The default value is `1m` (1 minute). | No |
 | `APIFW_API_MODE_UNKNOWN_PARAMETERS_DETECTION` | Determines if requests with undefined parameters, as per the specification, are blocked.<br><br>When set to `true`, requests with any non-required, undefined parameters are rejected (e.g., `GET test?a=123&b=123` is blocked if `b` is undefined in the `/test` endpoint specification). If set to `false`, such requests are allowed, provided they contain all required parameters.<br><br>The default vaue is `true`. | No |
 | `APIFW_PASS_OPTIONS` | When set to `true`, the API Firewall allows `OPTIONS` requests to endpoints in the specification, even if the `OPTIONS` method is not described. The default value is `false`. | No |
+| `APIFW_READ_TIMEOUT` | The timeout for API Firewall to read the full request (including the body). The default value is `5s`. | No |
+| `APIFW_WRITE_TIMEOUT` | The timeout for API Firewall to return the response to the request. The default value is `5s`. | No |
+| `APIFW_HEALTH_HOST` | The host of the health check service. The default value is `0.0.0.0:9667`. The liveness probe service path is `/v1/liveness` and the readiness service path is `/v1/readiness`. | No |
 
 ## Evaluating requests against the specification
 
