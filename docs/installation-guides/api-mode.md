@@ -33,7 +33,7 @@ You can pass to the container the following variables:
 | `APIFW_MODE` | Sets the general API Firewall mode. Possible values are [`PROXY`](docker-container.md) (default), [`graphql`](graphql/docker-container.md), and `API`.<br><br>The appropriate value for this case is `API`. | Yes |
 | `APIFW_URL` | URL for API Firewall. For example: `http://0.0.0.0:8088/`. The port value should correspond to the container port published to the host.<br><br>If API Firewall listens to the HTTPS protocol, please mount the generated SSL/TLS certificate and private key to the container, and pass to the container the [API Firewall SSL/TLS settings](../configuration-guides/ssl-tls.md).<br><br>The default value is `http://0.0.0.0:8282/`. | No |
 | `APIFW_API_MODE_DEBUG_PATH_DB` | Sets a path to a specification database inside the Docker container.<br><br>The default value is `/var/lib/wallarm-api/1/wallarm_api.db`. | No |
-| `APIFW_SPECIFICATION_UPDATE_PERIOD` | Determines the frequency of fetching updates from the original database. If set to `0`, the database update is disabled. The default value is `1m` (1 minute). | No |
+| `APIFW_SPECIFICATION_UPDATE_PERIOD` | Determines the frequency of fetching updates from the mounted database. If set to `0`, the update is disabled. The default value is `1m` (1 minute). | No |
 | `APIFW_API_MODE_UNKNOWN_PARAMETERS_DETECTION` | Determines if requests with undefined parameters, as per the specification, are blocked.<br><br>When set to `true`, requests with any non-required, undefined parameters are rejected (e.g., `GET test?a=123&b=123` is blocked if `b` is undefined in the `/test` endpoint specification). If set to `false`, such requests are allowed, provided they contain all required parameters.<br><br>The default vaue is `true`. | No |
 | `APIFW_PASS_OPTIONS` | When set to `true`, the API Firewall allows `OPTIONS` requests to endpoints in the specification, even if the `OPTIONS` method is not described. The default value is `false`. | No |
 | `APIFW_READ_TIMEOUT` | The timeout for API Firewall to read the full request (including the body). The default value is `5s`. | No |
@@ -121,13 +121,13 @@ API Firewall responds with the `200` HTTP code and JSON with details on request 
 
 ### Handling invalidity in an already mounted SQLite database
 
-The API Firewall automatically updates data in a mounted database at intervals set by the `APIFW_SPECIFICATION_UPDATE_PERIOD` variable, by fetching updates from the original database. Should the database structure or specification become invalid, or if the database file goes missing after an update, the API Firewall will retain the previous specification file and halt the update process. This approach ensures that the last valid specification list remains in use until a valid database file is restored to the API Firewall.
+The API Firewall automatically retrieves specification updates from the mounted database at intervals defined by the `APIFW_SPECIFICATION_UPDATE_PERIOD` variable. If the database structure or specifications become invalid, or if the database file disappears post-update, the Firewall maintains the last valid specification file and pauses further updates. This method guarantees continuous operation with the most recent valid specifications until a correct database file is reestablished in the API Firewall.
 
-In cases where the database file is valid but contains an invalid specification, the API Firewall will disregard the faulty specification and proceed to load all valid schemas.
+In cases where the database file is valid but contains an invalid specification, the API Firewall will disregard the faulty specification and proceed to load all valid specifications.
 
 **Example**
 
-Suppose the API Firewall has loaded two schemas, labeled 1 and 2. If specification 1 is modified and becomes invalid (due to syntax errors or parsing issues), the API Firewall will then only load and use specification 2. It will log an error message indicating the issue and will operate with only specification 2.
+Suppose the API Firewall has loaded two specifications, labeled 1 and 2. If specification 1 is modified and becomes invalid (due to syntax errors or parsing issues), the API Firewall will then only load and use specification 2. It will log an error message indicating the issue and will operate with only specification 2.
 
 ### Mounting empty SQLite database
 
