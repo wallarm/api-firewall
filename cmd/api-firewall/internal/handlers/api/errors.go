@@ -51,6 +51,71 @@ func (e *SecurityRequirementsParameterIsMissingError) Error() string {
 	return e.Message
 }
 
+func checkParseErr(reqErr *openapi3filter.RequestError) *web.FieldTypeError {
+	if parseErr, ok := reqErr.Err.(*validator.ParseError); ok {
+		return &web.FieldTypeError{
+			Name:         reqErr.Parameter.Name,
+			ExpectedType: parseErr.ExpectedType,
+			CurrentValue: parseErr.ValueStr,
+		}
+	}
+	return nil
+}
+
+func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *openapi3.SchemaError) *web.ValidationError {
+	response := web.ValidationError{}
+	switch schemaError.SchemaField {
+	case "required":
+		switch reqErr.Parameter.In {
+		case "query":
+			response.Code = ErrCodeRequiredQueryParameterMissed
+		case "cookie":
+			response.Code = ErrCodeRequiredCookieParameterMissed
+		case "header":
+			response.Code = ErrCodeRequiredHeaderMissed
+		}
+		response.Fields = schemaError.JSONPointer()
+		response.Message = ErrMissedRequiredParameters.Error()
+		return &response
+	default:
+		switch reqErr.Parameter.In {
+		case "query":
+			response.Code = ErrCodeRequiredQueryParameterInvalidValue
+		case "cookie":
+			response.Code = ErrCodeRequiredCookieParameterInvalidValue
+		case "header":
+			response.Code = ErrCodeRequiredHeaderInvalidValue
+		}
+		response.Fields = []string{reqErr.Parameter.Name}
+		response.Message = schemaError.Error()
+
+		// handle parse error case
+		if fieldTypeErr := checkParseErr(reqErr); fieldTypeErr != nil {
+			response.FieldsDetails = append(response.FieldsDetails, *fieldTypeErr)
+			return &response
+		}
+
+		details := web.FieldTypeError{
+			Name:         reqErr.Parameter.Name,
+			ExpectedType: schemaError.Schema.Type,
+			CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+		}
+
+		// handle max, min and pattern cases
+		switch schemaError.SchemaField {
+		case "maximum":
+			details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
+		case "minimum":
+			details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
+		case "pattern":
+			details.Pattern = schemaError.Schema.Pattern
+		}
+
+		response.FieldsDetails = append(response.FieldsDetails, details)
+	}
+	return &response
+}
+
 func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 	var responseErrors []*web.ValidationError
 
@@ -92,12 +157,9 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 				}
 				response.Message = err.Error()
 				response.Fields = []string{err.Parameter.Name}
-				if parseErr, ok := err.Err.(*validator.ParseError); ok {
-					response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-						Name:         err.Parameter.Name,
-						ExpectedType: parseErr.ExpectedType,
-						CurrentValue: parseErr.ValueStr,
-					})
+
+				if fieldTypeErr := checkParseErr(err); fieldTypeErr != nil {
+					response.FieldsDetails = append(response.FieldsDetails, *fieldTypeErr)
 				}
 				schemaError, ok := err.Err.(*openapi3.SchemaError)
 				if ok {
@@ -120,95 +182,15 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 				for _, multiErr := range multiErrors {
 					schemaError, ok := multiErr.(*openapi3.SchemaError)
 					if ok {
-						response := web.ValidationError{}
-						switch schemaError.SchemaField {
-						case "required":
-							switch err.Parameter.In {
-							case "query":
-								response.Code = ErrCodeRequiredQueryParameterMissed
-							case "cookie":
-								response.Code = ErrCodeRequiredCookieParameterMissed
-							case "header":
-								response.Code = ErrCodeRequiredHeaderMissed
-							}
-							response.Fields = schemaError.JSONPointer()
-							response.Message = ErrMissedRequiredParameters.Error()
-							responseErrors = append(responseErrors, &response)
-						default:
-							switch err.Parameter.In {
-							case "query":
-								response.Code = ErrCodeRequiredQueryParameterInvalidValue
-							case "cookie":
-								response.Code = ErrCodeRequiredCookieParameterInvalidValue
-							case "header":
-								response.Code = ErrCodeRequiredHeaderInvalidValue
-							}
-							response.Fields = []string{err.Parameter.Name}
-							response.Message = schemaError.Error()
-							if parseErr, ok := err.Err.(*validator.ParseError); ok {
-								response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-									Name:         err.Parameter.Name,
-									ExpectedType: parseErr.ExpectedType,
-									CurrentValue: parseErr.ValueStr,
-								})
-							}
-							if schemaError.SchemaField == "pattern" {
-								response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-									Name:         err.Parameter.Name,
-									ExpectedType: schemaError.Schema.Type,
-									Pattern:      schemaError.Schema.Pattern,
-									CurrentValue: fmt.Sprintf("%v", schemaError.Value),
-								})
-							}
-							responseErrors = append(responseErrors, &response)
-						}
+						response := checkRequiredFields(err, schemaError)
+						responseErrors = append(responseErrors, response)
 					}
 				}
 			default:
 				schemaError, ok := multiErrors.(*openapi3.SchemaError)
 				if ok {
-					response := web.ValidationError{}
-					switch schemaError.SchemaField {
-					case "required":
-						switch err.Parameter.In {
-						case "query":
-							response.Code = ErrCodeRequiredQueryParameterMissed
-						case "cookie":
-							response.Code = ErrCodeRequiredCookieParameterMissed
-						case "header":
-							response.Code = ErrCodeRequiredHeaderMissed
-						}
-						response.Fields = schemaError.JSONPointer()
-						response.Message = ErrMissedRequiredParameters.Error()
-						responseErrors = append(responseErrors, &response)
-					default:
-						switch err.Parameter.In {
-						case "query":
-							response.Code = ErrCodeRequiredQueryParameterInvalidValue
-						case "cookie":
-							response.Code = ErrCodeRequiredCookieParameterInvalidValue
-						case "header":
-							response.Code = ErrCodeRequiredHeaderInvalidValue
-						}
-						response.Fields = []string{err.Parameter.Name}
-						response.Message = schemaError.Error()
-						if parseErr, ok := err.Err.(*validator.ParseError); ok {
-							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-								Name:         err.Parameter.Name,
-								ExpectedType: parseErr.ExpectedType,
-								CurrentValue: parseErr.ValueStr,
-							})
-						}
-						if schemaError.SchemaField == "pattern" {
-							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-								Name:         err.Parameter.Name,
-								ExpectedType: schemaError.Schema.Type,
-								Pattern:      schemaError.Schema.Pattern,
-								CurrentValue: fmt.Sprintf("%v", schemaError.Value),
-							})
-						}
-						responseErrors = append(responseErrors, &response)
-					}
+					response := checkRequiredFields(err, schemaError)
+					responseErrors = append(responseErrors, response)
 				}
 			}
 
