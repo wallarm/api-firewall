@@ -3,7 +3,6 @@ package api
 import (
 	"net/url"
 	"os"
-	"path"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -58,7 +57,17 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 				OpenAPIRouter: newSwagRouter,
 				SchemaID:      schemaID,
 			}
-			updRoutePath := path.Join(serverURL.Path, newSwagRouter.Routes[i].Path)
+			updRoutePathEsc, err := url.JoinPath(serverURL.Path, newSwagRouter.Routes[i].Path)
+			if err != nil {
+				s.Log.Errorf("url parse error: Schema ID %d: OpenAPI version %s: Loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
+				continue
+			}
+
+			updRoutePath, err := url.PathUnescape(updRoutePathEsc)
+			if err != nil {
+				s.Log.Errorf("url unescape error: Schema ID %d: OpenAPI version %s: Loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
+				continue
+			}
 
 			s.Log.Debugf("handler: Schema ID %d: OpenAPI version %s: Loaded path %s - %s", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Method, updRoutePath)
 
