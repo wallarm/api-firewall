@@ -2,7 +2,9 @@ package web
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 )
@@ -15,23 +17,29 @@ func LogRequestResponseAtTraceLevel(ctx *fasthttp.RequestCtx, logger *logrus.Log
 		return
 	}
 
-	requestHeaders := ""
+	var strBuild strings.Builder
 	ctx.Request.Header.VisitAll(func(key, value []byte) {
-		requestHeaders += string(key) + ":" + string(value) + "\n"
+		strBuild.WriteString(strconv.B2S(key))
+		strBuild.WriteString(":")
+		strBuild.WriteString(strconv.B2S(value))
+		strBuild.WriteString("\n")
 	})
 
 	logger.WithFields(logrus.Fields{
 		"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
-		"method":         string(ctx.Request.Header.Method()),
-		"uri":            string(ctx.Request.URI().RequestURI()),
-		"headers":        requestHeaders,
-		"body":           string(ctx.Request.Body()),
+		"method":         strconv.B2S(ctx.Request.Header.Method()),
+		"uri":            strconv.B2S(ctx.Request.URI().RequestURI()),
+		"headers":        strBuild.String(),
+		"body":           strconv.B2S(ctx.Request.Body()),
 		"client_address": ctx.RemoteAddr(),
 	}).Trace("new request")
 
-	responseHeaders := ""
+	strBuild.Reset()
 	ctx.Response.Header.VisitAll(func(key, value []byte) {
-		responseHeaders += string(key) + ":" + string(value) + "\n"
+		strBuild.WriteString(strconv.B2S(key))
+		strBuild.WriteString(":")
+		strBuild.WriteString(strconv.B2S(value))
+		strBuild.WriteString("\n")
 	})
 
 	isPlayground := false
@@ -47,7 +55,7 @@ func LogRequestResponseAtTraceLevel(ctx *fasthttp.RequestCtx, logger *logrus.Log
 	logger.WithFields(logrus.Fields{
 		"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
 		"status_code":    ctx.Response.StatusCode(),
-		"headers":        responseHeaders,
+		"headers":        strBuild.String(),
 		"body":           body,
 		"client_address": ctx.RemoteAddr(),
 	}).Trace("response from the API-Firewall")

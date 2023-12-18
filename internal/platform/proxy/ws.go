@@ -1,9 +1,11 @@
 package proxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sync"
+	"unsafe"
 
 	"github.com/fasthttp/websocket"
 	"github.com/savsgio/gotils/strconv"
@@ -94,7 +96,15 @@ func (f *FastHTTPWebSocketConn) SendError(messageType int, msgID string, request
 
 func (f *FastHTTPWebSocketConn) SendComplete(messageType int, id string) error {
 
-	completeMsg := []byte(fmt.Sprintf("{\"id\":%q,\"type\":\"complete\"}", id))
+	buf := bufferPool.Get().(*bytes.Buffer)
+	defer buf.Reset()
+	defer bufferPool.Put(buf)
+
+	buf.WriteString("{\"id\":\"")
+	buf.WriteString(id)
+	buf.WriteString("\",\"type\":\"complete\"}")
+
+	completeMsg := unsafe.Slice(unsafe.StringData(buf.String()), buf.Len())
 	if err := f.WriteMessage(messageType, completeMsg); err != nil {
 		return err
 	}
