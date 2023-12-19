@@ -18,31 +18,16 @@ import (
 
 func BenchmarkAPIModeBasic(b *testing.B) {
 
-	//mockCtrl := gomock.NewController(b)
-	//defer mockCtrl.Finish()
-
-	//dbSpec := database.NewMockDBOpenAPILoader(mockCtrl)
-
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
 	var lock sync.RWMutex
-
-	//swagger, err := openapi3.NewLoader().LoadFromData([]byte(apiModeOpenAPISpecAPIModeTest))
-	//if err != nil {
-	//	b.Fatalf("loading swagwaf file: %s", err.Error())
-	//}
 
 	// load spec from the database
 	specStorage, err := database.NewOpenAPIDB(logger, "../../../resources/test/database/wallarm_api.db")
 	if err != nil {
 		b.Fatalf("trying to load API Spec value from SQLLite Database : %v\n", err.Error())
 	}
-
-	//dbSpec.EXPECT().SchemaIDs().Return([]int{DefaultSchemaID}).AnyTimes()
-	//dbSpec.EXPECT().Specification(DefaultSchemaID).Return(swagger).AnyTimes()
-	//dbSpec.EXPECT().SpecificationVersion(DefaultSchemaID).Return(DefaultSpecVersion).AnyTimes()
-	//dbSpec.EXPECT().IsLoaded(DefaultSchemaID).Return(true).AnyTimes()
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)

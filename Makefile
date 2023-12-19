@@ -1,4 +1,4 @@
-VERSION := 0.6.12
+VERSION := 0.6.15
 
 .DEFAULT_GOAL := build
 
@@ -14,6 +14,10 @@ tidy:
 
 test:
 	go test ./... -count=1 -race -cover
+
+bench:
+	GOMAXPROCS=1 go test -v -bench=. -benchtime=1000x -count 5 -benchmem -run BenchmarkWSGraphQL ./cmd/api-firewall/tests
+	GOMAXPROCS=4 go test -v -bench=. -benchtime=1000x -count 5 -benchmem -run BenchmarkWSGraphQL ./cmd/api-firewall/tests
 
 genmocks:
 	mockgen -source ./internal/platform/proxy/chainpool.go -destination ./internal/platform/proxy/httppool_mock.go -package proxy
