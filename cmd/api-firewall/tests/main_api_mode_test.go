@@ -338,6 +338,7 @@ paths:
               type: object
               required:
                 - status
+                - testInt
               properties:
                 status:
                   type: string
@@ -345,6 +346,8 @@ paths:
                   pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
                 testInt:
                   type: integer
+                  minimum: 10
+                  maximum: 100
                 error:
                   type: string
       responses:
@@ -592,6 +595,10 @@ func checkResponseForbiddenStatusCode(t *testing.T, reqCtx *fasthttp.RequestCtx,
 	if expectedErrCodes != nil {
 		if len(apifwResponse.Errors) > 0 {
 			for _, e := range apifwResponse.Errors {
+				// The list of the codes that doesn't contain details field
+				if len(e.FieldsDetails) == 0 && (e.Code != "required_body_missed" && e.Code != "required_body_parse_error" && e.Code != "unknown_parameter_found") {
+					t.Error("The field details were not found in the error")
+				}
 				if !slices.Contains(expectedErrCodes, e.Code) {
 					t.Errorf("The error code not found in the list of expected error codes. Expected: %v and got %s",
 						expectedErrCodes, e.Code)
@@ -1593,8 +1600,9 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyMissed(t *testing.T) {
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
 
 	p, err := json.Marshal(map[string]interface{}{
-		"status": uuid.New().String(),
-		"error":  "test",
+		"status":  uuid.New().String(),
+		"testInt": 50,
+		"error":   "test",
 	})
 
 	if err != nil {
@@ -1643,8 +1651,9 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterMissed(t *testing.
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
 
 	p, err := json.Marshal(map[string]interface{}{
-		"status": uuid.New().String(),
-		"error":  "test",
+		"status":  uuid.New().String(),
+		"testInt": 50,
+		"error":   "test",
 	})
 
 	if err != nil {
@@ -1863,8 +1872,9 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
 
 	p, err := json.Marshal(map[string]interface{}{
-		"status": uuid.New().String(),
-		"error":  "test",
+		"status":  uuid.New().String(),
+		"testInt": 50,
+		"error":   "test",
 	})
 
 	if err != nil {
@@ -1892,8 +1902,9 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 
 	// body without required parameter
 	p, err = json.Marshal(map[string]interface{}{
-		"status": "invalid_test_value",
-		"error":  "test",
+		"status":  "invalid_test_value",
+		"testInt": 50,
+		"error":   "test",
 	})
 
 	if err != nil {
@@ -1923,6 +1934,66 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 	p, err = json.Marshal(map[string]interface{}{
 		"status":  uuid.New().String(),
 		"testInt": "invalid_type_str",
+		"error":   "test",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req = fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/body/request")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	// check response status code and response body
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParameterInvalidValue})
+
+	// body with required parameter that has value less than minimum threshold
+	p, err = json.Marshal(map[string]interface{}{
+		"status":  uuid.New().String(),
+		"testInt": 1,
+		"error":   "test",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req = fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/body/request")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	// check response status code and response body
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParameterInvalidValue})
+
+	// body with required parameter that has value more than maximum threshold
+	p, err = json.Marshal(map[string]interface{}{
+		"status":  uuid.New().String(),
+		"testInt": 1000,
 		"error":   "test",
 	})
 

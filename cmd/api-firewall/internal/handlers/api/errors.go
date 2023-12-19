@@ -76,6 +76,14 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 		}
 		response.Fields = schemaError.JSONPointer()
 		response.Message = ErrMissedRequiredParameters.Error()
+
+		details := web.FieldTypeError{
+			Name:         reqErr.Parameter.Name,
+			ExpectedType: schemaError.Schema.Type,
+		}
+
+		response.FieldsDetails = append(response.FieldsDetails, details)
+
 		return &response
 	default:
 		switch reqErr.Parameter.In {
@@ -139,6 +147,13 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 				}
 				response.Message = err.Error()
 				response.Fields = []string{err.Parameter.Name}
+
+				details := web.FieldTypeError{
+					Name:         err.Parameter.Name,
+					ExpectedType: err.Parameter.Schema.Value.Type,
+				}
+				response.FieldsDetails = append(response.FieldsDetails, details)
+
 				responseErrors = append(responseErrors, &response)
 			}
 
@@ -212,27 +227,50 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 						response.Code = ErrCodeRequiredBodyParameterMissed
 						response.Fields = schemaError.JSONPointer()
 						response.Message = schemaError.Error()
+
+						for _, f := range response.Fields {
+							if p, lookupErr := schemaError.Schema.Properties.JSONLookup(f); lookupErr == nil {
+								details := web.FieldTypeError{
+									Name:         f,
+									ExpectedType: p.(*openapi3.Schema).Type,
+								}
+								response.FieldsDetails = append(response.FieldsDetails, details)
+							}
+						}
+
 						responseErrors = append(responseErrors, &response)
 					default:
 						response.Code = ErrCodeRequiredBodyParameterInvalidValue
 						response.Fields = schemaError.JSONPointer()
 						response.Message = schemaError.Error()
-						if parseErr, ok := err.Err.(*validator.ParseError); ok && len(response.Fields) > 0 {
-							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-								Name:         response.Fields[0],
-								ExpectedType: parseErr.ExpectedType,
-								CurrentValue: parseErr.ValueStr,
-							})
+
+						if len(response.Fields) > 0 {
+							parseErr, ok := err.Err.(*validator.ParseError)
+							if ok {
+								response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
+									Name:         response.Fields[0],
+									ExpectedType: parseErr.ExpectedType,
+									CurrentValue: parseErr.ValueStr,
+								})
+							} else {
+								details := web.FieldTypeError{
+									Name:         response.Fields[0],
+									ExpectedType: schemaError.Schema.Type,
+									CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+								}
+								switch schemaError.SchemaField {
+								case "pattern":
+									details.Pattern = schemaError.Schema.Pattern
+								case "maximum":
+									details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
+								case "minimum":
+									details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
+								}
+
+								response.FieldsDetails = append(response.FieldsDetails, details)
+							}
+							responseErrors = append(responseErrors, &response)
 						}
-						if schemaError.SchemaField == "pattern" && len(response.Fields) > 0 {
-							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-								Name:         response.Fields[0],
-								ExpectedType: schemaError.Schema.Type,
-								Pattern:      schemaError.Schema.Pattern,
-								CurrentValue: fmt.Sprintf("%v", schemaError.Value),
-							})
-						}
-						responseErrors = append(responseErrors, &response)
 					}
 				}
 			}
@@ -245,27 +283,50 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 					response.Code = ErrCodeRequiredBodyParameterMissed
 					response.Fields = schemaError.JSONPointer()
 					response.Message = schemaError.Error()
+
+					for _, f := range response.Fields {
+						if p, lookupErr := schemaError.Schema.Properties.JSONLookup(f); lookupErr == nil {
+							details := web.FieldTypeError{
+								Name:         f,
+								ExpectedType: p.(*openapi3.Schema).Type,
+							}
+							response.FieldsDetails = append(response.FieldsDetails, details)
+						}
+					}
+
 					responseErrors = append(responseErrors, &response)
 				default:
 					response.Code = ErrCodeRequiredBodyParameterInvalidValue
 					response.Fields = schemaError.JSONPointer()
 					response.Message = schemaError.Error()
-					if parseErr, ok := err.Err.(*validator.ParseError); ok && len(response.Fields) > 0 {
-						response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-							Name:         response.Fields[0],
-							ExpectedType: parseErr.ExpectedType,
-							CurrentValue: parseErr.ValueStr,
-						})
+
+					if len(response.Fields) > 0 {
+						parseErr, ok := err.Err.(*validator.ParseError)
+						if ok {
+							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
+								Name:         response.Fields[0],
+								ExpectedType: parseErr.ExpectedType,
+								CurrentValue: parseErr.ValueStr,
+							})
+						} else {
+							details := web.FieldTypeError{
+								Name:         response.Fields[0],
+								ExpectedType: schemaError.Schema.Type,
+								CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+							}
+							switch schemaError.SchemaField {
+							case "pattern":
+								details.Pattern = schemaError.Schema.Pattern
+							case "maximum":
+								details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
+							case "minimum":
+								details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
+							}
+
+							response.FieldsDetails = append(response.FieldsDetails, details)
+						}
+						responseErrors = append(responseErrors, &response)
 					}
-					if schemaError.SchemaField == "pattern" && len(response.Fields) > 0 {
-						response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-							Name:         response.Fields[0],
-							ExpectedType: schemaError.Schema.Type,
-							Pattern:      schemaError.Schema.Pattern,
-							CurrentValue: fmt.Sprintf("%v", schemaError.Value),
-						})
-					}
-					responseErrors = append(responseErrors, &response)
 				}
 			}
 		}

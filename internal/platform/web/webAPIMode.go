@@ -30,7 +30,7 @@ type FieldTypeError struct {
 	Name         string `json:"name"`
 	ExpectedType string `json:"expected_type,omitempty"`
 	Pattern      string `json:"pattern,omitempty"`
-	CurrentValue string `json:"current_value"`
+	CurrentValue string `json:"current_value,omitempty"`
 }
 
 type ValidationError struct {
