@@ -4,7 +4,6 @@ import (
 	"crypto/rsa"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/golang-jwt/jwt"
@@ -88,6 +87,11 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 	}
 	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.Denylist(&denylistOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
 
+	serverPath := "/"
+	if serverURL.Path != "" {
+		serverPath = serverURL.Path
+	}
+
 	for i := 0; i < len(swagRouter.Routes); i++ {
 		s := openapiWaf{
 			customRoute:    &swagRouter.Routes[i],
@@ -97,7 +101,18 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 			parserPool:     &parserPool,
 			oauthValidator: oauthValidator,
 		}
-		updRoutePath := path.Join(serverURL.Path, swagRouter.Routes[i].Path)
+
+		updRoutePathEsc, err := url.JoinPath(serverPath, swagRouter.Routes[i].Path)
+		if err != nil {
+			s.logger.Errorf("url parse error: Loaded path %s - %v", swagRouter.Routes[i].Path, err)
+			continue
+		}
+
+		updRoutePath, err := url.PathUnescape(updRoutePathEsc)
+		if err != nil {
+			s.logger.Errorf("url unescape error: Loaded path %s - %v", swagRouter.Routes[i].Path, err)
+			continue
+		}
 
 		s.logger.Debugf("handler: Loaded path %s - %s", swagRouter.Routes[i].Method, updRoutePath)
 

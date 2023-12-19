@@ -13,6 +13,8 @@ const (
 	testSpecVersion1 = "1"
 	testSchemaID2    = 4
 	testSpecVersion2 = "2"
+
+	expectedSchemaNum = 3
 )
 
 const (
@@ -96,7 +98,7 @@ func TestBasicDBSpecsLoading(t *testing.T) {
 	loadedSchemaIDs := dbSpec.SchemaIDs()
 	sort.Ints(loadedSchemaIDs)
 
-	if len(loadedSchemaIDs) != 2 || loadedSchemaIDs[0] != testSchemaID1 {
+	if len(loadedSchemaIDs) != expectedSchemaNum || loadedSchemaIDs[0] != testSchemaID1 {
 		t.Error("loaded and the original schema IDs are not equal")
 	}
 
@@ -110,7 +112,7 @@ func TestBasicDBSpecsLoading(t *testing.T) {
 		t.Error("loaded and the original specifications are not equal")
 	}
 
-	if len(loadedSchemaIDs) != 2 || loadedSchemaIDs[1] != testSchemaID2 {
+	if len(loadedSchemaIDs) != expectedSchemaNum || loadedSchemaIDs[2] != testSchemaID2 {
 		t.Error("loaded and the original schema IDs are not equal")
 	}
 
