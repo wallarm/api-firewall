@@ -192,6 +192,7 @@ jobs:
               gcc                                           \
               git                                           \
               gzip                                          \
+              musl-dev                                      \
               make                                          
 
             go version
@@ -334,6 +335,7 @@ jobs:
             go version
           run: |-
             export PATH=${PATH}:/usr/local/go/bin             && \
+            export CGO_CFLAGS="-D_LARGEFILE64_SOURCE"         && \
             mkdir -p /tmp/api-firewall-${{ matrix.artifact }} && \
             go mod download -x                                && \
             go build                                             \
