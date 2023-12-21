@@ -51,7 +51,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.20.7.linux-amd64.tar.gz"
+      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.20.12.linux-amd64.tar.gz"
     strategy:
       matrix:
         include:
@@ -160,7 +160,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_VERSION: "1.20.7-r0"
+      X_GO_VERSION: "1.20.12"
     strategy:
       matrix:
         include:
@@ -178,7 +178,7 @@ jobs:
       -
         uses: addnab/docker-run-action@v3
         with:
-          image: alpine:3.18
+          image: golang:${{ env.X_GO_VERSION }}-alpine3.18
           options: >
             --volume ${{ github.workspace }}:/build
             --workdir /build
@@ -192,8 +192,8 @@ jobs:
               gcc                                           \
               git                                           \
               gzip                                          \
-              make                                          \
-              go=${{ env.X_GO_VERSION }}
+              musl-dev                                      \
+              make                                          
 
             go version
 
@@ -267,11 +267,11 @@ jobs:
         include:
           - arch: armv6
             distro: bullseye
-            go_distribution: https://go.dev/dl/go1.20.7.linux-armv6l.tar.gz
+            go_distribution: https://go.dev/dl/go1.20.12.linux-armv6l.tar.gz
             artifact: armv6-libc
           - arch: aarch64
             distro: bullseye
-            go_distribution: https://go.dev/dl/go1.20.7.linux-arm64.tar.gz
+            go_distribution: https://go.dev/dl/go1.20.12.linux-arm64.tar.gz
             artifact: arm64-libc
           - arch: armv6
             distro: alpine_latest
@@ -335,6 +335,7 @@ jobs:
             go version
           run: |-
             export PATH=${PATH}:/usr/local/go/bin             && \
+            export CGO_CFLAGS="-D_LARGEFILE64_SOURCE"         && \
             mkdir -p /tmp/api-firewall-${{ matrix.artifact }} && \
             go mod download -x                                && \
             go build                                             \

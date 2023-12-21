@@ -1,0 +1,97 @@
+site_name: Wallarm API Firewall
+# site_url: https://docs.wallarm.com/
+site_description: Fast and light-weight API proxy firewall for request and response validation by OpenAPI specs. 
+
+repo_url: https://github.com/wallarm/api-firewall
+repo_name: GitHub
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+  - meta-descriptions
+dev_addr: '127.0.0.1:8000'
+
+theme:
+  name: material
+  custom_dir: stylesheets-docs
+  palette:
+    scheme: wallarm-palette
+  features:
+    - navigation.top
+    - navigation.tracking
+    - content.code.copy
+    - content.action.edit
+    - navigation.sections
+  logo: images/wallarm-logo.svg
+  favicon: images/favicon.png
+  font:
+    text: Inter
+    code: Roboto Mono
+
+extra:
+  social:
+    - icon: fontawesome/solid/globe
+      link: https://wallarm.com
+    - icon: fontawesome/brands/github-alt
+      link: https://github.com/wallarm
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/wallarm
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/company/4871419
+    - icon: fontawesome/brands/youtube
+      link: https://www.youtube.com/channel/UCgD4zSzAJwf3tBlOgJo7Qkw
+  generator: false
+
+extra_css:
+  - extra.css
+
+extra_javascript:
+  - extra.js
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      linenums_style: table
+  - toc:
+      permalink: true
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist
+  - pymdownx.snippets:
+      check_paths: true
+      base_path: docs
+      restrict_base_path: false
+  - nl2br
+  - tables
+  - sane_lists
+  - attr_list
+  - prependnewline
+  - meta
+
+nav:
+  - Overview: index.md
+  - Changelog: release-notes.md
+  - REST API:
+    - Running API Firewall: installation-guides/docker-container.md
+    - Validating Individual Requests Without Proxying: installation-guides/api-mode.md
+  - GraphQL API:
+    - Running API Firewall: installation-guides/graphql/docker-container.md
+    - GraphQL Limits Compliance: installation-guides/graphql/limit-compliance.md
+    - WebSocket Origin Validation: installation-guides/graphql/websocket-origin-check.md
+    - GraphQL Playground: installation-guides/graphql/playground.md
+  - Additional Configuration:
+    - Validating Request Authentication Tokens: configuration-guides/validate-tokens.md
+    - Blocking Requests with Compromised Tokens: configuration-guides/denylist-leaked-tokens.md
+    - SSL/TLS Configuration: configuration-guides/ssl-tls.md
+    - System Settings: configuration-guides/system-settings.md
+  - Demos:
+    - Docker Compose: demos/docker-compose.md
+    - Kubernetes: demos/kubernetes-cluster.md

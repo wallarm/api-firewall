@@ -1,0 +1,107 @@
+version: '3.8'
+
+x-apifw-common-vars: &common-vars
+  APIFW_MODE: "graphql"
+  APIFW_URL: "http://0.0.0.0:8080"
+  APIFW_LOG_LEVEL: "INFO"
+#  APIFW_SERVER_URL: "http://host.docker.internal:8080/query"
+  APIFW_SERVER_URL: "http://host.docker.internal:8085/query"
+  APIFW_SERVER_MAX_CONNS_PER_HOST: "512"
+  APIFW_SERVER_READ_TIMEOUT: "5s"
+  APIFW_SERVER_WRITE_TIMEOUT: "5s"
+  APIFW_SERVER_DIAL_TIMEOUT: "200ms"
+
+x-apifw-denylist-vars: &denylist-vars
+  APIFW_DENYLIST_TOKENS_FILE: "/opt/resources/tokens.denylist.db"
+  APIFW_DENYLIST_TOKENS_COOKIE_NAME: "test"
+  APIFW_DENYLIST_TOKENS_HEADER_NAME: ""
+  APIFW_DENYLIST_TOKENS_TRIM_BEARER_PREFIX: "true"
+
+x-apifw-graphql-vars: &graphql-vars
+  APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY: 0
+  APIFW_GRAPHQL_MAX_QUERY_DEPTH: 0
+  APIFW_GRAPHQL_NODE_COUNT_LIMIT: 0
+  APIFW_GRAPHQL_PLAYGROUND: true
+  APIFW_GRAPHQL_PLAYGROUND_PATH: "/pg"
+  APIFW_GRAPHQL_INTROSPECTION: true
+#  APIFW_GRAPHQL_SCHEMA: "/opt/resources/schema-http.graphql"
+  APIFW_GRAPHQL_SCHEMA: "/opt/resources/schema-ws.graphql"
+  APIFW_GRAPHQL_WS_CHECK_ORIGIN: false
+  APIFW_GRAPHQL_WS_ORIGIN: "http://localhost:8282"
+
+services:
+  api-firewall-block:
+    container_name: api-firewall-block
+    image: wallarm/api-firewall:v0.6.13-rc
+    build: ../../.
+    restart: on-failure
+    environment:
+      <<: [
+        *common-vars,
+        *denylist-vars,
+        *graphql-vars
+      ]
+      # Either ["DISABLE", "BLOCK", "LOG_ONLY"]
+      APIFW_GRAPHQL_REQUEST_VALIDATION: "BLOCK"
+    volumes:
+      - ./volumes/api-firewall:/opt/resources:ro
+    ports:
+      - "8081:8080"
+    networks:
+      backend:
+        ipv4_address: 172.21.0.101
+    stop_grace_period: 1s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  api-firewall-log-only:
+    container_name: api-firewall-log-only
+    image: wallarm/api-firewall:v0.6.13-rc
+    build: ../../.
+    restart: on-failure
+    environment:
+      <<: [
+        *common-vars,
+        *denylist-vars,
+        *graphql-vars
+      ]
+      # Either ["DISABLE", "BLOCK", "LOG_ONLY"]
+      APIFW_GRAPHQL_REQUEST_VALIDATION: "LOG_ONLY"
+    volumes:
+      - ./volumes/api-firewall:/opt/resources:ro
+    ports:
+      - "8082:8080"
+    networks:
+      backend:
+        ipv4_address: 172.21.0.102
+    stop_grace_period: 1s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  api-firewall-disable:
+    container_name: api-firewall-disable
+    image: wallarm/api-firewall:v0.6.13-rc
+    build: ../../.
+    restart: on-failure
+    environment:
+      <<: [
+        *common-vars,
+        *denylist-vars,
+        *graphql-vars
+      ]
+      # Either ["DISABLE", "BLOCK", "LOG_ONLY"]
+      APIFW_GRAPHQL_REQUEST_VALIDATION: "DISABLE"
+    volumes:
+      - ./volumes/api-firewall:/opt/resources:ro
+    ports:
+      - "8083:8080"
+    networks:
+      backend:
+        ipv4_address: 172.21.0.103
+    stop_grace_period: 1s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+networks:
+  backend:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.21.0.0/24

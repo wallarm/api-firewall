@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  api-firewall:
+    container_name: api-firewall
+    image: wallarm/api-firewall:v0.6.15
+    restart: on-failure
+    environment:
+      APIFW_MODE: "graphql"
+      APIFW_GRAPHQL_INTROSPECTION: "false"
+      APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY: "10"
+      APIFW_GRAPHQL_MAX_QUERY_DEPTH: "10"
+      APIFW_GRAPHQL_NODE_COUNT_LIMIT: "10"
+      APIFW_GRAPHQL_PLAYGROUND: "false"
+      APIFW_GRAPHQL_REQUEST_VALIDATION: "BLOCK"
+      # https://github.com/graphql/swapi-graphql
+      APIFW_GRAPHQL_SCHEMA: "/opt/resources/schema.graphql"
+      APIFW_SERVER_URL: "https://swapi-graphql.netlify.app/.netlify/functions/index"
+      APIFW_URL: "http://0.0.0.0:8080"
+      APIFW_HEALTH_HOST: "0.0.0.0:9667"
+      APIFW_READ_TIMEOUT: "5s"
+      APIFW_WRITE_TIMEOUT: "5s"
+      APIFW_LOG_LEVEL: "info"
+    volumes:
+      - ./volumes/api-firewall/schema.graphql:/opt/resources/schema.graphql:ro
+    ports:
+      - "8080:8080"
+      - "9667:9667"
+    stop_grace_period: 1s

@@ -21,9 +21,9 @@ type DeniedTokens struct {
 	ElementsNum int64
 }
 
-func New(cfg *config.APIFWConfiguration, logger *logrus.Logger) (*DeniedTokens, error) {
+func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 
-	if cfg.Denylist.Tokens.File == "" {
+	if cfg.Tokens.File == "" {
 		return nil, nil
 	}
 
@@ -31,7 +31,7 @@ func New(cfg *config.APIFWConfiguration, logger *logrus.Logger) (*DeniedTokens, 
 	var totalCacheCapacity int64
 
 	// open tokens storage
-	f, err := os.Open(cfg.Denylist.Tokens.File)
+	f, err := os.Open(cfg.Tokens.File)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +72,10 @@ func New(cfg *config.APIFWConfiguration, logger *logrus.Logger) (*DeniedTokens, 
 
 	var numOfElements int64
 	totalEntries10P := totalEntries / 10
+
+	if totalEntries10P == 0 {
+		totalEntries10P = 1
+	}
 
 	// 10% counter
 	counter10P := 0

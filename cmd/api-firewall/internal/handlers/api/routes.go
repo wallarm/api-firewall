@@ -3,7 +3,6 @@ package api
 import (
 	"net/url"
 	"os"
-	"path"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -16,14 +15,14 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(lock *sync.RWMutex, cfg *config.APIFWConfigurationAPIMode, shutdown chan os.Signal, logger *logrus.Logger, storedSpecs database.DBOpenAPILoader) fasthttp.RequestHandler {
+func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, logger *logrus.Logger, storedSpecs database.DBOpenAPILoader) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
 	schemaIDs := storedSpecs.SchemaIDs()
 
 	// Construct the web.App which holds all routes as well as common Middleware.
-	apps := web.NewApps(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
+	apps := web.NewAPIModeApp(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
 
 	for _, schemaID := range schemaIDs {
 
@@ -56,8 +55,19 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIFWConfigurationAPIMode, shutdow
 				Cfg:           cfg,
 				ParserPool:    &parserPool,
 				OpenAPIRouter: newSwagRouter,
+				SchemaID:      schemaID,
 			}
-			updRoutePath := path.Join(serverURL.Path, newSwagRouter.Routes[i].Path)
+			updRoutePathEsc, err := url.JoinPath(serverURL.Path, newSwagRouter.Routes[i].Path)
+			if err != nil {
+				s.Log.Errorf("url parse error: Schema ID %d: OpenAPI version %s: Loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
+				continue
+			}
+
+			updRoutePath, err := url.PathUnescape(updRoutePathEsc)
+			if err != nil {
+				s.Log.Errorf("url unescape error: Schema ID %d: OpenAPI version %s: Loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
+				continue
+			}
 
 			s.Log.Debugf("handler: Schema ID %d: OpenAPI version %s: Loaded path %s - %s", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Method, updRoutePath)
 
@@ -71,6 +81,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIFWConfigurationAPIMode, shutdow
 			Cfg:           cfg,
 			ParserPool:    &parserPool,
 			OpenAPIRouter: newSwagRouter,
+			SchemaID:      schemaID,
 		}
 		apps.SetDefaultBehavior(schemaID, s.APIModeHandler)
 	}

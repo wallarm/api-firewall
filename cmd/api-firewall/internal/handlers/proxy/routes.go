@@ -4,7 +4,6 @@ import (
 	"crypto/rsa"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/golang-jwt/jwt"
@@ -21,7 +20,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(cfg *config.APIFWConfiguration, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
+func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -64,18 +63,56 @@ func Handlers(cfg *config.APIFWConfiguration, serverURL *url.URL, shutdown chan 
 	}
 
 	// Construct the web.App which holds all routes as well as common Middleware.
-	app := web.NewApp(shutdown, cfg, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(cfg, serverURL), mid.Denylist(cfg, deniedTokens, logger), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
+	options := web.AppAdditionalOptions{
+		Mode:                  cfg.Mode,
+		PassOptions:           cfg.PassOptionsRequests,
+		RequestValidation:     cfg.RequestValidation,
+		ResponseValidation:    cfg.ResponseValidation,
+		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
+	}
+
+	proxyOptions := mid.ProxyOptions{
+		Mode:                 web.ProxyMode,
+		RequestValidation:    cfg.RequestValidation,
+		DeleteAcceptEncoding: cfg.Server.DeleteAcceptEncoding,
+		ServerURL:            serverURL,
+	}
+
+	denylistOptions := mid.DenylistOptions{
+		Mode:                  web.GraphQLMode,
+		Config:                &cfg.Denylist,
+		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
+		DeniedTokens:          deniedTokens,
+		Logger:                logger,
+	}
+	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.Denylist(&denylistOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
+
+	serverPath := "/"
+	if serverURL.Path != "" {
+		serverPath = serverURL.Path
+	}
 
 	for i := 0; i < len(swagRouter.Routes); i++ {
 		s := openapiWaf{
 			customRoute:    &swagRouter.Routes[i],
-			proxyPool:      proxy,
+			proxyPool:      httpClientsPool,
 			logger:         logger,
 			cfg:            cfg,
 			parserPool:     &parserPool,
 			oauthValidator: oauthValidator,
 		}
-		updRoutePath := path.Join(serverURL.Path, swagRouter.Routes[i].Path)
+
+		updRoutePathEsc, err := url.JoinPath(serverPath, swagRouter.Routes[i].Path)
+		if err != nil {
+			s.logger.Errorf("url parse error: Loaded path %s - %v", swagRouter.Routes[i].Path, err)
+			continue
+		}
+
+		updRoutePath, err := url.PathUnescape(updRoutePathEsc)
+		if err != nil {
+			s.logger.Errorf("url unescape error: Loaded path %s - %v", swagRouter.Routes[i].Path, err)
+			continue
+		}
 
 		s.logger.Debugf("handler: Loaded path %s - %s", swagRouter.Routes[i].Method, updRoutePath)
 
@@ -85,7 +122,7 @@ func Handlers(cfg *config.APIFWConfiguration, serverURL *url.URL, shutdown chan 
 	// set handler for default behavior (404, 405)
 	s := openapiWaf{
 		customRoute: nil,
-		proxyPool:   proxy,
+		proxyPool:   httpClientsPool,
 		logger:      logger,
 		cfg:         cfg,
 		parserPool:  &parserPool,

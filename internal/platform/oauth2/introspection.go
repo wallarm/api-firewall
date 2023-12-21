@@ -77,7 +77,7 @@ func (i *Introspection) getTokenMetaInfo(token string) (map[string]interface{}, 
 	req := fasthttp.AcquireRequest()
 	req.Header.SetMethod(i.Cfg.Introspection.EndpointMethod)
 
-	parsedEndpointUrl, err := url.Parse(i.Cfg.Introspection.Endpoint)
+	parsedEndpointURL, err := url.Parse(i.Cfg.Introspection.Endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse introspection endpoint url: %v", err)
 	}
@@ -95,18 +95,18 @@ func (i *Introspection) getTokenMetaInfo(token string) (map[string]interface{}, 
 		}
 	case "get":
 		if i.Cfg.Introspection.EndpointParams != "" {
-			parsedEndpointUrl.RawQuery = i.Cfg.Introspection.EndpointParams
+			parsedEndpointURL.RawQuery = i.Cfg.Introspection.EndpointParams
 		}
 
 		if i.Cfg.Introspection.TokenParamName != "" {
-			reqQuery := parsedEndpointUrl.Query()
+			reqQuery := parsedEndpointURL.Query()
 			reqQuery.Add(i.Cfg.Introspection.TokenParamName, token)
-			parsedEndpointUrl.RawQuery = reqQuery.Encode()
+			parsedEndpointURL.RawQuery = reqQuery.Encode()
 		}
 
 	}
 
-	t := parsedEndpointUrl.String()
+	t := parsedEndpointURL.String()
 	req.SetRequestURI(t)
 
 	if i.Cfg.Introspection.ClientAuthBearerToken == "" {

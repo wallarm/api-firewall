@@ -1,9 +1,10 @@
 package validator
 
 import (
-	"github.com/valyala/fastjson"
 	"reflect"
 	"strings"
+
+	"github.com/valyala/fastjson"
 )
 
 func parseMediaType(contentType string) string {
@@ -14,7 +15,7 @@ func parseMediaType(contentType string) string {
 	return contentType[:i]
 }
 
-func isNilValue(value interface{}) bool {
+func isNilValue(value any) bool {
 	if value == nil {
 		return true
 	}

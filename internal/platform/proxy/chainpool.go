@@ -12,13 +12,12 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/config"
 )
 
 var (
-	errFactoryNotHelp         = errors.New("factory is not able to fill the pool")
 	errInvalidCapacitySetting = errors.New("invalid capacity settings")
 	errClosed                 = errors.New("err: chan closed")
 )
@@ -27,18 +26,18 @@ type HTTPClient interface {
 	Do(req *fasthttp.Request, resp *fasthttp.Response) error
 }
 
-func factory(hostAddr string, server *config.Server, tlsConfig *tls.Config) (HTTPClient, error) {
+func factory(hostAddr string, options *Options, tlsConfig *tls.Config) HTTPClient {
 
-	var proxyClient = &fasthttp.Client{
+	proxyClient := fasthttp.Client{
 		Dial: func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(hostAddr, server.DialTimeout)
+			return fasthttp.DialTimeout(hostAddr, options.DialTimeout)
 		},
 		TLSConfig:       tlsConfig,
-		MaxConnsPerHost: server.MaxConnsPerHost,
-		ReadTimeout:     server.ReadTimeout,
-		WriteTimeout:    server.WriteTimeout,
+		MaxConnsPerHost: options.MaxConnsPerHost,
+		ReadTimeout:     options.ReadTimeout,
+		WriteTimeout:    options.WriteTimeout,
 	}
-	return proxyClient, nil
+	return &proxyClient
 }
 
 type Pool interface {
@@ -69,15 +68,26 @@ type chanPool struct {
 	// factory is factory method to generate ReverseProxy
 	// this can be customized
 	// factory Factory
-	server *config.Server
-	host   string
+	options *Options
+	host    string
 
 	tlsConfig *tls.Config
 }
 
+type Options struct {
+	InitialPoolCapacity int
+	ClientPoolCapacity  int
+	InsecureConnection  bool
+	RootCA              string
+	MaxConnsPerHost     int
+	ReadTimeout         time.Duration
+	WriteTimeout        time.Duration
+	DialTimeout         time.Duration
+}
+
 // NewChanPool to new a pool with some params
-func NewChanPool(initialCap, maxCap int, hostAddr string, server *config.Server) (Pool, error) {
-	if initialCap < 0 || maxCap <= 0 || initialCap > maxCap {
+func NewChanPool(hostAddr string, options *Options) (Pool, error) {
+	if options.InitialPoolCapacity < 0 || options.ClientPoolCapacity <= 0 || options.InitialPoolCapacity > options.ClientPoolCapacity {
 		return nil, errInvalidCapacitySetting
 	}
 
@@ -87,12 +97,11 @@ func NewChanPool(initialCap, maxCap int, hostAddr string, server *config.Server)
 		return nil, err
 	}
 
-	if server.RootCA != "" {
-
+	if options.RootCA != "" {
 		// Read in the cert file
-		certs, err := os.ReadFile(server.RootCA)
+		certs, err := os.ReadFile(options.RootCA)
 		if err != nil {
-			return nil, fmt.Errorf("failed to append %q to RootCAs: %v", server.RootCA, err)
+			return nil, fmt.Errorf("failed to append %q to RootCAs: %v", options.RootCA, err)
 		}
 
 		// Append our cert to the system pool
@@ -102,26 +111,23 @@ func NewChanPool(initialCap, maxCap int, hostAddr string, server *config.Server)
 	}
 
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: server.InsecureConnection,
+		InsecureSkipVerify: options.InsecureConnection,
 		RootCAs:            rootCAs,
 	}
 
 	// initialize the chanPool
 	pool := &chanPool{
 		mutex:            sync.RWMutex{},
-		reverseProxyChan: make(chan HTTPClient, maxCap),
-		server:           server,
+		reverseProxyChan: make(chan HTTPClient, options.ClientPoolCapacity),
+		options:          options,
 		host:             hostAddr,
 		tlsConfig:        tlsConfig,
 	}
 
 	// create initial connections, if something goes wrong,
 	// just close the pool error out.
-	for i := 0; i < initialCap; i++ {
-		proxy, err := factory(hostAddr, server, tlsConfig)
-		if err != nil {
-			return nil, errFactoryNotHelp
-		}
+	for i := 0; i < options.InitialPoolCapacity; i++ {
+		proxy := factory(hostAddr, options, tlsConfig)
 		pool.reverseProxyChan <- proxy
 	}
 
@@ -153,7 +159,6 @@ func (p *chanPool) Close() {
 // Get a *ReverseProxy from pool, it will get an error while
 // reverseProxyChan is nil or pool has been closed
 func (p *chanPool) Get() (HTTPClient, error) {
-
 	if p.reverseProxyChan == nil {
 		return nil, errClosed
 	}
@@ -167,10 +172,7 @@ func (p *chanPool) Get() (HTTPClient, error) {
 		}
 		return proxy, nil
 	default:
-		proxy, err := factory(p.host, p.server, p.tlsConfig)
-		if err != nil {
-			return nil, err
-		}
+		proxy := factory(p.host, p.options, p.tlsConfig)
 		return proxy, nil
 	}
 }

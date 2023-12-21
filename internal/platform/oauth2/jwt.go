@@ -9,7 +9,6 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-
 	"github.com/wallarm/api-firewall/internal/config"
 )
 
@@ -63,7 +62,7 @@ func (j *JWT) Validate(ctx context.Context, tokenWithBearer string, scopes []str
 	for _, scope := range scopes {
 		scopeFound := false
 		for _, scopeInToken := range scopesInToken {
-			if strings.ToLower(scope) == scopeInToken {
+			if strings.EqualFold(scope, scopeInToken) {
 				scopeFound = true
 				break
 			}

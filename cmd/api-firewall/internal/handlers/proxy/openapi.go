@@ -26,7 +26,7 @@ type openapiWaf struct {
 	customRoute    *router.CustomRoute
 	proxyPool      proxy.Pool
 	logger         *logrus.Logger
-	cfg            *config.APIFWConfiguration
+	cfg            *config.ProxyMode
 	parserPool     *fastjson.ParserPool
 	oauthValidator oauth2.OAuth2
 }
@@ -94,46 +94,11 @@ func getValidationHeader(ctx *fasthttp.RequestCtx, err error) *string {
 	return nil
 }
 
-// Proxy request
-func performProxy(ctx *fasthttp.RequestCtx, proxyPool proxy.Pool) error {
-
-	client, err := proxyPool.Get()
-	if err != nil {
-		return err
-	}
-	defer proxyPool.Put(client)
-
-	if err := client.Do(&ctx.Request, &ctx.Response); err != nil {
-		// request proxy has been failed
-		ctx.SetUserValue(web.RequestProxyFailed, true)
-
-		switch err {
-		case fasthttp.ErrDialTimeout:
-			if err := web.RespondError(ctx, fasthttp.StatusGatewayTimeout, ""); err != nil {
-				return err
-			}
-		case fasthttp.ErrNoFreeConns:
-			if err := web.RespondError(ctx, fasthttp.StatusServiceUnavailable, ""); err != nil {
-				return err
-			}
-		default:
-			if err := web.RespondError(ctx, fasthttp.StatusBadGateway, ""); err != nil {
-				return err
-			}
-		}
-
-		// The error has been handled so we can stop propagating it
-		return err
-	}
-
-	return nil
-}
-
 func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
-	// Proxy request if APIFW is disabled OR pass requests with OPTIONS method is enabled and request method is OPTIONS
-	if s.cfg.RequestValidation == web.ValidationDisable && s.cfg.ResponseValidation == web.ValidationDisable {
-		if err := performProxy(ctx, s.proxyPool); err != nil {
+	// Proxy request if APIFW is disabled
+	if strings.EqualFold(s.cfg.RequestValidation, web.ValidationDisable) && strings.EqualFold(s.cfg.ResponseValidation, web.ValidationDisable) {
+		if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -147,7 +112,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		// route for the request not found
 		ctx.SetUserValue(web.RequestProxyNoRoute, true)
 
-		if s.cfg.RequestValidation == web.ValidationBlock || s.cfg.ResponseValidation == web.ValidationBlock {
+		if strings.EqualFold(s.cfg.RequestValidation, web.ValidationBlock) || strings.EqualFold(s.cfg.ResponseValidation, web.ValidationBlock) {
 			if s.cfg.AddValidationStatusHeader {
 				vh := "request: customRoute not found"
 				return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, vh)
@@ -155,7 +120,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, "")
 		}
 
-		if err := performProxy(ctx, s.proxyPool); err != nil {
+		if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -254,7 +219,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	jsonParser := s.parserPool.Get()
 	defer s.parserPool.Put(jsonParser)
 
-	switch s.cfg.RequestValidation {
+	switch strings.ToLower(s.cfg.RequestValidation) {
 	case web.ValidationBlock:
 		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
 
@@ -343,7 +308,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		}
 	}
 
-	if err := performProxy(ctx, s.proxyPool); err != nil {
+	if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 		s.logger.WithFields(logrus.Fields{
 			"error":      err,
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
@@ -385,7 +350,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	}
 
 	// Validate response
-	switch s.cfg.ResponseValidation {
+	switch strings.ToLower(s.cfg.ResponseValidation) {
 	case web.ValidationBlock:
 		if err := validator.ValidateResponse(ctx, responseValidationInput, jsonParser); err != nil {
 			// response has been blocked
