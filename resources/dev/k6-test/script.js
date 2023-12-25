@@ -17,7 +17,7 @@ import { b64encode, b64decode } from "k6/encoding";
 import { group, check, sleep } from "k6";
 import { URL, URLSearchParams } from 'https://jslib.k6.io/url/1.0.0/index.js';
 
-const BASE_URL = "http://host.docker.internal:8090";
+const BASE_URL = "http://host.docker.internal:8080";
 // Sleep duration between successive requests.
 // You might want to edit the value of this variable or remove calls to the sleep function on the script.
 const SLEEP_DURATION = 0.1;
@@ -444,42 +444,6 @@ export default function() {
         }
     });
 
-    group("/cookies/set", () => {
-        let freeform = '{ \"cookie1\": \"value1\", \"cookie2\": \"value2\" }'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
-        let parsedJSON = JSON.parse(freeform);
-        let queryString = new URLSearchParams(parsedJSON).toString();
-
-        // Request No. 1:
-        {
-            let url = BASE_URL + `/cookies/set?${queryString}`;
-            let request = http.get(url);
-
-            check(request, {
-                "status is 200": (r) => r.status === 200,
-                "cookie1 is present": (r) => r.json()["cookies"]["cookie1"] === parsedJSON["cookie1"],
-                "cookie2 is present": (r) => r.json()["cookies"]["cookie2"] === parsedJSON["cookie2"],
-            });
-        }
-    });
-
-    group("/cookies/delete", () => {
-        let freeform = '{ \"cookie1\": \"value1\", \"cookie2\": \"value2\" }'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
-        let parsedJSON = JSON.parse(freeform);
-        let queryString = new URLSearchParams(parsedJSON).toString();
-
-        // Request No. 1:
-        {
-            let url = BASE_URL + `/cookies/delete?${queryString}`;
-            let request = http.get(url);
-
-            check(request, {
-                "status is 200": (r) => r.status === 200,
-                "cookie1 is gone": (r) => r.json()["cookies"]["cookie1"] === undefined,
-                "cookie2 is gone": (r) => r.json()["cookies"]["cookie2"] === undefined,
-            });
-        }
-    });
-
     group("/delete", () => {
 
         // Request No. 1:
@@ -860,22 +824,6 @@ export default function() {
 
             check(request, {
                 "Anything passed in request": (r) => r.status === 200
-            });
-        }
-    });
-
-    group("/cookies/set/{name}/{value}", () => {
-        let name = 'cookie1'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
-        let value = 'value1'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
-
-        // Request No. 1:
-        {
-            let url = BASE_URL + `/cookies/set/${name}/${value}`;
-            let request = http.get(url);
-
-            check(request, {
-                "status is 200": (r) => r.status === 200,
-                "cookie1 is present": (r) => r.json()["cookies"][name] === value
             });
         }
     });
