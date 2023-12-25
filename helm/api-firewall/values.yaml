@@ -201,28 +201,26 @@ apiFirewall:
   ## Liveness and readiness probe values for the API Firewall container
   ## https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
   ##
-  livenessProbe: {}
-  # httpGet:
-  #   path: /healthz
-  #   port: 80
-  #   scheme: HTTP
-  # failureThreshold: 3
-  # initialDelaySeconds: 10
-  # periodSeconds: 10
-  # successThreshold: 1
-  # timeoutSeconds: 1
-  # port: 10254
-  readinessProbe: {}
-  # httpGet:
-  #   path: /healthz
-  #   port: 80
-  #   scheme: HTTP
-  # failureThreshold: 3
-  # initialDelaySeconds: 10
-  # periodSeconds: 10
-  # successThreshold: 1
-  # timeoutSeconds: 1
-  # port: 10254
+  livenessProbe:
+   httpGet:
+     path: /v1/liveness
+     port: 9667
+     scheme: HTTP
+   failureThreshold: 3
+   initialDelaySeconds: 10
+   periodSeconds: 10
+   successThreshold: 1
+   timeoutSeconds: 1
+  readinessProbe:
+   httpGet:
+     path: /v1/readiness
+     port: 9667
+     scheme: HTTP
+   failureThreshold: 3
+   initialDelaySeconds: 10
+   periodSeconds: 10
+   successThreshold: 1
+   timeoutSeconds: 1
 
   ## Grace period for this Pod termination in seconds
   ##
