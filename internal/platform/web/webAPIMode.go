@@ -257,6 +257,14 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 		})
 	}
 
+	// delete Allow header which is set by the router
+	ctx.Response.Header.Del(fasthttp.HeaderAllow)
+
+	// replace method to send response body
+	if ctx.IsHead() {
+		ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+	}
+
 	if err := Respond(ctx, APIModeResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
 		a.Log.WithFields(logrus.Fields{
 			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
