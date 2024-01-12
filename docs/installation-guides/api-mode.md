@@ -23,7 +23,7 @@ Use the following command to run the API Firewall container:
 
 ```
 docker run --rm -it -v <PATH_TO_SQLITE_DATABASE>:/var/lib/wallarm-api/1/wallarm_api.db \
-    -e APIFW_MODE=API -p 8282:8282 wallarm/api-firewall:v0.6.14
+    -e APIFW_MODE=API -p 8282:8282 wallarm/api-firewall:v0.6.15
 ```
 
 You can pass to the container the following variables:

@@ -2,6 +2,13 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.6.15 (2023-12-21)
+
+* Dependency upgrade
+* Bug fixes
+* Add tests
+* When operating in the [`api` mode](installation-guides/api-mode.md), the API Firewall now returns error messages in responses for requests containing parameter values that exceed the minimum and maximum limits defined in the OpenAPI specification
+
 ## v0.6.14 (2023-11-23)
 
 * Introduced new environment variables to limit GraphQL queries: `APIFW_GRAPHQL_MAX_ALIASES_NUM` and `APIFW_GRAPHQL_FIELD_DUPLICATION`.
