@@ -146,7 +146,7 @@ func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -240,7 +240,7 @@ func (s *ServiceGraphQLTests) testGQLGETSuccess(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -328,7 +328,7 @@ func (s *ServiceGraphQLTests) testGQLGETMutationFailed(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -398,7 +398,7 @@ func (s *ServiceGraphQLTests) testGQLValidationFailed(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -478,7 +478,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidQuerySyntax(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -558,7 +558,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxComplexity(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -638,7 +638,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxDepth(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -718,7 +718,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidNodeLimit(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -812,7 +812,7 @@ func (s *ServiceGraphQLTests) testGQLDenylistBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, deniedTokens)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, deniedTokens, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -1041,7 +1041,7 @@ func (s *ServiceGraphQLTests) testGQLSubscription(t *testing.T) {
 	serverUrl, err := url.ParseRequestURI(cfg.Server.URL)
 	assert.Nil(t, err)
 
-	handler := graphqlHandler.Handlers(&cfg, schema, serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// connection to the backend
 	headers := http.Header{}
@@ -1215,7 +1215,7 @@ func (s *ServiceGraphQLTests) testGQLSubscriptionLogOnly(t *testing.T) {
 	serverUrl, err := url.ParseRequestURI(cfg.Server.URL)
 	assert.Nil(t, err)
 
-	handler := graphqlHandler.Handlers(&cfg, schema, serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// connection to the backend
 	headers := http.Header{}
@@ -1342,7 +1342,7 @@ func (s *ServiceGraphQLTests) testGQLMaxAliasesNum(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -1433,7 +1433,7 @@ func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
