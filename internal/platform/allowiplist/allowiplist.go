@@ -1,4 +1,4 @@
-package denylist
+package allowiplist
 
 import (
 	"bufio"
@@ -18,22 +18,22 @@ const (
 	StoreItemSize = 128
 )
 
-type DeniedTokens struct {
+type AllowedIPsType struct {
 	Cache       *ristretto.Cache
 	ElementsNum int64
 }
 
-func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
+func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 
-	if cfg.Tokens.File == "" {
+	if cfg.File == "" {
 		return nil, nil
 	}
 
 	var totalEntries int64
 	var totalCacheCapacity int64
 
-	// open tokens storage
-	f, err := os.Open(cfg.Tokens.File)
+	// open IPs cache storage
+	f, err := os.Open(cfg.File)
 	if err != nil {
 		return nil, err
 	}
@@ -56,12 +56,12 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 		return nil, err
 	}
 
-	logger.Debugf("Denylist: total entries (lines) found in the file: %d", totalEntries)
+	logger.Debugf("AllowIPList: total entries (lines) found in the file: %d", totalEntries)
 
 	// max cost = total bytes found in the storage + 5% + size of ristretto's storeItem struct
 	maxCost := totalCacheCapacity + (totalCacheCapacity / 20) + StoreItemSize
 
-	logger.Debugf("Denylist: cache capacity: %d bytes", maxCost)
+	logger.Debugf("AllowIPList: cache capacity: %d bytes", maxCost)
 
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: maxCost * 10, // recommended value
@@ -82,18 +82,19 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 	// 10% counter
 	counter10P := 0
 
-	// tokens loading to the cache
+	// ip's loading to the cache
 	s := bufio.NewScanner(f)
 	for s.Scan() {
-		if s.Text() != "" {
-			if ok := cache.Set(strings.TrimSpace(s.Text()), nil, ElementCost); ok {
+		loadedIP := strings.TrimSpace(s.Text())
+		if loadedIP != "" {
+			if ok := cache.Set(loadedIP, nil, ElementCost); ok {
 				numOfElements += 1
 				if numOfElements%totalEntries10P == 0 {
 					counter10P += 10
-					logger.Debugf("Denylist: loaded %d perecents of tokens. Total elements in the cache: %d", counter10P, numOfElements)
+					logger.Debugf("Allow IP List: loaded %d perecents of ip's. Total elements in the cache: %d", counter10P, numOfElements)
 				}
 			} else {
-				logger.Errorf("Denylist: can't add the token to the cache: %s", s.Text())
+				logger.Errorf("Allowed IP List: can't add the ip to the cache: %s", s.Text())
 			}
 			cache.Wait()
 		}
@@ -107,5 +108,5 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 		return nil, err
 	}
 
-	return &DeniedTokens{Cache: cache, ElementsNum: totalEntries}, nil
+	return &AllowedIPsType{Cache: cache, ElementsNum: totalEntries}, nil
 }

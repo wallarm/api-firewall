@@ -9,6 +9,7 @@ The **key features** of API Firewall are:
 * Discover Shadow API endpoints
 * Validate JWT access tokens for OAuth 2.0 protocol-based authentication
 * Denylist compromised API tokens, keys, and Cookies
+* AllowIPList - Restrict access to endpoints by defining a list of allowed IP addresses
 
 The product is **open source**, available at DockerHub and already got 1 billion (!!!) pulls. To support this project, you can star the [repository](https://hub.docker.com/r/wallarm/api-firewall).
 

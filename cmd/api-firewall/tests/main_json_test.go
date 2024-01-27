@@ -131,7 +131,7 @@ func TestJSONBasic(t *testing.T) {
 
 func (s *ServiceTests) testBasicObjJSONFieldValidation(t *testing.T) {
 
-	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil)
 
 	// basic object check
 	p, err := json.Marshal(map[string]interface{}{
@@ -178,7 +178,7 @@ func (s *ServiceTests) testBasicObjJSONFieldValidation(t *testing.T) {
 
 func (s *ServiceTests) testBasicArrJSONFieldValidation(t *testing.T) {
 
-	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil)
 
 	p, err := json.Marshal([]map[string]interface{}{{
 		"valueNum":           10.1,
@@ -226,7 +226,7 @@ func (s *ServiceTests) testBasicArrJSONFieldValidation(t *testing.T) {
 
 func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 
-	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil)
+	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test")

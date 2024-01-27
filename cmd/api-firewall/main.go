@@ -23,6 +23,7 @@ import (
 	handlersProxy "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/updater"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
@@ -477,11 +478,26 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	default:
 		logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
 	}
+	// =========================================================================
+
+	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
+
+	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
+	if err != nil {
+		return errors.Wrap(err, "allowiplist init error")
+	}
+
+	switch allowedIPCache {
+	case nil:
+		logger.Infof("%s: allowiplist not configured", logPrefix)
+	default:
+		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
+	}
 
 	// =========================================================================
 	// Init Handlers
 
-	requestHandlers := handlersGQL.Handlers(&cfg, schema, serverURL, shutdown, logger, pool, wsPool, deniedTokens)
+	requestHandlers := handlersGQL.Handlers(&cfg, schema, serverURL, shutdown, logger, pool, wsPool, deniedTokens, allowedIPCache)
 
 	// =========================================================================
 	// Start Health API Service
@@ -759,7 +775,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Cache
 
-	logger.Infof("%s: Initializing Cache", logPrefix)
+	logger.Infof("%s: Initializing Token Cache", logPrefix)
 
 	deniedTokens, err := denylist.New(&cfg.Denylist, logger)
 	if err != nil {
@@ -774,9 +790,25 @@ func runProxyMode(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
+
+	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
+
+	AllowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
+	if err != nil {
+		return errors.Wrap(err, "allowiplist init error")
+	}
+
+	switch AllowedIPCache {
+	case nil:
+		logger.Infof("%s: allowiplist not configured", logPrefix)
+	default:
+		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, AllowedIPCache.ElementsNum)
+	}
+
+	// =========================================================================
 	// Init Handlers
 
-	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens)
+	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens, AllowedIPCache)
 
 	// =========================================================================
 	// Start Health API Service

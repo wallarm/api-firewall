@@ -1,11 +1,12 @@
 package graphql
 
 import (
-	"github.com/savsgio/gotils/strconv"
-	"github.com/savsgio/gotils/strings"
 	"net/url"
 	"os"
 	"sync"
+
+	"github.com/savsgio/gotils/strconv"
+	"github.com/savsgio/gotils/strings"
 
 	"github.com/fasthttp/websocket"
 	"github.com/sirupsen/logrus"
@@ -13,6 +14,7 @@ import (
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/mid"
+	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/web"
@@ -20,7 +22,7 @@ import (
 	"github.com/wundergraph/graphql-go-tools/pkg/playground"
 )
 
-func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, wsClient proxy.WebSocketClient, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
+func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, wsClient proxy.WebSocketClient, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType) fasthttp.RequestHandler {
 
 	// Construct the web.App which holds all routes as well as common Middleware.
 	appOptions := web.AppAdditionalOptions{
@@ -42,7 +44,16 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 		DeniedTokens:          deniedTokens,
 		Logger:                logger,
 	}
-	app := web.NewApp(&appOptions, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.Denylist(&denylistOptions))
+
+	ipAllowlistOptions := mid.IPAllowListOptions{
+		Mode:                  web.GraphQLMode,
+		Config:                &cfg.AllowIP,
+		CustomBlockStatusCode: fasthttp.StatusUnauthorized,
+		AllowedIPs:            AllowedIPCache,
+		Logger:                logger,
+	}
+
+	app := web.NewApp(&appOptions, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.IPAllowlist(&ipAllowlistOptions), mid.Denylist(&denylistOptions))
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool

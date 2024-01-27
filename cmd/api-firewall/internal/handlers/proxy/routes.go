@@ -13,6 +13,7 @@ import (
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/mid"
+	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
@@ -20,7 +21,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
+func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -85,7 +86,15 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		DeniedTokens:          deniedTokens,
 		Logger:                logger,
 	}
-	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.Denylist(&denylistOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
+	ipAllowlistOptions := mid.IPAllowListOptions{
+		Mode:                  web.GraphQLMode,
+		Config:                &cfg.AllowIP,
+		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
+		AllowedIPs:            AllowedIPCache,
+		Logger:                logger,
+	}
+
+	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.IPAllowlist(&ipAllowlistOptions), mid.Denylist(&denylistOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
 
 	serverPath := "/"
 	if serverURL.Path != "" {

@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 services:
   api-firewall:
     container_name: api-firewall
@@ -20,6 +20,10 @@ services:
       APIFW_DENYLIST_TOKENS_COOKIE_NAME: "test"
       APIFW_DENYLIST_TOKENS_HEADER_NAME: ""
       APIFW_DENYLIST_TOKENS_TRIM_BEARER_PREFIX: "true"
+
+      # APIFW_ALLOW_IP_FILE: '/opt/resources/allowed.iplist.db'
+      # APIFW_ALLOW_IP_HEADER_NAME: 'X-Forwarded-For'
+
     volumes:
       - ./volumes/api-firewall:/opt/resources:ro
     ports:
