@@ -4,7 +4,7 @@ This page describes new releases of Wallarm API Firewall.
 
 ## v0.6.16 (2023-01-29)
 
-* Fix the processing issues of the HEAD request type in the `API` mode
+* Fix the processing issues of the HEAD request type in the [`api` mode](installation-guides/api-mode.md)
 * Add tests
 * Dependency upgrade
 
