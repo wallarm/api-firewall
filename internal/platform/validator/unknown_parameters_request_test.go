@@ -75,12 +75,14 @@ paths:
           description: Created
 `
 
+	var categoryFood = "Food"
+
 	router := setupTestRouter(t, spec)
 
 	type testRequestBody struct {
-		SubCategory      string `json:"subCategory"`
-		Category         string `json:"category,omitempty"`
-		UnknownParameter string `json:"unknown,omitempty"`
+		SubCategory      string  `json:"subCategory"`
+		Category         *string `json:"category,omitempty"`
+		UnknownParameter string  `json:"unknown,omitempty"`
 	}
 	type args struct {
 		requestBody *testRequestBody
@@ -94,9 +96,19 @@ paths:
 		expectedResp []*RequestUnknownParameterError
 	}{
 		{
+			name: "Valid request with optional field which is equal to none",
+			args: args{
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: nil},
+				url:         "/category?category=cookies",
+				ct:          "application/json",
+			},
+			expectedErr:  nil,
+			expectedResp: nil,
+		},
+		{
 			name: "Valid request with all fields set",
 			args: args{
-				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: "Food"},
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood},
 				url:         "/category?category=cookies",
 				ct:          "application/json",
 			},
@@ -155,7 +167,7 @@ paths:
 		{
 			name: "Unknown JSON param",
 			args: args{
-				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: "Food", UnknownParameter: "test"},
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood, UnknownParameter: "test"},
 				url:         "/category?category=cookies",
 				ct:          "application/json",
 			},
@@ -170,7 +182,7 @@ paths:
 		{
 			name: "Unknown POST param",
 			args: args{
-				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: "Food", UnknownParameter: "test"},
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood, UnknownParameter: "test"},
 				url:         "/category?category=cookies",
 				ct:          "application/x-www-form-urlencoded",
 			},
@@ -185,7 +197,7 @@ paths:
 		{
 			name: "Valid POST params",
 			args: args{
-				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: "Food"},
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood},
 				url:         "/category?category=cookies",
 				ct:          "application/x-www-form-urlencoded",
 			},
@@ -195,7 +207,7 @@ paths:
 		{
 			name: "Valid POST unknown params",
 			args: args{
-				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: "Food"},
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood},
 				url:         "/unknown",
 				ct:          "application/x-www-form-urlencoded",
 			},
@@ -240,8 +252,8 @@ paths:
 					if tc.args.requestBody.SubCategory != "" {
 						req.PostArgs().Add("subCategory", tc.args.requestBody.SubCategory)
 					}
-					if tc.args.requestBody.Category != "" {
-						req.PostArgs().Add("category", tc.args.requestBody.Category)
+					if *tc.args.requestBody.Category != "" {
+						req.PostArgs().Add("category", *tc.args.requestBody.Category)
 					}
 					requestBody = strings.NewReader(req.PostArgs().String())
 				case "application/json":

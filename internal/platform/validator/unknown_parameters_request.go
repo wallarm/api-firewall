@@ -108,14 +108,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 		}
 
 		for _, rName := range record {
-			found := false
-			for propName := range contentType.Schema.Value.Properties {
-				if rName == propName {
-					found = true
-					break
-				}
-			}
-			if !found {
+			if _, found := contentType.Schema.Value.Properties[rName]; !found {
 				unknownBodyParams.Err = ErrUnknownBodyParameter
 				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, rName)
 			}
@@ -126,32 +119,21 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 		if !ok {
 			return foundUnknownParams, ErrDecodingFailed
 		}
-		if ok {
-			ctx.Request.PostArgs().VisitAll(func(key, value []byte) {
-				if _, ok := paramList[string(key)]; !ok {
-					unknownBodyParams.Err = ErrUnknownBodyParameter
-					unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, string(key))
-				}
-			})
-		}
+		ctx.Request.PostArgs().VisitAll(func(key, value []byte) {
+			if _, ok := paramList[string(key)]; !ok {
+				unknownBodyParams.Err = ErrUnknownBodyParameter
+				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, string(key))
+			}
+		})
 	case "application/json", "application/xml", "multipart/form-data":
 		paramList, ok := value.(map[string]interface{})
 		if !ok {
 			return foundUnknownParams, ErrDecodingFailed
 		}
-		if ok {
-			for paramName, paramValue := range paramList {
-				found := false
-				for propName := range contentType.Schema.Value.Properties {
-					if paramName == propName && paramValue != nil {
-						found = true
-						break
-					}
-				}
-				if !found {
-					unknownBodyParams.Err = ErrUnknownBodyParameter
-					unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, paramName)
-				}
+		for paramName, _ := range paramList {
+			if _, found := contentType.Schema.Value.Properties[paramName]; !found {
+				unknownBodyParams.Err = ErrUnknownBodyParameter
+				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, paramName)
 			}
 		}
 	default:
