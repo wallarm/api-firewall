@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/fasthttp/router"
+	"github.com/google/uuid"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
@@ -73,6 +74,9 @@ func (a *APIModeApp) SetDefaultBehavior(schemaID int, handler Handler, mw ...Mid
 	handler = wrapMiddleware(a.mw, handler)
 
 	customHandler := func(ctx *fasthttp.RequestCtx) {
+
+		// Add request ID
+		ctx.SetUserValue(RequestID, uuid.NewString())
 
 		if err := handler(ctx); err != nil {
 			a.SignalShutdown()
@@ -179,11 +183,14 @@ func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPI
 // APIModeHandler routes request to the appropriate handler according to the OpenAPI specification schema ID
 func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 
+	// Add request ID
+	ctx.SetUserValue(RequestID, uuid.NewString())
+
 	defer func() {
 		// If pass request with OPTIONS method is enabled then log request
 		if ctx.Response.StatusCode() == fasthttp.StatusOK && a.passOPTIONS && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 			a.Log.WithFields(logrus.Fields{
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				"request_id": ctx.UserValue(RequestID),
 			}).Debug("pass request with OPTIONS method")
 		}
 	}()
@@ -194,13 +201,13 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 
 		a.Log.WithFields(logrus.Fields{
 			"error":      err,
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"request_id": ctx.UserValue(RequestID),
 		}).Error("error while getting schema ID")
 
 		if err := RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
 			a.Log.WithFields(logrus.Fields{
 				"error":      err,
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				"request_id": ctx.UserValue(RequestID),
 			}).Error("error while sending response")
 		}
 
@@ -267,7 +274,7 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 
 	if err := Respond(ctx, APIModeResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
 		a.Log.WithFields(logrus.Fields{
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"request_id": ctx.UserValue(RequestID),
 			"error":      err,
 		}).Error("respond error")
 	}

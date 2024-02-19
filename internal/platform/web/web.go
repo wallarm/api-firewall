@@ -2,7 +2,7 @@ package web
 
 import (
 	"bytes"
-	"fmt"
+	"github.com/google/uuid"
 	"os"
 	"strings"
 	"syscall"
@@ -35,6 +35,7 @@ const (
 	GraphQLMode = "graphql"
 
 	AnyMethod = "any"
+	RequestID = "request_id"
 )
 
 // A Handler is a type that handles an http request within our own little mini
@@ -69,19 +70,21 @@ func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
 
 	customHandler := func(ctx *fasthttp.RequestCtx) {
 
+		// Add request ID
+		ctx.SetUserValue(RequestID, uuid.NewString())
+
 		// Block request if it's not found in the route. Not for API mode.
 		if strings.EqualFold(a.Options.Mode, ProxyMode) {
 			if strings.EqualFold(a.Options.RequestValidation, ValidationBlock) || strings.EqualFold(a.Options.ResponseValidation, ValidationBlock) {
+
+				ctx.Error("", a.Options.CustomBlockStatusCode)
+
 				a.Log.WithFields(logrus.Fields{
-					"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
+					"request_id":     ctx.UserValue(RequestID),
 					"method":         bytes.NewBuffer(ctx.Request.Header.Method()).String(),
 					"path":           string(ctx.Path()),
 					"client_address": ctx.RemoteAddr(),
 				}).Info("request blocked")
-
-				ctx.Error("", a.Options.CustomBlockStatusCode)
-
-				return
 			}
 		}
 
@@ -128,6 +131,9 @@ func (a *App) Handle(method string, path string, handler Handler, mw ...Middlewa
 	// The function to execute for each request.
 	h := func(ctx *fasthttp.RequestCtx) {
 
+		// Add request ID
+		ctx.SetUserValue(RequestID, uuid.NewString())
+
 		if err := handler(ctx); err != nil {
 			a.SignalShutdown()
 			return
@@ -136,7 +142,7 @@ func (a *App) Handle(method string, path string, handler Handler, mw ...Middlewa
 		// if pass request with OPTIONS method is enabled then log reques
 		if ctx.Response.StatusCode() == fasthttp.StatusOK && a.Options.PassOptions && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 			a.Log.WithFields(logrus.Fields{
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				"request_id": ctx.UserValue(RequestID),
 			}).Debug("pass request with OPTIONS method")
 		}
 	}

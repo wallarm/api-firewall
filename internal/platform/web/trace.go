@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/savsgio/gotils/strconv"
@@ -26,7 +25,7 @@ func LogRequestResponseAtTraceLevel(ctx *fasthttp.RequestCtx, logger *logrus.Log
 	})
 
 	logger.WithFields(logrus.Fields{
-		"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
+		"request_id":     ctx.UserValue(RequestID),
 		"method":         strconv.B2S(ctx.Request.Header.Method()),
 		"uri":            strconv.B2S(ctx.Request.URI().RequestURI()),
 		"headers":        strBuild.String(),
@@ -53,7 +52,7 @@ func LogRequestResponseAtTraceLevel(ctx *fasthttp.RequestCtx, logger *logrus.Log
 	}
 
 	logger.WithFields(logrus.Fields{
-		"request_id":     fmt.Sprintf("#%016X", ctx.ID()),
+		"request_id":     ctx.UserValue(RequestID),
 		"status_code":    ctx.Response.StatusCode(),
 		"headers":        strBuild.String(),
 		"body":           body,
