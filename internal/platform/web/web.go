@@ -82,6 +82,7 @@ func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
 				a.Log.WithFields(logrus.Fields{
 					"request_id":     ctx.UserValue(RequestID),
 					"method":         bytes.NewBuffer(ctx.Request.Header.Method()).String(),
+					"host":           string(ctx.Request.Header.Host()),
 					"path":           string(ctx.Path()),
 					"client_address": ctx.RemoteAddr(),
 				}).Info("request blocked")
@@ -142,6 +143,8 @@ func (a *App) Handle(method string, path string, handler Handler, mw ...Middlewa
 		// if pass request with OPTIONS method is enabled then log reques
 		if ctx.Response.StatusCode() == fasthttp.StatusOK && a.Options.PassOptions && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 			a.Log.WithFields(logrus.Fields{
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(RequestID),
 			}).Debug("pass request with OPTIONS method")
 		}

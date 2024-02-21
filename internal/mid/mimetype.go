@@ -25,6 +25,8 @@ func MIMETypeIdentifier(logger *logrus.Logger) web.Middleware {
 					if err != nil {
 						logger.WithFields(logrus.Fields{
 							"error":      err,
+							"host":       string(ctx.Request.Header.Host()),
+							"path":       string(ctx.Path()),
 							"request_id": ctx.UserValue(web.RequestID),
 						}).Error("request body decompression error")
 						return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
@@ -32,6 +34,8 @@ func MIMETypeIdentifier(logger *logrus.Logger) web.Middleware {
 					mtype, err := mimetype.DetectReader(body)
 					if err != nil {
 						logger.WithFields(logrus.Fields{
+							"host":       string(ctx.Request.Header.Host()),
+							"path":       string(ctx.Path()),
 							"request_id": ctx.UserValue(web.RequestID),
 						}).Error("schema version mismatch")
 						return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")

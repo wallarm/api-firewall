@@ -92,6 +92,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	// Route not found
 	if s.CustomRoute == nil {
 		s.Log.WithFields(logrus.Fields{
+			"host":       string(ctx.Request.Header.Host()),
+			"path":       string(ctx.Path()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Debug("method or path were not found")
 		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
@@ -115,6 +117,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	if err := fasthttpadaptor.ConvertRequest(ctx, &req, false); err != nil {
 		s.Log.WithFields(logrus.Fields{
 			"error":      err,
+			"host":       string(ctx.Request.Header.Host()),
+			"path":       string(ctx.Path()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("error while converting http request")
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
@@ -128,6 +132,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		if req.Body, err = web.GetDecompressedRequestBody(&ctx.Request, requestContentEncoding); err != nil {
 			s.Log.WithFields(logrus.Fields{
 				"error":      err,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request body decompression error")
 			ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
@@ -203,6 +209,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
 			s.Log.WithFields(logrus.Fields{
 				"error":      valReqErrors,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request validation error")
 		default:
@@ -215,6 +223,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			if parsedValErrs != nil {
 				s.Log.WithFields(logrus.Fields{
 					"error":      valErr,
+					"host":       string(ctx.Request.Header.Host()),
+					"path":       string(ctx.Path()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Warning("request validation error")
 
@@ -231,6 +241,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		if len(respErrors) == 0 {
 			s.Log.WithFields(logrus.Fields{
 				"error":      valReqErrors,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request validation error")
 
@@ -246,6 +258,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		if valUPReqErrors != nil {
 			s.Log.WithFields(logrus.Fields{
 				"error":      valUPReqErrors,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("searching for undefined parameters")
 
@@ -261,6 +275,8 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			for _, upResult := range upResults {
 				s.Log.WithFields(logrus.Fields{
 					"error":      upResult.Err,
+					"host":       string(ctx.Request.Header.Host()),
+					"path":       string(ctx.Path()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("searching for undefined parameters")
 

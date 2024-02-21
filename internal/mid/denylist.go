@@ -37,6 +37,8 @@ func Denylist(options *DenylistOptions) web.Middleware {
 					if _, found := options.DeniedTokens.Cache.Get(token); found {
 						options.Logger.WithFields(logrus.Fields{
 							"request_id": ctx.UserValue(web.RequestID),
+							"host":       string(ctx.Request.Header.Host()),
+							"path":       string(ctx.Path()),
 							"token":      token,
 						}).Info("the request with the API token has been blocked")
 						if strings.EqualFold(options.Mode, web.GraphQLMode) {
@@ -54,6 +56,8 @@ func Denylist(options *DenylistOptions) web.Middleware {
 					if _, found := options.DeniedTokens.Cache.Get(token); found {
 						options.Logger.WithFields(logrus.Fields{
 							"request_id": ctx.UserValue(web.RequestID),
+							"host":       string(ctx.Request.Header.Host()),
+							"path":       string(ctx.Path()),
 							"token":      token,
 						}).Info("the request with the API token has been blocked")
 						if strings.EqualFold(options.Mode, web.GraphQLMode) {

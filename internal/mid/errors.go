@@ -23,6 +23,8 @@ func Errors(logger *logrus.Logger) web.Middleware {
 				// Log the error.
 				logger.WithFields(logrus.Fields{
 					"request_id": ctx.UserValue(web.RequestID),
+					"host":       string(ctx.Request.Header.Host()),
+					"path":       string(ctx.Path()),
 					"error":      err,
 				}).Error("common error")
 

@@ -191,6 +191,8 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 		if ctx.Response.StatusCode() == fasthttp.StatusOK && a.passOPTIONS && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 			a.Log.WithFields(logrus.Fields{
 				"request_id": ctx.UserValue(RequestID),
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 			}).Debug("pass request with OPTIONS method")
 		}
 	}()
@@ -201,12 +203,16 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 
 		a.Log.WithFields(logrus.Fields{
 			"error":      err,
+			"host":       string(ctx.Request.Header.Host()),
+			"path":       string(ctx.Path()),
 			"request_id": ctx.UserValue(RequestID),
 		}).Error("error while getting schema ID")
 
 		if err := RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
 			a.Log.WithFields(logrus.Fields{
 				"error":      err,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(RequestID),
 			}).Error("error while sending response")
 		}
@@ -275,6 +281,8 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 	if err := Respond(ctx, APIModeResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
 		a.Log.WithFields(logrus.Fields{
 			"request_id": ctx.UserValue(RequestID),
+			"host":       string(ctx.Request.Header.Host()),
+			"path":       string(ctx.Path()),
 			"error":      err,
 		}).Error("respond error")
 	}

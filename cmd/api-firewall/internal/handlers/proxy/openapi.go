@@ -101,6 +101,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("error while proxying request")
 		}
@@ -123,6 +125,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("error while proxying request")
 		}
@@ -145,6 +149,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	if err := fasthttpadaptor.ConvertRequest(ctx, &req, false); err != nil {
 		s.logger.WithFields(logrus.Fields{
 			"error":      err,
+			"host":       string(ctx.Request.Header.Host()),
+			"path":       string(ctx.Path()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("error while converting http request")
 		return web.RespondError(ctx, fasthttp.StatusBadRequest, "")
@@ -158,6 +164,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		if err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request body decompression error")
 			return err
@@ -230,6 +238,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				if strings.HasPrefix(requestErr.Error(), "request body has an error: failed to decode request body: unsupported content type") {
 					s.logger.WithFields(logrus.Fields{
 						"error":      err,
+						"host":       string(ctx.Request.Header.Host()),
+						"path":       string(ctx.Path()),
 						"request_id": ctx.UserValue(web.RequestID),
 					}).Error("request body parsing error: request passed")
 					isRequestBlocked = false
@@ -242,6 +252,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
 				s.logger.WithFields(logrus.Fields{
 					"error":      err,
+					"host":       string(ctx.Request.Header.Host()),
+					"path":       string(ctx.Path()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("request validation error: request blocked")
 
@@ -273,6 +285,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			if len(upResults) > 0 {
 				s.logger.WithFields(logrus.Fields{
 					"errors":     upResults,
+					"host":       string(ctx.Request.Header.Host()),
+					"path":       string(ctx.Path()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("Shadow API: undefined parameters found")
 
@@ -285,6 +299,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request validation error")
 		}
@@ -302,6 +318,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			if len(upResults) > 0 {
 				s.logger.WithFields(logrus.Fields{
 					"errors":     upResults,
+					"host":       string(ctx.Request.Header.Host()),
+					"path":       string(ctx.Path()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("Shadow API: undefined parameters found")
 			}
@@ -311,6 +329,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 		s.logger.WithFields(logrus.Fields{
 			"error":      err,
+			"host":       string(ctx.Request.Header.Host()),
+			"path":       string(ctx.Path()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("error while proxying request")
 		return nil
@@ -330,6 +350,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	if err != nil {
 		s.logger.WithFields(logrus.Fields{
 			"error":      err,
+			"host":       string(ctx.Request.Header.Host()),
+			"path":       string(ctx.Path()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("response body decompression error")
 		return err
@@ -358,6 +380,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("response validation error")
 			if s.cfg.AddValidationStatusHeader {
@@ -384,6 +408,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			}
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("response validation error")
 		}

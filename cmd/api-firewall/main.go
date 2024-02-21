@@ -51,11 +51,12 @@ func main() {
 
 	logger.SetLevel(logrus.DebugLevel)
 
-	logger.SetFormatter(&logrus.TextFormatter{
-		DisableQuote:           true,
-		FullTimestamp:          true,
-		DisableLevelTruncation: true,
-	})
+	cFormatter := &config.CustomFormatter{}
+	cFormatter.DisableQuote = true
+	cFormatter.FullTimestamp = true
+	cFormatter.DisableLevelTruncation = true
+
+	logger.SetFormatter(cFormatter)
 
 	// if MODE var has invalid value then proxy mode will be used
 	var currentMode config.APIFWMode
