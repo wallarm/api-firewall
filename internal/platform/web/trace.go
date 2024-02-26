@@ -29,7 +29,7 @@ func LogRequestResponseAtTraceLevel(ctx *fasthttp.RequestCtx, logger *logrus.Log
 		"method":         strconv.B2S(ctx.Request.Header.Method()),
 		"uri":            strconv.B2S(ctx.Request.URI().RequestURI()),
 		"headers":        strings.ReplaceAll(strBuild.String(), "\n", `\r\n`),
-		"body":           strconv.B2S(ctx.Request.Body()),
+		"body":           strings.ReplaceAll(strconv.B2S(ctx.Request.Body()), "\n", `\r\n`),
 		"client_address": ctx.RemoteAddr(),
 	}).Trace("new request")
 
@@ -55,7 +55,7 @@ func LogRequestResponseAtTraceLevel(ctx *fasthttp.RequestCtx, logger *logrus.Log
 		"request_id":     ctx.UserValue(RequestID),
 		"status_code":    ctx.Response.StatusCode(),
 		"headers":        strings.ReplaceAll(strBuild.String(), "\n", `\r\n`),
-		"body":           body,
+		"body":           strings.ReplaceAll(body, "\n", `\r\n`),
 		"client_address": ctx.RemoteAddr(),
 	}).Trace("response from the API-Firewall")
 }
