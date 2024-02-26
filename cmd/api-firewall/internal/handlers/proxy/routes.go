@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"crypto/rsa"
+	"log"
 	"net/url"
 	"os"
 	"strings"
@@ -13,12 +14,34 @@ import (
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/mid"
+	coraza "github.com/wallarm/api-firewall/internal/modsec"
+	"github.com/wallarm/api-firewall/internal/modsec/types"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
+
+func createWAF(logError func(rule types.MatchedRule)) coraza.WAF {
+	//directivesFile := "./coraza.conf"
+	//if s := os.Getenv("DIRECTIVES_FILE"); s != "" {
+	//	directivesFile = s
+	//}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logError).
+			//WithDirectivesFromFile("coraza.conf").
+			WithDirectivesFromFile("/Users/ntkachenko/projects/github/api-firewall/cmd/api-firewall/internal/coreruleset/crs-setup.conf.example").
+			WithDirectivesFromFile("/Users/ntkachenko/projects/github/api-firewall/cmd/api-firewall/internal/coreruleset/rules/*.conf"),
+		//WithDirectivesFromFile(directivesFile),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return waf
+}
 
 func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens) fasthttp.RequestHandler {
 
@@ -27,6 +50,13 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 
 	// Init OAuth validator
 	var oauthValidator woauth2.OAuth2
+
+	logErr := func(error types.MatchedRule) {
+		msg := error.ErrorLog()
+		logger.Errorf("[ModSec][%s] %s\n", error.Rule().Severity(), msg)
+	}
+
+	waf := createWAF(logErr)
 
 	switch strings.ToLower(cfg.Server.Oauth.ValidationType) {
 	case "jwt":
@@ -85,7 +115,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		DeniedTokens:          deniedTokens,
 		Logger:                logger,
 	}
-	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.Denylist(&denylistOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
+	app := web.NewApp(&options, shutdown, logger, mid.WAFModSecurity(waf, logger), mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.Denylist(&denylistOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
 
 	serverPath := "/"
 	if serverURL.Path != "" {
