@@ -23,6 +23,8 @@ import (
 	handlersProxy "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/updater"
 	"github.com/wallarm/api-firewall/internal/config"
+	coraza "github.com/wallarm/api-firewall/internal/modsec"
+	"github.com/wallarm/api-firewall/internal/modsec/types"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
@@ -774,9 +776,41 @@ func runProxyMode(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
+	// Init Coraza WAF
+
+	logErr := func(error types.MatchedRule) {
+		logger.WithFields(logrus.Fields{
+			"tags":     error.Rule().Tags(),
+			"version":  error.Rule().Version(),
+			"severity": error.Rule().Severity(),
+			"rule_id":  error.Rule().ID(),
+			"file":     error.Rule().File(),
+			"line":     error.Rule().Line(),
+			"maturity": error.Rule().Maturity(),
+			"accuracy": error.Rule().Accuracy(),
+			"uri":      error.URI(),
+		}).Error(error.Message())
+	}
+
+	var waf coraza.WAF = nil
+
+	if cfg.ModSecurity.Enabled {
+		rules := path.Join(cfg.ModSecurity.RulesDir, "*.conf")
+		waf, err = coraza.NewWAF(
+			coraza.NewWAFConfig().
+				WithErrorCallback(logErr).
+				WithDirectivesFromFile(cfg.ModSecurity.ConfFile).
+				WithDirectivesFromFile(rules),
+		)
+		if err != nil {
+			logger.Fatal(err)
+		}
+	}
+
+	// =========================================================================
 	// Init Handlers
 
-	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens)
+	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens, waf)
 
 	// =========================================================================
 	// Start Health API Service

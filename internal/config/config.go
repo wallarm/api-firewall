@@ -13,6 +13,7 @@ type APIFWMode struct {
 type ProxyMode struct {
 	conf.Version
 	APIFWMode
+	ModSecurity
 	TLS       TLS
 	ShadowAPI ShadowAPI
 	Denylist  Denylist
@@ -126,6 +127,12 @@ type Oauth struct {
 type ShadowAPI struct {
 	ExcludeList                []int `conf:"default:404,env:SHADOW_API_EXCLUDE_LIST" validate:"HttpStatusCodes"`
 	UnknownParametersDetection bool  `conf:"default:true,env:SHADOW_API_UNKNOWN_PARAMETERS_DETECTION"`
+}
+
+type ModSecurity struct {
+	Enabled  bool   `conf:"default:true"`
+	ConfFile string `conf:"default:./coreruleset/crs-setup.conf,env:MODSEC_CONF_FILE" validate:"file"`
+	RulesDir string `conf:"default:./coreruleset/,env:MODSEC_RULES_DIR" validate:"dir"`
 }
 
 type GraphQL struct {

@@ -84,7 +84,7 @@ func TestErrorWithBackticks(t *testing.T) {
 func TestLoadConfigurationFile(t *testing.T) {
 	waf := coraza.NewWAF()
 	p := NewParser(waf)
-	err := p.FromFile("../../coraza.conf-recommended")
+	err := p.FromFile("coraza.conf-recommended")
 	if err != nil {
 		t.Errorf("unexpected error: %s", err.Error())
 	}
@@ -103,7 +103,7 @@ func TestLoadConfigurationFile(t *testing.T) {
 func TestHardcodedIncludeDirective(t *testing.T) {
 	waf := coraza.NewWAF()
 	p := NewParser(waf)
-	if err := p.FromString("Include ../../coraza.conf-recommended"); err != nil {
+	if err := p.FromString("Include coraza.conf-recommended"); err != nil {
 		t.Error(err)
 	}
 	if waf.Rules.Count() == 0 {

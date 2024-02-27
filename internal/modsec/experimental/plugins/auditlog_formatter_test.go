@@ -29,7 +29,7 @@ func (testFormatter) MIME() string {
 func ExampleRegisterAuditLogFormatter() {
 
 	plugins.RegisterAuditLogFormatter("txid", &testFormatter{})
-	
+
 	w, err := coraza.NewWAF(
 		coraza.NewWAFConfig().
 			WithDirectives(`

@@ -5,7 +5,6 @@ import (
 	utils "github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"github.com/valyala/fasthttp/fasthttpadaptor"
 	coraza "github.com/wallarm/api-firewall/internal/modsec"
 	"github.com/wallarm/api-firewall/internal/modsec/experimental"
 	"github.com/wallarm/api-firewall/internal/modsec/types"
@@ -134,28 +133,26 @@ func WAFModSecurity(waf coraza.WAF, logger *logrus.Logger) web.Middleware {
 		// Create the handler that will be attached in the middleware chain.
 		h := func(ctx *fasthttp.RequestCtx) error {
 
-			newTX := func(*http.Request) types.Transaction {
+			if waf == nil {
+				err := before(ctx)
+
+				// Return the error, so it can be handled further up the chain.
+				return err
+			}
+
+			newTX := func(requestCtx *fasthttp.RequestCtx) types.Transaction {
 				return waf.NewTransaction()
 			}
 
 			if ctxwaf, ok := waf.(experimental.WAFWithOptions); ok {
-				newTX = func(r *http.Request) types.Transaction {
+				newTX = func(requestCtx *fasthttp.RequestCtx) types.Transaction {
 					return ctxwaf.NewTransactionWithOptions(experimental.Options{
-						Context: r.Context(),
+						Context: requestCtx,
 					})
 				}
 			}
 
-			req := http.Request{}
-			if err := fasthttpadaptor.ConvertRequest(ctx, &req, false); err != nil {
-				logger.WithFields(logrus.Fields{
-					"error":      err,
-					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-				}).Error("error while converting http request")
-				return web.RespondError(ctx, fasthttp.StatusBadRequest, "")
-			}
-
-			tx := newTX(&req)
+			tx := newTX(ctx)
 			defer func() {
 				// We run phase 5 rules and create audit logs (if enabled)
 				tx.ProcessLogging()
@@ -227,13 +224,6 @@ func WAFModSecurity(waf coraza.WAF, logger *logrus.Logger) web.Middleware {
 					return fmt.Errorf("failed to copy the response body: %v", err)
 				}
 			}
-
-			//ww, processResponse := wrap(w, r, tx)
-			//
-			//if err := processResponse(tx, &req); err != nil {
-			//	tx.DebugLogger().Error().Err(err).Msg("Failed to close the response")
-			//	return web.RespondError(ctx, fasthttp.StatusBadRequest, "")
-			//}
 
 			// The error has been handled so we can stop propagating it.
 			return nil
