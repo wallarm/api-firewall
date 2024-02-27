@@ -171,9 +171,41 @@ func runAPIMode(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
+	// Init ModSecurity Core
+
+	logErr := func(error types.MatchedRule) {
+		logger.WithFields(logrus.Fields{
+			"tags":     error.Rule().Tags(),
+			"version":  error.Rule().Version(),
+			"severity": error.Rule().Severity(),
+			"rule_id":  error.Rule().ID(),
+			"file":     error.Rule().File(),
+			"line":     error.Rule().Line(),
+			"maturity": error.Rule().Maturity(),
+			"accuracy": error.Rule().Accuracy(),
+			"uri":      error.URI(),
+		}).Error(error.Message())
+	}
+
+	var waf coraza.WAF = nil
+
+	if cfg.ModSecurity.Enabled {
+		rules := path.Join(cfg.ModSecurity.RulesDir, "*.conf")
+		waf, err = coraza.NewWAF(
+			coraza.NewWAFConfig().
+				WithErrorCallback(logErr).
+				WithDirectivesFromFile(cfg.ModSecurity.ConfFile).
+				WithDirectivesFromFile(rules),
+		)
+		if err != nil {
+			logger.Fatal(err)
+		}
+	}
+
+	// =========================================================================
 	// Init Handlers
 
-	requestHandlers := handlersAPI.Handlers(&dbLock, &cfg, shutdown, logger, specStorage)
+	requestHandlers := handlersAPI.Handlers(&dbLock, &cfg, shutdown, logger, specStorage, waf)
 
 	// =========================================================================
 	// Start Health API Service
@@ -246,7 +278,7 @@ func runAPIMode(logger *logrus.Logger) error {
 
 	updSpecErrors := make(chan error, 1)
 
-	updOpenAPISpec := updater.NewController(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData)
+	updOpenAPISpec := updater.NewController(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData, waf)
 
 	// disable updater if SpecificationUpdatePeriod == 0
 	if cfg.SpecificationUpdatePeriod.Seconds() > 0 {
@@ -776,7 +808,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
-	// Init Coraza WAF
+	// Init ModSecurity Core
 
 	logErr := func(error types.MatchedRule) {
 		logger.WithFields(logrus.Fields{

@@ -10,6 +10,7 @@ import (
 	"github.com/valyala/fasthttp"
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
+	coraza "github.com/wallarm/api-firewall/internal/modsec"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 )
 
@@ -21,6 +22,7 @@ type Updater interface {
 
 type Specification struct {
 	logger         *logrus.Logger
+	waf            coraza.WAF
 	sqlLiteStorage database.DBOpenAPILoader
 	stop           chan struct{}
 	updateTime     time.Duration
@@ -32,9 +34,10 @@ type Specification struct {
 }
 
 // NewController function defines configuration updater controller
-func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health) Updater {
+func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health, waf coraza.WAF) Updater {
 	return &Specification{
 		logger:         logger,
+		waf:            waf,
 		sqlLiteStorage: sqlLiteStorage,
 		stop:           make(chan struct{}),
 		updateTime:     cfg.SpecificationUpdatePeriod,
@@ -72,7 +75,7 @@ func (s *Specification) Run() {
 				s.logger.Debugf("OpenAPI specifications has been updated. Loaded OpenAPI specification versions: %v", afterUpdateSpecs)
 				s.lock.Lock()
 				s.sqlLiteStorage = newSpecDB
-				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage)
+				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.waf)
 				s.health.OpenAPIDB = s.sqlLiteStorage
 				s.lock.Unlock()
 				continue

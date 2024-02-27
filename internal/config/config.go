@@ -37,6 +37,7 @@ type ProxyMode struct {
 type APIMode struct {
 	conf.Version
 	APIFWMode
+	ModSecurity
 	TLS TLS
 
 	SpecificationUpdatePeriod  time.Duration `conf:"default:1m,env:API_MODE_SPECIFICATION_UPDATE_PERIOD"`
@@ -132,7 +133,7 @@ type ShadowAPI struct {
 type ModSecurity struct {
 	Enabled  bool   `conf:"default:true"`
 	ConfFile string `conf:"default:./coreruleset/crs-setup.conf,env:MODSEC_CONF_FILE" validate:"file"`
-	RulesDir string `conf:"default:./coreruleset/,env:MODSEC_RULES_DIR" validate:"dir"`
+	RulesDir string `conf:"default:./coreruleset/rules,env:MODSEC_RULES_DIR" validate:"dir"`
 }
 
 type GraphQL struct {

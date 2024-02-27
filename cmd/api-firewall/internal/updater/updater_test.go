@@ -47,7 +47,7 @@ func TestUpdaterBasic(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage)
+	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -122,7 +122,7 @@ func TestUpdaterBasic(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfg, &api, shutdown, &health)
+	updater := NewController(&lock, logger, specStorage, &cfg, &api, shutdown, &health, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -223,7 +223,7 @@ func TestUpdaterFromEmptyDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage)
+	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -263,7 +263,7 @@ func TestUpdaterFromEmptyDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfg, &api, shutdown, &health)
+	updater := NewController(&lock, logger, specStorage, &cfg, &api, shutdown, &health, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -364,7 +364,7 @@ func TestUpdaterToEmptyDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage)
+	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -447,7 +447,7 @@ func TestUpdaterToEmptyDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfgEmpty, &api, shutdown, &health)
+	updater := NewController(&lock, logger, specStorage, &cfgEmpty, &api, shutdown, &health, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -513,7 +513,7 @@ func TestUpdaterInvalidDBSchema(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage)
+	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
@@ -557,7 +557,7 @@ func TestUpdaterInvalidDBFile(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage)
+	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
@@ -601,7 +601,7 @@ func TestUpdaterToInvalidDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage)
+	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -684,7 +684,7 @@ func TestUpdaterToInvalidDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfgEmpty, &api, shutdown, &health)
+	updater := NewController(&lock, logger, specStorage, &cfgEmpty, &api, shutdown, &health, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -750,7 +750,7 @@ func TestUpdaterFromInvalidDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage)
+	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -780,7 +780,7 @@ func TestUpdaterFromInvalidDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfg, &api, shutdown, &health)
+	updater := NewController(&lock, logger, specStorage, &cfg, &api, shutdown, &health, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -881,7 +881,7 @@ func TestUpdaterToNotExistDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage)
+	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -964,7 +964,7 @@ func TestUpdaterToNotExistDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfgEmpty, &api, shutdown, &health)
+	updater := NewController(&lock, logger, specStorage, &cfgEmpty, &api, shutdown, &health, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -1030,7 +1030,7 @@ func TestUpdaterFromNotExistDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage)
+	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -1060,7 +1060,7 @@ func TestUpdaterFromNotExistDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfg, &api, shutdown, &health)
+	updater := NewController(&lock, logger, specStorage, &cfg, &api, shutdown, &health, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
