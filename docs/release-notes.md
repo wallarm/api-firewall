@@ -2,7 +2,7 @@
 
 This page describes new releases of Wallarm API Firewall.
 
-## v0.6.16 (2023-01-29)
+## v0.6.16 (2023-02-27)
 
 * Fixed the processing issues of the HEAD request type in the [`api` mode](installation-guides/api-mode.md)
 * Improved log messages by adding `host` and `path` parameters, providing immediate insight into request destinations. [Issue #78](https://github.com/wallarm/api-firewall/issues/78)
