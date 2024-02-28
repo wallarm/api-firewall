@@ -71,14 +71,9 @@ func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 	}
 
 	var numOfElements int64
-	totalEntries10P := totalEntries / 10
-
-	if totalEntries10P == 0 {
-		totalEntries10P = 1
-	}
 
 	// 10% counter
-	counter10P := 0
+	var counter10P int64
 
 	// ip's loading to the cache
 	s := bufio.NewScanner(f)
@@ -87,9 +82,10 @@ func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 		if loadedIP != "" {
 			if ok := cache.Set(loadedIP, nil, ElementCost); ok {
 				numOfElements += 1
-				if numOfElements%totalEntries10P == 0 {
-					counter10P += 10
-					logger.Debugf("Allow IP List: loaded %d perecents of ip's. Total elements in the cache: %d", counter10P, numOfElements)
+				currentPercent := numOfElements * 100 / totalEntries
+				if currentPercent/10 > counter10P {
+					counter10P = currentPercent / 10
+					logger.Debugf("Allow IP List: loaded %d perecents of ip's. Total elements in the cache: %d", counter10P*10, numOfElements)
 				}
 			} else {
 				logger.Errorf("Allowed IP List: can't add the ip to the cache: %s", s.Text())
