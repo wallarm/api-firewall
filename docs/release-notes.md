@@ -2,6 +2,15 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.6.16 (2023-02-27)
+
+* Fixed the processing issues of the HEAD request type in the [`api` mode](installation-guides/api-mode.md)
+* Improved log messages by adding `host` and `path` parameters, providing immediate insight into request destinations. [Issue #78](https://github.com/wallarm/api-firewall/issues/78)
+* Adjusted TEXT log formatting to remove multi-line outputs. All log messages in TEXT logging mode are now formatted in a single line, enhancing readability for log parsers. For example, previously, multi-line outputs were consolidated into a single line, replacing occurrences of `\r\n` with spaces. [Issue #79](https://github.com/wallarm/api-firewall/issues/79)
+* Implemented a solution to generate unique `request_id` values, resolving conflicts caused by the incremental nature of `request_id`. [Issue #80](https://github.com/wallarm/api-firewall/issues/80)
+* Add tests
+* Dependency upgrade
+
 ## v0.6.15 (2023-12-21)
 
 * Dependency upgrade
