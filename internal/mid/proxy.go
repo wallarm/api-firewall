@@ -66,7 +66,7 @@ func Proxy(options *ProxyOptions) web.Middleware {
 
 			if strings.EqualFold(options.RequestValidation, web.ValidationBlock) {
 				// add apifw header to the request
-				ctx.Request.Header.Add(apifwHeaderName, fmt.Sprintf("%016X", ctx.ID()))
+				ctx.Request.Header.Add(apifwHeaderName, ctx.UserValue(web.RequestID).(string))
 			}
 
 			if !bytes.Equal([]byte(options.ServerURL.Scheme), ctx.Request.URI().Scheme()) {

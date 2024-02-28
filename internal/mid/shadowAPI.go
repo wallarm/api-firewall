@@ -51,7 +51,7 @@ func ShadowAPIMonitor(logger *logrus.Logger, cfg *config.ShadowAPI) web.Middlewa
 			// if response status code not found in the OpenAPI spec AND the code not in the exclude list
 			if isProxyStatusCodeNotFound && idx < 0 {
 				logger.WithFields(logrus.Fields{
-					"request_id":      fmt.Sprintf("#%016X", ctx.ID()),
+					"request_id":      ctx.UserValue(web.RequestID),
 					"status_code":     ctx.Response.StatusCode(),
 					"response_length": fmt.Sprintf("%d", ctx.Response.Header.ContentLength()),
 					"method":          currentMethod,

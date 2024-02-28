@@ -2,7 +2,6 @@ package graphql
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -22,7 +21,7 @@ func closeWSConn(ctx *fasthttp.RequestCtx, logger *logrus.Logger, conn proxy.Web
 		logger.WithFields(logrus.Fields{
 			"error":      err,
 			"protocol":   "websocket",
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Debug("send close message")
 	}
 
@@ -30,7 +29,7 @@ func closeWSConn(ctx *fasthttp.RequestCtx, logger *logrus.Logger, conn proxy.Web
 		logger.WithFields(logrus.Fields{
 			"error":      err,
 			"protocol":   "websocket",
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("closing connection")
 	}
 }
@@ -43,7 +42,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 		h.logger.WithFields(logrus.Fields{
 			"error":      err,
 			"protocol":   "websocket",
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("Connecting to the server WS error")
 
 		return web.RespondError(ctx, fasthttp.StatusServiceUnavailable, "")
@@ -84,7 +83,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 							h.logger.WithFields(logrus.Fields{
 								"error":      err,
 								"protocol":   "websocket",
-								"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+								"request_id": ctx.UserValue(web.RequestID),
 							}).Debug("read from client")
 						}
 
@@ -102,7 +101,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 							h.logger.WithFields(logrus.Fields{
 								"error":      err,
 								"protocol":   "websocket",
-								"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+								"request_id": ctx.UserValue(web.RequestID),
 							}).Debug("write to backend")
 
 							close(errClient)
@@ -118,7 +117,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 						h.logger.WithFields(logrus.Fields{
 							"error":      err,
 							"protocol":   "websocket",
-							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+							"request_id": ctx.UserValue(web.RequestID),
 						}).Error("read from client: request unmarshal")
 
 						// If validation is in log_only mode then the request should be proxied to the backend server
@@ -127,7 +126,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 								h.logger.WithFields(logrus.Fields{
 									"error":      err,
 									"protocol":   "websocket",
-									"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+									"request_id": ctx.UserValue(web.RequestID),
 								}).Debug("write to backend")
 
 								close(errClient)
@@ -147,7 +146,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 							h.logger.WithFields(logrus.Fields{
 								"error":      err,
 								"protocol":   "websocket",
-								"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+								"request_id": ctx.UserValue(web.RequestID),
 							}).Debug("write to backend")
 
 							close(errClient)
@@ -175,7 +174,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 						h.logger.WithFields(logrus.Fields{
 							"error":      err,
 							"protocol":   "websocket",
-							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+							"request_id": ctx.UserValue(web.RequestID),
 						}).Error("GraphQL query validation")
 
 						// Block request and respond by error in BLOCK mode
@@ -185,7 +184,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 								h.logger.WithFields(logrus.Fields{
 									"error":      err,
 									"protocol":   "websocket",
-									"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+									"request_id": ctx.UserValue(web.RequestID),
 								}).Debug("write to client")
 							}
 
@@ -193,7 +192,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 								h.logger.WithFields(logrus.Fields{
 									"error":      err,
 									"protocol":   "websocket",
-									"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+									"request_id": ctx.UserValue(web.RequestID),
 								}).Debug("write to client")
 							}
 							continue
@@ -203,7 +202,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 							h.logger.WithFields(logrus.Fields{
 								"error":      err,
 								"protocol":   "websocket",
-								"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+								"request_id": ctx.UserValue(web.RequestID),
 							}).Debug("write to backend")
 
 							close(errClient)
@@ -217,7 +216,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 						h.logger.WithFields(logrus.Fields{
 							"error":      validationResult.Errors,
 							"protocol":   "websocket",
-							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+							"request_id": ctx.UserValue(web.RequestID),
 						}).Error("GraphQL query validation")
 
 						// Block request and respond by error in BLOCK mode
@@ -227,7 +226,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 								h.logger.WithFields(logrus.Fields{
 									"error":      err,
 									"protocol":   "websocket",
-									"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+									"request_id": ctx.UserValue(web.RequestID),
 								}).Debug("write to client")
 							}
 
@@ -235,7 +234,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 								h.logger.WithFields(logrus.Fields{
 									"error":      err,
 									"protocol":   "websocket",
-									"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+									"request_id": ctx.UserValue(web.RequestID),
 								}).Debug("write to client")
 							}
 							continue
@@ -247,7 +246,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 						h.logger.WithFields(logrus.Fields{
 							"error":      err,
 							"protocol":   "websocket",
-							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+							"request_id": ctx.UserValue(web.RequestID),
 						}).Debug("write to backend")
 
 						close(errClient)
@@ -271,7 +270,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 						h.logger.WithFields(logrus.Fields{
 							"error":      err,
 							"protocol":   "websocket",
-							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+							"request_id": ctx.UserValue(web.RequestID),
 						}).Debug("read from backend")
 
 						close(errBackend)
@@ -282,7 +281,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 						h.logger.WithFields(logrus.Fields{
 							"error":      err,
 							"protocol":   "websocket",
-							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+							"request_id": ctx.UserValue(web.RequestID),
 						}).Debug("write to client")
 
 						close(errBackend)
@@ -299,7 +298,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 	if err != nil {
 		h.logger.WithFields(logrus.Fields{
 			"error":      err,
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("WebSocket handler")
 
 		return nil

@@ -7,29 +7,29 @@ require (
 	github.com/ardanlabs/conf v1.5.0
 	github.com/clbanning/mxj/v2 v2.7.0
 	github.com/dgraph-io/ristretto v0.1.1
-	github.com/fasthttp/router v1.4.20
-	github.com/fasthttp/websocket v1.5.4
+	github.com/fasthttp/router v1.4.22
+	github.com/fasthttp/websocket v1.5.7
 	github.com/gabriel-vasile/mimetype v1.4.2
 	github.com/getkin/kin-openapi v0.118.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/mock v1.6.0
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.5.0
 	github.com/karlseguin/ccache/v2 v2.0.8
-	github.com/klauspost/compress v1.16.7
+	github.com/klauspost/compress v1.17.3
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/pkg/errors v0.9.1
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
-	github.com/valyala/fasthttp v1.48.0
+	github.com/valyala/fasthttp v1.51.0
 	github.com/valyala/fastjson v1.6.4
-	github.com/wundergraph/graphql-go-tools v1.66.2
+	github.com/wundergraph/graphql-go-tools v1.67.0
 	golang.org/x/exp v0.0.0-20230807204917-050eac23e9de
 )
 
 require (
-	github.com/99designs/gqlgen v0.17.36 // indirect
+	github.com/99designs/gqlgen v0.17.41 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
@@ -76,14 +76,14 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.0.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.8 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.10 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/goleak v1.2.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.25.0 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/crypto v0.19.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect

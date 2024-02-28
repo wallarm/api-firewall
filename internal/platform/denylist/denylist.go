@@ -30,7 +30,6 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 	}
 
 	var totalEntries int64
-	var totalCacheCapacity int64
 
 	// open tokens storage
 	f, err := os.Open(cfg.Tokens.File)
@@ -42,7 +41,6 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 	c := bufio.NewScanner(f)
 	for c.Scan() {
 		if c.Text() != "" {
-			totalCacheCapacity += int64(len(c.Text()))
 			totalEntries += 1
 		}
 	}
@@ -58,8 +56,8 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 
 	logger.Debugf("Denylist: total entries (lines) found in the file: %d", totalEntries)
 
-	// max cost = total bytes found in the storage + 5% + size of ristretto's storeItem struct
-	maxCost := totalCacheCapacity + (totalCacheCapacity / 20) + StoreItemSize
+	// max cost = total entries * size of ristretto's storeItem struct
+	maxCost := totalEntries * StoreItemSize
 
 	logger.Debugf("Denylist: cache capacity: %d bytes", maxCost)
 
@@ -73,14 +71,9 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 	}
 
 	var numOfElements int64
-	totalEntries10P := totalEntries / 10
-
-	if totalEntries10P == 0 {
-		totalEntries10P = 1
-	}
 
 	// 10% counter
-	counter10P := 0
+	var counter10P int64
 
 	// tokens loading to the cache
 	s := bufio.NewScanner(f)
@@ -88,9 +81,11 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 		if s.Text() != "" {
 			if ok := cache.Set(strings.TrimSpace(s.Text()), nil, ElementCost); ok {
 				numOfElements += 1
-				if numOfElements%totalEntries10P == 0 {
-					counter10P += 10
-					logger.Debugf("Denylist: loaded %d perecents of tokens. Total elements in the cache: %d", counter10P, numOfElements)
+
+				currentPercent := numOfElements * 100 / totalEntries
+				if currentPercent/10 > counter10P {
+					counter10P = currentPercent / 10
+					logger.Debugf("Denylist: loaded %d perecents of tokens. Total elements in the cache: %d", counter10P*10, numOfElements)
 				}
 			} else {
 				logger.Errorf("Denylist: can't add the token to the cache: %s", s.Text())

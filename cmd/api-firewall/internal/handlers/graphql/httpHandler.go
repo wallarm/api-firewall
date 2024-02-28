@@ -2,7 +2,6 @@ package graphql
 
 import (
 	"errors"
-	"fmt"
 	"net/url"
 	"strings"
 	"sync"
@@ -46,7 +45,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 		!strings.EqualFold(strconv.B2S(ctx.Request.Header.ContentType()), "application/json") {
 		h.logger.WithFields(logrus.Fields{
 			"protocol":   "HTTP",
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Debug("POST request without application/json content-type is received")
 
 		return web.RespondError(ctx, fasthttp.StatusForbidden, "")
@@ -57,7 +56,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 		len(ctx.Request.URI().QueryArgs().Peek("query")) == 0 {
 		h.logger.WithFields(logrus.Fields{
 			"protocol":   "HTTP",
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Debug("GET request without \"query\" query parameter is received")
 
 		return web.RespondError(ctx, fasthttp.StatusForbidden, "")
@@ -69,7 +68,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 			h.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"protocol":   "HTTP",
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request proxying")
 
 			ctx.Response.SetStatusCode(fasthttp.StatusInternalServerError)
@@ -83,7 +82,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 		h.logger.WithFields(logrus.Fields{
 			"error":      err,
 			"protocol":   "HTTP",
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("GraphQL request unmarshal")
 
 		if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
@@ -99,7 +98,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 			h.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"protocol":   "HTTP",
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("GraphQL query validation")
 
 			if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
@@ -112,7 +111,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 			h.logger.WithFields(logrus.Fields{
 				"error":      validationResult.Errors,
 				"protocol":   "HTTP",
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("GraphQL query validation")
 
 			if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
@@ -125,7 +124,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 		h.logger.WithFields(logrus.Fields{
 			"error":      err,
 			"protocol":   "HTTP",
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("request proxying")
 
 		ctx.Response.SetStatusCode(fasthttp.StatusInternalServerError)
