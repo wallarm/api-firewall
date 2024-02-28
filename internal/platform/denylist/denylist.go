@@ -30,7 +30,6 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 	}
 
 	var totalEntries int64
-	var totalCacheCapacity int64
 
 	// open tokens storage
 	f, err := os.Open(cfg.Tokens.File)
@@ -42,7 +41,6 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 	c := bufio.NewScanner(f)
 	for c.Scan() {
 		if c.Text() != "" {
-			totalCacheCapacity += int64(len(c.Text()))
 			totalEntries += 1
 		}
 	}
@@ -58,8 +56,8 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 
 	logger.Debugf("Denylist: total entries (lines) found in the file: %d", totalEntries)
 
-	// max cost = total bytes found in the storage + 5% + size of ristretto's storeItem struct
-	maxCost := totalCacheCapacity + (totalCacheCapacity / 20) + StoreItemSize
+	// max cost = total entries * size of ristretto's storeItem struct
+	maxCost := totalEntries * StoreItemSize
 
 	logger.Debugf("Denylist: cache capacity: %d bytes", maxCost)
 

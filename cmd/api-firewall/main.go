@@ -466,7 +466,7 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Cache
 
-	logger.Infof("%s: Initializing Cache", logPrefix)
+	logger.Infof("%s: Initializing DenyList Cache", logPrefix)
 
 	deniedTokens, err := denylist.New(&cfg.Denylist, logger)
 	if err != nil {
