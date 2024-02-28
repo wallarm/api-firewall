@@ -180,7 +180,7 @@ func BenchmarkGraphQL(b *testing.B) {
 		APIHost: benchHandlerURL,
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, serverURL, shutdown, logger, pool, wsPool, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, serverURL, shutdown, logger, pool, wsPool, nil, nil)
 
 	srv := fasthttp.Server{
 		Handler: handler,

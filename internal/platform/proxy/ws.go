@@ -3,7 +3,6 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"sync"
 	"unsafe"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 )
 
@@ -48,7 +48,7 @@ func (f *FastHTTPWebSocketConn) ReadMessage() (messageType int, p []byte, err er
 			"remote_addr":  f.Conn.RemoteAddr().String(),
 			"message":      strconv.B2S(p),
 			"message_type": messageType,
-			"request_id":   fmt.Sprintf("#%016X", f.Ctx.ID()),
+			"request_id":   f.Ctx.UserValue(web.RequestID),
 		}).Trace("read message")
 	}
 	return f.Conn.ReadMessage()
@@ -62,7 +62,7 @@ func (f *FastHTTPWebSocketConn) WriteMessage(messageType int, data []byte) error
 			"remote_addr":  f.Conn.RemoteAddr().String(),
 			"message":      strconv.B2S(data),
 			"message_type": messageType,
-			"request_id":   fmt.Sprintf("#%016X", f.Ctx.ID()),
+			"request_id":   f.Ctx.UserValue(web.RequestID),
 		}).Trace("write message")
 	}
 	f.mu.Lock()

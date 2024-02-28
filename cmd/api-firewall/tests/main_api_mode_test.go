@@ -81,6 +81,47 @@ info:
 servers:
   - url: /
 paths:
+  /test/methods:
+    patch:
+      responses:
+        '200':
+          description: Successful Response
+          content: {}
+    get:
+      responses:
+        '200':
+          description: Successful Response
+          content: {}
+    delete:
+      responses:
+        '200':
+          description: Successful Response
+          content: {}
+    put:
+      responses:
+        '200':
+          description: Successful Response
+          content: {}
+    post:
+      responses:
+        '200':
+          description: Successful Response
+          content: {}
+    options:
+      responses:
+        '200':
+          description: Successful Response
+          content: {}
+    head:
+      responses:
+        '200':
+          description: Successful Response
+          content: {}
+    trace:
+      responses:
+        '200':
+          description: Successful Response
+          content: {}
   /absolute-redirect/{n}:
     get:
       tags:
@@ -507,6 +548,10 @@ func TestAPIModeBasic(t *testing.T) {
 	// invalid route
 	t.Run("testAPIModeInvalidRouteInRequest", apifwTests.testAPIModeInvalidRouteInRequest)
 	t.Run("testAPIModeInvalidRouteInRequestInMultipleSchemas", apifwTests.testAPIModeInvalidRouteInRequestInMultipleSchemas)
+
+	// check all supported methods: GET POST PUT PATCH DELETE TRACE OPTIONS HEAD
+	t.Run("testAPIModeAllMethods", apifwTests.testAPIModeAllMethods)
+
 }
 
 func createForm(form map[string]string) (string, io.Reader, error) {
@@ -596,7 +641,7 @@ func checkResponseForbiddenStatusCode(t *testing.T, reqCtx *fasthttp.RequestCtx,
 		if len(apifwResponse.Errors) > 0 {
 			for _, e := range apifwResponse.Errors {
 				// The list of the codes that doesn't contain details field
-				if len(e.FieldsDetails) == 0 && (e.Code != "required_body_missed" && e.Code != "required_body_parse_error" && e.Code != "unknown_parameter_found") {
+				if len(e.FieldsDetails) == 0 && (e.Code != "required_body_missed" && e.Code != "required_body_parse_error" && e.Code != "unknown_parameter_found" && e.Code != "method_and_path_not_found") {
 					t.Error("The field details were not found in the error")
 				}
 				if !slices.Contains(expectedErrCodes, e.Code) {
@@ -2664,4 +2709,46 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequestInMultipleSchemas(
 			}
 		}
 	}
+}
+
+func (s *APIModeServiceTests) testAPIModeAllMethods(t *testing.T) {
+
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
+
+	// check all supported methods: GET POST PUT PATCH DELETE TRACE OPTIONS HEAD
+	for _, m := range []string{"GET", "POST", "PUT", "PATCH", "DELETE", "TRACE", "OPTIONS", "HEAD"} {
+		req := fasthttp.AcquireRequest()
+		req.SetRequestURI("/test/methods")
+		req.Header.SetMethod(m)
+		req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+		reqCtx := fasthttp.RequestCtx{
+			Request: *req,
+		}
+
+		handler(&reqCtx)
+
+		t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+		t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+		// check response status code and response body
+		checkResponseOkStatusCode(t, &reqCtx, DefaultSchemaID)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/methods")
+	req.Header.SetMethod("INVALID_METHOD")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	// check response status code and response body
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeMethodAndPathNotFound})
 }

@@ -18,6 +18,7 @@ type ProxyMode struct {
 	ShadowAPI ShadowAPI
 	Denylist  Denylist
 	Server    Server
+	AllowIP   AllowIP
 
 	APIHost       string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
 	HealthAPIHost string        `conf:"default:0.0.0.0:9667,env:HEALTH_HOST" validate:"required"`
@@ -60,6 +61,7 @@ type GraphQLMode struct {
 	TLS      TLS
 	Server   Backend
 	Denylist Denylist
+	AllowIP  AllowIP
 
 	APIHost       string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
 	HealthAPIHost string        `conf:"default:0.0.0.0:9667,env:HEALTH_HOST" validate:"required"`
@@ -105,8 +107,16 @@ type Token struct {
 	File             string `conf:""`
 }
 
+type AllowIP struct {
+	File       string `conf:""`
+	HeaderName string `conf:""`
+}
 type Denylist struct {
 	Tokens Token
+}
+
+type AllowIPlist struct {
+	AllowedIP AllowIP
 }
 
 type Introspection struct {

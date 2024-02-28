@@ -1,7 +1,6 @@
 package mid
 
 import (
-	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/platform/web"
@@ -23,7 +22,9 @@ func Errors(logger *logrus.Logger) web.Middleware {
 
 				// Log the error.
 				logger.WithFields(logrus.Fields{
-					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+					"request_id": ctx.UserValue(web.RequestID),
+					"host":       string(ctx.Request.Header.Host()),
+					"path":       string(ctx.Path()),
 					"error":      err,
 				}).Error("common error")
 

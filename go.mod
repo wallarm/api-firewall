@@ -8,17 +8,17 @@ require (
 	github.com/clbanning/mxj/v2 v2.7.0
 	github.com/corazawaf/libinjection-go v0.1.3
 	github.com/dgraph-io/ristretto v0.1.1
-	github.com/fasthttp/router v1.4.20
-	github.com/fasthttp/websocket v1.5.4
+	github.com/fasthttp/router v1.4.22
+	github.com/fasthttp/websocket v1.5.7
 	github.com/foxcpp/go-mockdns v1.1.0
 	github.com/gabriel-vasile/mimetype v1.4.2
 	github.com/getkin/kin-openapi v0.118.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/mock v1.6.0
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.5.0
 	github.com/karlseguin/ccache/v2 v2.0.8
-	github.com/klauspost/compress v1.16.7
+	github.com/klauspost/compress v1.17.3
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/petar-dambovaliev/aho-corasick v0.0.0-20230725210150-fb29fc3c913e
 	github.com/pkg/errors v0.9.1
@@ -26,9 +26,9 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.17.0
-	github.com/valyala/fasthttp v1.48.0
+	github.com/valyala/fasthttp v1.51.0
 	github.com/valyala/fastjson v1.6.4
-	github.com/wundergraph/graphql-go-tools v1.66.2
+	github.com/wundergraph/graphql-go-tools v1.67.0
 	golang.org/x/exp v0.0.0-20230807204917-050eac23e9de
 	golang.org/x/net v0.21.0
 	golang.org/x/sync v0.6.0
@@ -36,7 +36,7 @@ require (
 )
 
 require (
-	github.com/99designs/gqlgen v0.17.36 // indirect
+	github.com/99designs/gqlgen v0.17.41 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
@@ -83,7 +83,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.0.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.8 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.10 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/goleak v1.2.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

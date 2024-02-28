@@ -1,8 +1,6 @@
 package mid
 
 import (
-	"fmt"
-
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
@@ -27,14 +25,18 @@ func MIMETypeIdentifier(logger *logrus.Logger) web.Middleware {
 					if err != nil {
 						logger.WithFields(logrus.Fields{
 							"error":      err,
-							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+							"host":       string(ctx.Request.Header.Host()),
+							"path":       string(ctx.Path()),
+							"request_id": ctx.UserValue(web.RequestID),
 						}).Error("request body decompression error")
 						return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
 					}
 					mtype, err := mimetype.DetectReader(body)
 					if err != nil {
 						logger.WithFields(logrus.Fields{
-							"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+							"host":       string(ctx.Request.Header.Host()),
+							"path":       string(ctx.Path()),
+							"request_id": ctx.UserValue(web.RequestID),
 						}).Error("schema version mismatch")
 						return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
 					}

@@ -26,7 +26,7 @@ func Logger(logger *logrus.Logger) web.Middleware {
 			if isProxyNoRouteValue := ctx.Value(web.RequestProxyNoRoute); isProxyNoRouteValue != nil {
 				if isProxyNoRouteValue.(bool) {
 					logger.WithFields(logrus.Fields{
-						"request_id":      fmt.Sprintf("#%016X", ctx.ID()),
+						"request_id":      ctx.UserValue(web.RequestID),
 						"status_code":     ctx.Response.StatusCode(),
 						"response_length": fmt.Sprintf("%d", ctx.Response.Header.ContentLength()),
 						"method":          string(ctx.Request.Header.Method()),
@@ -38,7 +38,7 @@ func Logger(logger *logrus.Logger) web.Middleware {
 			}
 
 			logger.WithFields(logrus.Fields{
-				"request_id":      fmt.Sprintf("#%016X", ctx.ID()),
+				"request_id":      ctx.UserValue(web.RequestID),
 				"status_code":     ctx.Response.StatusCode(),
 				"method":          string(ctx.Request.Header.Method()),
 				"path":            string(ctx.Path()),

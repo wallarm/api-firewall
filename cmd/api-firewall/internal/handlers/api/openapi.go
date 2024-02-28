@@ -92,7 +92,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	// Route not found
 	if s.CustomRoute == nil {
 		s.Log.WithFields(logrus.Fields{
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"host":       string(ctx.Request.Header.Host()),
+			"path":       string(ctx.Path()),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Debug("method or path were not found")
 		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
@@ -115,7 +117,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	if err := fasthttpadaptor.ConvertRequest(ctx, &req, false); err != nil {
 		s.Log.WithFields(logrus.Fields{
 			"error":      err,
-			"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+			"host":       string(ctx.Request.Header.Host()),
+			"path":       string(ctx.Path()),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("error while converting http request")
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
 		return nil
@@ -128,7 +132,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		if req.Body, err = web.GetDecompressedRequestBody(&ctx.Request, requestContentEncoding); err != nil {
 			s.Log.WithFields(logrus.Fields{
 				"error":      err,
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
+				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request body decompression error")
 			ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
 			return nil
@@ -203,7 +209,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
 			s.Log.WithFields(logrus.Fields{
 				"error":      valReqErrors,
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
+				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request validation error")
 		default:
 			// Parse validation error and build the response
@@ -215,7 +223,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			if parsedValErrs != nil {
 				s.Log.WithFields(logrus.Fields{
 					"error":      valErr,
-					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+					"host":       string(ctx.Request.Header.Host()),
+					"path":       string(ctx.Path()),
+					"request_id": ctx.UserValue(web.RequestID),
 				}).Warning("request validation error")
 
 				// Set schema version for each validation
@@ -231,7 +241,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		if len(respErrors) == 0 {
 			s.Log.WithFields(logrus.Fields{
 				"error":      valReqErrors,
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
+				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request validation error")
 
 			// validation function returned unknown error
@@ -246,7 +258,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		if valUPReqErrors != nil {
 			s.Log.WithFields(logrus.Fields{
 				"error":      valUPReqErrors,
-				"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
+				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("searching for undefined parameters")
 
 			// If it is not a parsing error then return 500
@@ -261,7 +275,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			for _, upResult := range upResults {
 				s.Log.WithFields(logrus.Fields{
 					"error":      upResult.Err,
-					"request_id": fmt.Sprintf("#%016X", ctx.ID()),
+					"host":       string(ctx.Request.Header.Host()),
+					"path":       string(ctx.Path()),
+					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("searching for undefined parameters")
 
 				response := web.ValidationError{}

@@ -25,6 +25,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 	coraza "github.com/wallarm/api-firewall/internal/modsec"
 	"github.com/wallarm/api-firewall/internal/modsec/types"
+	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
@@ -52,11 +53,12 @@ func main() {
 
 	logger.SetLevel(logrus.DebugLevel)
 
-	logger.SetFormatter(&logrus.TextFormatter{
-		DisableQuote:           true,
-		FullTimestamp:          true,
-		DisableLevelTruncation: true,
-	})
+	cFormatter := &config.CustomFormatter{}
+	cFormatter.DisableQuote = true
+	cFormatter.FullTimestamp = true
+	cFormatter.DisableLevelTruncation = true
+
+	logger.SetFormatter(cFormatter)
 
 	// if MODE var has invalid value then proxy mode will be used
 	var currentMode config.APIFWMode
@@ -498,7 +500,7 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Cache
 
-	logger.Infof("%s: Initializing Cache", logPrefix)
+	logger.Infof("%s: Initializing DenyList Cache", logPrefix)
 
 	deniedTokens, err := denylist.New(&cfg.Denylist, logger)
 	if err != nil {
@@ -511,11 +513,26 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	default:
 		logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
 	}
+	// =========================================================================
+
+	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
+
+	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
+	if err != nil {
+		return errors.Wrap(err, "allowiplist init error")
+	}
+
+	switch allowedIPCache {
+	case nil:
+		logger.Infof("%s: allowiplist not configured", logPrefix)
+	default:
+		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
+	}
 
 	// =========================================================================
 	// Init Handlers
 
-	requestHandlers := handlersGQL.Handlers(&cfg, schema, serverURL, shutdown, logger, pool, wsPool, deniedTokens)
+	requestHandlers := handlersGQL.Handlers(&cfg, schema, serverURL, shutdown, logger, pool, wsPool, deniedTokens, allowedIPCache)
 
 	// =========================================================================
 	// Start Health API Service
@@ -791,9 +808,9 @@ func runProxyMode(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
-	// Init Cache
+	// Init Deny List Cache
 
-	logger.Infof("%s: Initializing Cache", logPrefix)
+	logger.Infof("%s: Initializing Token Cache", logPrefix)
 
 	deniedTokens, err := denylist.New(&cfg.Denylist, logger)
 	if err != nil {
@@ -805,6 +822,23 @@ func runProxyMode(logger *logrus.Logger) error {
 		logger.Infof("%s: Denylist not configured", logPrefix)
 	default:
 		logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
+	}
+
+	// =========================================================================
+	// Init IP Allow List Cache
+
+	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
+
+	AllowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
+	if err != nil {
+		return errors.Wrap(err, "allowiplist init error")
+	}
+
+	switch AllowedIPCache {
+	case nil:
+		logger.Infof("%s: allowiplist not configured", logPrefix)
+	default:
+		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, AllowedIPCache.ElementsNum)
 	}
 
 	// =========================================================================
@@ -842,7 +876,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Handlers
 
-	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens, waf)
+	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens, AllowedIPCache, waf)
 
 	// =========================================================================
 	// Start Health API Service

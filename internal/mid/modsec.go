@@ -2,6 +2,11 @@ package mid
 
 import (
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"strconv"
+
 	utils "github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
@@ -9,22 +14,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/modsec/experimental"
 	"github.com/wallarm/api-firewall/internal/modsec/types"
 	"github.com/wallarm/api-firewall/internal/platform/web"
-	"io"
-	"net"
-	"net/http"
-	"strconv"
 )
-
-// rwInterceptor intercepts the ResponseWriter, so it can track response size
-// and returned status code.
-type rwInterceptor struct {
-	w                  http.ResponseWriter
-	tx                 types.Transaction
-	statusCode         int
-	proto              string
-	isWriteHeaderFlush bool
-	wroteHeader        bool
-}
 
 // processRequest fills all transaction variables from an http.Request object
 // Most implementations of Coraza will probably use http.Request objects
@@ -171,7 +161,6 @@ func WAFModSecurity(waf coraza.WAF, logger *logrus.Logger) web.Middleware {
 					tx.DebugLogger().Error().Err(err).Msg("Failed to process request")
 					return web.RespondError(ctx, fasthttp.StatusBadRequest, "")
 				} else if it != nil {
-					//w.WriteHeader(obtainStatusCodeFromInterruptionOrDefault(it, http.StatusOK))
 					if err := web.RespondError(ctx, obtainStatusCodeFromInterruptionOrDefault(it, http.StatusOK), ""); err != nil {
 						return err
 					}
