@@ -2,7 +2,6 @@ package mid
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"strings"
 
@@ -39,7 +38,6 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 				if ipFromHeader != "" {
 					ipToCheck = ipFromHeader
 				}
-
 			}
 
 			ipToCheck = strings.TrimSpace(ipToCheck)
@@ -49,9 +47,11 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 
 				if !presentbool {
 					options.Logger.WithFields(logrus.Fields{
-						"request_id": fmt.Sprintf("#%016X", ctx.ID()),
-						"IP Address": ipToCheck,
-					}).Info("the request with the IP has been blocked")
+						"request_id":        ctx.UserValue(web.RequestID),
+						"host":              string(ctx.Request.Header.Host()),
+						"path":              string(ctx.Path()),
+						"source_ip_address": ipToCheck,
+					}).Info("allow list: a request from an IP address not listed is blocked")
 					if strings.EqualFold(options.Mode, web.GraphQLMode) {
 						ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
 						return web.RespondGraphQLErrors(&ctx.Response, errAccessDeniedIP)
