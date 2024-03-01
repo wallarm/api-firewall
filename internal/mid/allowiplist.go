@@ -35,6 +35,11 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 			ipToCheck := ipAddr.IP.String()
 			if options.Config.HeaderName != "" {
 				ipFromHeader := string(ctx.Request.Header.Peek(options.Config.HeaderName))
+
+				if strings.EqualFold(options.Config.HeaderName, "X-Forwarded-For") {
+					ipFromHeader = strings.Split(ipFromHeader, ",")[0]
+				}
+
 				if ipFromHeader != "" {
 					ipToCheck = ipFromHeader
 				}
@@ -43,15 +48,29 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 			ipToCheck = strings.TrimSpace(ipToCheck)
 
 			if options.AllowedIPs != nil && options.AllowedIPs.ElementsNum > 0 {
-				_, presentbool := options.AllowedIPs.Cache.Get(ipToCheck)
+				found, err := options.AllowedIPs.Cache.Contains(net.ParseIP(ipToCheck))
 
-				if !presentbool {
+				if err != nil {
 					options.Logger.WithFields(logrus.Fields{
 						"request_id":        ctx.UserValue(web.RequestID),
 						"host":              string(ctx.Request.Header.Host()),
 						"path":              string(ctx.Path()),
 						"source_ip_address": ipToCheck,
-					}).Info("allow list: a request from an IP address not listed is blocked")
+					}).Error("allow IP: parsing source IP address")
+					if strings.EqualFold(options.Mode, web.GraphQLMode) {
+						ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
+						return web.RespondGraphQLErrors(&ctx.Response, errAccessDeniedIP)
+					}
+					return web.RespondError(ctx, options.CustomBlockStatusCode, "")
+				}
+
+				if !found {
+					options.Logger.WithFields(logrus.Fields{
+						"request_id":        ctx.UserValue(web.RequestID),
+						"host":              string(ctx.Request.Header.Host()),
+						"path":              string(ctx.Path()),
+						"source_ip_address": ipToCheck,
+					}).Info("allow IP: a request from an IP address not listed is blocked")
 					if strings.EqualFold(options.Mode, web.GraphQLMode) {
 						ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
 						return web.RespondGraphQLErrors(&ctx.Response, errAccessDeniedIP)

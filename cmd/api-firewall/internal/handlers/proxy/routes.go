@@ -80,21 +80,21 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 	}
 
 	denylistOptions := mid.DenylistOptions{
-		Mode:                  web.GraphQLMode,
+		Mode:                  web.ProxyMode,
 		Config:                &cfg.Denylist,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
 		DeniedTokens:          deniedTokens,
 		Logger:                logger,
 	}
 	ipAllowlistOptions := mid.IPAllowListOptions{
-		Mode:                  web.GraphQLMode,
+		Mode:                  web.ProxyMode,
 		Config:                &cfg.AllowIP,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
 		AllowedIPs:            AllowedIPCache,
 		Logger:                logger,
 	}
 
-	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.IPAllowlist(&ipAllowlistOptions), mid.Denylist(&denylistOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
+	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.IPAllowlist(&ipAllowlistOptions), mid.Denylist(&denylistOptions), mid.Proxy(&proxyOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
 
 	serverPath := "/"
 	if serverURL.Path != "" {

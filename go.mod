@@ -25,6 +25,7 @@ require (
 	github.com/valyala/fasthttp v1.51.0
 	github.com/valyala/fastjson v1.6.4
 	github.com/wundergraph/graphql-go-tools v1.67.0
+	github.com/yl2chen/cidranger v1.0.2
 	golang.org/x/exp v0.0.0-20230807204917-050eac23e9de
 )
 
