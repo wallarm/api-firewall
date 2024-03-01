@@ -2,7 +2,7 @@
 
 This page describes new releases of Wallarm API Firewall.
 
-## v0.6.16 (2023-02-27)
+## v0.6.16 (2024-02-27)
 
 * Added IP allowlisting, enabling secure access to backends by allowing only requests from predefined IP addresses for both REST and GraphQL APIs. This update ensures requests from allowlisted IPs are validated against the OpenAPI specification 3.0, with non-allowlisted IP requests being rejected with a 403 error code. Thanks for [PR #76 contributors](https://github.com/wallarm/api-firewall/pull/76). [Read more](configuration-guides/allowlist.md)
 * Fixed the processing issues of the HEAD request type in the [`api` mode](installation-guides/api-mode.md)
