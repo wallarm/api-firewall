@@ -1,6 +1,6 @@
 # Allowlisting IPs
 
-The Wallarm API Firewall enables secure access to your backend by allowing requests exclusively from predefined IP addresses. This document provides a step-by-step guide on how to implement IP allowlisting using the Wallarm API Firewall Docker container, applicable for both [REST API](../installation-guides/docker-container.md) or [GraphQL API](../installation-guides/graphql/docker-container.md).
+The Wallarm API Firewall enables secure access to your backend by allowing requests exclusively from predefined IP addresses. This document provides a step-by-step guide on how to implement IP allowlisting, applicable for the [REST API in the `PROXY` mode](../installation-guides/docker-container.md) or [GraphQL API](../installation-guides/graphql/docker-container.md).
 
 This feature ensures that only requests from allowlisted IP addresses are validated against the OpenAPI specification 3.0. Requests from non-allowlisted IPs are outright rejected, returning a 403 error code, regardless of their compliance with the OpenAPI specification.
 
@@ -13,8 +13,10 @@ To allowlist IP addresses:
     2.2.2.2
     ```
 
-    !!! info "Subnet allowlisting is not supported"
-        Only individual IP addresses can be allowlisted.
+    !!! info "Allowlist validation and supported data formats"
+        The API Firewall does not perform content validation on the allowlist file during download.
+
+        It supports both IPv4 and IPv6 addresses, but does not support subnets.
 1. Mount the allowlist file to the API Firewall Docker container using the `-v` Docker option.
 1. Run the API Firewall container with the `APIFW_ALLOW_IP_FILE` environment variable indicating the path to the mounted allowlist file inside the container.
 1. (Optional) Pass to the container the `APIFW_ALLOW_IP_HEADER_NAME` environment variable with the name of the request header that carries the origin IP address, if necessary. By default, `connection.remoteAddress` is used (the variable value is empty).
