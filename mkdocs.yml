@@ -90,6 +90,7 @@ nav:
   - Additional Configuration:
     - Validating Request Authentication Tokens: configuration-guides/validate-tokens.md
     - Blocking Requests with Compromised Tokens: configuration-guides/denylist-leaked-tokens.md
+    - Allowlisting IPs: configuration-guides/allowlist.md
     - SSL/TLS Configuration: configuration-guides/ssl-tls.md
     - System Settings: configuration-guides/system-settings.md
   - Demos:
