@@ -297,15 +297,17 @@ const (
 	testDeniedCookieName = "testCookieName"
 	testDeniedToken      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzb21lIjoicGF5bG9hZDk5OTk5ODUifQ.S9P-DEiWg7dlI81rLjnJWCA6h9Q4ewTizxrsxOPGmNA"
 
-	testAllowedIPHeaderName = "X-Real-IP"
-	testAllowedIPValue1     = "127.0.0.1"
-	testAllowedIPValue3     = "127.0.0.3"
-	testAllowedIPWrongValue = "1.1.1.1"
+	testAllowIPHeaderName = "X-Real-IP"
 
 	testShadowAPIendpoint = "/shadowAPItest"
 
 	testRequestHeader  = "X-Request-Test"
 	testResponseHeader = "X-Response-Test"
+)
+
+var (
+	listOfAllowedIPs    = []string{"127.0.0.1", "127.0.0.3", "10.1.2.128", "10.1.2.254", "2001:0db8:11a3:09d7:1f34:8a2e:07a0:765d", "2001:0db8:11a3:09d7:1f34:8a2e:07a0:7655"}
+	listOfNotAllowedIPs = []string{"1.1.1.1", "10.1.2.0", "10.1.3.1", "10.1.2.255"}
 )
 
 type ServiceTests struct {
@@ -609,7 +611,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 func (s *ServiceTests) testAllowlist(t *testing.T) {
 
 	allowedListCfg := config.AllowIP{
-		HeaderName: testAllowedIPHeaderName,
+		HeaderName: testAllowIPHeaderName,
 		File:       "../../../resources/test/allowed.iplist.db",
 	}
 
@@ -667,54 +669,40 @@ func (s *ServiceTests) testAllowlist(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	// add header with not allowed IP
-	req.Header.Set(testAllowedIPHeaderName, testAllowedIPWrongValue)
+	// check not allowed IPs
+	for _, ip := range listOfNotAllowedIPs {
+		req.Header.Set(testAllowIPHeaderName, ip)
 
-	reqCtx = fasthttp.RequestCtx{
-		Request: *req,
+		reqCtx = fasthttp.RequestCtx{
+			Request: *req,
+		}
+
+		handler(&reqCtx)
+
+		if reqCtx.Response.StatusCode() != 403 {
+			t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+				reqCtx.Response.StatusCode())
+		}
 	}
 
-	handler(&reqCtx)
+	// check allowed IPs
+	for _, ip := range listOfAllowedIPs {
+		req.Header.Set(testAllowIPHeaderName, ip)
 
-	if reqCtx.Response.StatusCode() != 403 {
-		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
-			reqCtx.Response.StatusCode())
-	}
+		reqCtx = fasthttp.RequestCtx{
+			Request: *req,
+		}
 
-	// add header with allowed IP - 127.0.0.1
-	req.Header.Set(testAllowedIPHeaderName, testAllowedIPValue1)
+		s.proxy.EXPECT().Get().Return(s.client, nil)
+		s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+		s.proxy.EXPECT().Put(s.client).Return(nil)
 
-	reqCtx = fasthttp.RequestCtx{
-		Request: *req,
-	}
+		handler(&reqCtx)
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
-
-	handler(&reqCtx)
-
-	if reqCtx.Response.StatusCode() != 200 {
-		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
-			reqCtx.Response.StatusCode())
-	}
-
-	// add header with allowed IP - 127.0.0.3
-	req.Header.Set(testAllowedIPHeaderName, testAllowedIPValue3)
-
-	reqCtx = fasthttp.RequestCtx{
-		Request: *req,
-	}
-
-	s.proxy.EXPECT().Get().Return(s.client, nil)
-	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
-
-	handler(&reqCtx)
-
-	if reqCtx.Response.StatusCode() != 200 {
-		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
-			reqCtx.Response.StatusCode())
+		if reqCtx.Response.StatusCode() != 200 {
+			t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+				reqCtx.Response.StatusCode())
+		}
 	}
 
 }

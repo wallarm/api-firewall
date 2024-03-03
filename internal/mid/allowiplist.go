@@ -48,15 +48,15 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 			ipToCheck = strings.TrimSpace(ipToCheck)
 
 			if options.AllowedIPs != nil && options.AllowedIPs.ElementsNum > 0 {
-				found, err := options.AllowedIPs.Cache.Contains(net.ParseIP(ipToCheck))
+				ip := net.ParseIP(ipToCheck)
 
-				if err != nil {
+				if ip == nil {
 					options.Logger.WithFields(logrus.Fields{
 						"request_id":        ctx.UserValue(web.RequestID),
 						"host":              string(ctx.Request.Header.Host()),
 						"path":              string(ctx.Path()),
 						"source_ip_address": ipToCheck,
-					}).Error("allow IP: parsing source IP address")
+					}).Info("allow IP: could not parse source IP address")
 					if strings.EqualFold(options.Mode, web.GraphQLMode) {
 						ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
 						return web.RespondGraphQLErrors(&ctx.Response, errAccessDeniedIP)
@@ -64,13 +64,13 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 					return web.RespondError(ctx, options.CustomBlockStatusCode, "")
 				}
 
-				if !found {
+				if _, found := options.AllowedIPs.Cache.Get(ip.String()); !found {
 					options.Logger.WithFields(logrus.Fields{
 						"request_id":        ctx.UserValue(web.RequestID),
 						"host":              string(ctx.Request.Header.Host()),
 						"path":              string(ctx.Path()),
 						"source_ip_address": ipToCheck,
-					}).Info("allow IP: a request from an IP address not listed is blocked")
+					}).Info("allow IP: requests from the source IP address are not allowed")
 					if strings.EqualFold(options.Mode, web.GraphQLMode) {
 						ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
 						return web.RespondGraphQLErrors(&ctx.Response, errAccessDeniedIP)
