@@ -14,7 +14,7 @@ To allowlist IP addresses:
     ```
 
     !!! info "Allowlist validation and supported data formats"
-        The API Firewall does not perform content validation on the allowlist file during download.
+        The API Firewall does not perform content validation on the allowlist file during list handling.
 
         It supports both IPv4 and IPv6 addresses, but does not support subnets.
 1. Mount the allowlist file to the API Firewall Docker container using the `-v` Docker option.
