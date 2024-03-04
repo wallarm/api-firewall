@@ -297,7 +297,8 @@ const (
 	testDeniedCookieName = "testCookieName"
 	testDeniedToken      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzb21lIjoicGF5bG9hZDk5OTk5ODUifQ.S9P-DEiWg7dlI81rLjnJWCA6h9Q4ewTizxrsxOPGmNA"
 
-	testAllowIPHeaderName = "X-Real-IP"
+	testAllowIPHeaderName        = "X-Real-IP"
+	testAllowIPXForwardedForName = "X-Forwarded-For"
 
 	testShadowAPIendpoint = "/shadowAPItest"
 
@@ -423,6 +424,7 @@ func TestBasic(t *testing.T) {
 
 	t.Run("basicDenylist", apifwTests.testDenylist)
 	t.Run("basicAllowlist", apifwTests.testAllowlist)
+	t.Run("basicAllowlistXForwardedFor", apifwTests.testAllowlistXForwardedFor)
 	t.Run("basicShadowAPI", apifwTests.testShadowAPI)
 
 	t.Run("oauthIntrospectionReadSuccess", apifwTests.testOauthIntrospectionReadSuccess)
@@ -703,6 +705,124 @@ func (s *ServiceTests) testAllowlist(t *testing.T) {
 			t.Errorf("Incorrect response status code. Expected: 200 and got %d",
 				reqCtx.Response.StatusCode())
 		}
+	}
+
+}
+
+func (s *ServiceTests) testAllowlistXForwardedFor(t *testing.T) {
+
+	allowedListCfg := config.AllowIP{
+		HeaderName: testAllowIPXForwardedForName,
+		File:       "../../../resources/test/allowed.iplist.db",
+	}
+
+	var cfg = config.ProxyMode{
+		RequestValidation:         "BLOCK",
+		ResponseValidation:        "BLOCK",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+		AllowIP: allowedListCfg,
+	}
+
+	allowedIPs, err := allowiplist.New(&allowedListCfg, s.logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, allowedIPs)
+
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signup")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	// check not allowed IPs
+	req.Header.Set(testAllowIPXForwardedForName, fmt.Sprintf("%s, %s", listOfNotAllowedIPs[0], listOfAllowedIPs[0]))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	// check allowed IPs
+	req.Header.Set(testAllowIPXForwardedForName, fmt.Sprintf("%s, %s", listOfAllowedIPs[0], listOfNotAllowedIPs[0]))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	// check allowed IPs
+	req.Header.Set(testAllowIPXForwardedForName, fmt.Sprintf("%s", listOfAllowedIPs[0]))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	// check not allowed IPs
+	req.Header.Set(testAllowIPXForwardedForName, fmt.Sprintf("%s", listOfNotAllowedIPs[0]))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
 	}
 
 }
