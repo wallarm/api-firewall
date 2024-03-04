@@ -47,7 +47,7 @@ services:
     image: kennethreitz/httpbin
     restart: on-failure
     ports:
-      - 8090:8090
+      - 80:80
     stop_grace_period: 1s
     networks:
       - api-firewall-network
@@ -65,7 +65,7 @@ It is recommended to use a separate Docker network to allow the containerized ap
 
 Change the configuration of the containerized application to be protected with API Firewall. This configuration is defined in **docker-compose.yml** → `services.backend`.
 
-The provided **docker-compose.yml** instructs Docker to start the [kennethreitz/httpbin](https://hub.docker.com/r/kennethreitz/httpbin/) Docker container connected to the `api-firewall-network` and assigned with the `backend` [network alias](https://docs.docker.com/config/containers/container-networking/#ip-address-and-hostname). The container port is 8090.
+The provided **docker-compose.yml** instructs Docker to start the [kennethreitz/httpbin](https://hub.docker.com/r/kennethreitz/httpbin/) Docker container connected to the `api-firewall-network` and assigned with the `backend` [network alias](https://docs.docker.com/config/containers/container-networking/#ip-address-and-hostname). The container port is 80.
 
 If configuring your own application, define only settings required for the correct application container start. No specific configuration for API Firewall is required.
 
@@ -144,7 +144,7 @@ To start API Firewall on Docker, you can also use regular Docker commands as in 
 
     ```bash
     docker run --rm -it --network api-firewall-network \
-        --network-alias backend -p 8090:8090 kennethreitz/httpbin
+        --network-alias backend -p 80:80 kennethreitz/httpbin
     ```
 3. [To start API Firewall](#step-4-configure-api-firewall):
 
