@@ -264,8 +264,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// SELECT schema_id FROM openapi_schemas ORDER BY schema_id DESC LIMIT 1
-
+	// entry of the V2
 	entry := struct {
 		SchemaID      int    `db:"schema_id"`
 		SchemaVersion string `db:"schema_version"`
