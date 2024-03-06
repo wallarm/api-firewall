@@ -18,6 +18,7 @@ const (
 )
 
 const (
+	dbVersion          = 1
 	testOpenAPIScheme1 = `openapi: 3.0.1
 info:
   title: Minimal integer field example
@@ -84,13 +85,13 @@ func TestBasicDBSpecsLoading(t *testing.T) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
-	dbSpec, err := NewOpenAPIDB(logger, "../../../resources/test/database/wallarm_api.db")
+	dbSpec, err := NewOpenAPIDB(logger, "../../../resources/test/database/wallarm_api.db", dbVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// test first OpenAPI spec
-	openAPISpec := bytes.Trim(dbSpec.SpecificationRaw(testSchemaID1), "\xef\xbb\xbf")
+	openAPISpec := bytes.Trim(dbSpec.SpecificationRawContent(testSchemaID1), "\xef\xbb\xbf")
 	if !bytes.Equal(openAPISpec, bytes.NewBufferString(testOpenAPIScheme1).Bytes()) {
 		t.Error("loaded and the original specifications are not equal")
 	}
@@ -107,7 +108,7 @@ func TestBasicDBSpecsLoading(t *testing.T) {
 	}
 
 	// test second OpenAPI spec
-	openAPISpec = bytes.Trim(dbSpec.SpecificationRaw(testSchemaID2), "\xef\xbb\xbf")
+	openAPISpec = bytes.Trim(dbSpec.SpecificationRawContent(testSchemaID2), "\xef\xbb\xbf")
 	if !bytes.Equal(openAPISpec, bytes.NewBufferString(testOpenAPIScheme2).Bytes()) {
 		t.Error("loaded and the original specifications are not equal")
 	}

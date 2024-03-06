@@ -42,6 +42,7 @@ type APIMode struct {
 
 	SpecificationUpdatePeriod  time.Duration `conf:"default:1m,env:API_MODE_SPECIFICATION_UPDATE_PERIOD"`
 	PathToSpecDB               string        `conf:"env:API_MODE_DEBUG_PATH_DB"`
+	DBVersion                  int           `conf:"default:0,env:API_MODE_DB_VERSION"`
 	UnknownParametersDetection bool          `conf:"default:true,env:API_MODE_UNKNOWN_PARAMETERS_DETECTION"`
 
 	APIHost             string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
