@@ -9,6 +9,7 @@ import (
 	"github.com/valyala/fasthttp"
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 )
 
@@ -28,10 +29,11 @@ type Specification struct {
 	shutdown       chan os.Signal
 	health         *handlersAPI.Health
 	lock           *sync.RWMutex
+	allowedIPCache *allowiplist.AllowedIPsType
 }
 
 // NewController function defines configuration updater controller
-func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health) Updater {
+func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health, allowedIPCache *allowiplist.AllowedIPsType) Updater {
 	return &Specification{
 		logger:         logger,
 		sqlLiteStorage: sqlLiteStorage,
@@ -42,6 +44,7 @@ func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage dat
 		shutdown:       shutdown,
 		health:         health,
 		lock:           lock,
+		allowedIPCache: allowedIPCache,
 	}
 }
 
@@ -61,7 +64,7 @@ func (s *Specification) Run() {
 
 			// do not downgrade the db version
 			if s.sqlLiteStorage.Version() > newSpecDB.Version() {
-				s.logger.Error("regular update checker: version of the new OpenAPI specification is lower then current")
+				s.logger.Error("regular update checker: version of the new DB structure is lower then current one (V2)")
 				continue
 			}
 
@@ -70,7 +73,7 @@ func (s *Specification) Run() {
 
 				s.lock.Lock()
 				s.sqlLiteStorage = newSpecDB
-				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage)
+				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache)
 				s.health.OpenAPIDB = s.sqlLiteStorage
 				if err := s.sqlLiteStorage.AfterLoad(s.cfg.PathToSpecDB); err != nil {
 					s.logger.WithFields(logrus.Fields{"error": err}).Error("regular update checker: error in after specification loading function")

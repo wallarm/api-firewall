@@ -20,6 +20,8 @@ import (
 const (
 	APIModePostfixStatusCode       = "_status_code"
 	APIModePostfixValidationErrors = "_validation_errors"
+
+	GlobalResponseStatusCodeKey = "global_response_status_code"
 )
 
 var (
@@ -235,6 +237,13 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 	responseErrors := make([]*ValidationError, 0)
 
 	for i := 0; i < len(schemaIDs); i++ {
+
+		if statusCode, ok := ctx.UserValue(GlobalResponseStatusCodeKey).(int); ok {
+			ctx.Response.Header.Reset()
+			ctx.Response.Header.SetStatusCode(statusCode)
+			return
+		}
+
 		statusCode, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + APIModePostfixStatusCode).(int)
 		if !ok {
 			// set summary for the schema ID in pass Options mode

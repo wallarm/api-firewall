@@ -86,6 +86,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		DeniedTokens:          deniedTokens,
 		Logger:                logger,
 	}
+
 	ipAllowlistOptions := mid.IPAllowListOptions{
 		Mode:                  web.ProxyMode,
 		Config:                &cfg.AllowIP,

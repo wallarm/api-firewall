@@ -656,7 +656,7 @@ func checkResponseForbiddenStatusCode(t *testing.T, reqCtx *fasthttp.RequestCtx,
 
 func (s *APIModeServiceTests) testAPIModeSuccess(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -719,7 +719,7 @@ func (s *APIModeServiceTests) testAPIModeSuccess(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeMissedMultipleReqParams(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -813,7 +813,7 @@ func (s *APIModeServiceTests) testAPIModeMissedMultipleReqParams(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeSuccessEmptyPathParameter(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(fmt.Sprintf("/absolute-redirect/%d", rand.Uint32()))
@@ -850,7 +850,7 @@ func (s *APIModeServiceTests) testAPIModeSuccessEmptyPathParameter(t *testing.T)
 
 func (s *APIModeServiceTests) testAPIModeSuccessMultipartStringParameter(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/redirect-to")
@@ -918,7 +918,7 @@ func (s *APIModeServiceTests) testAPIModeSuccessMultipartStringParameter(t *test
 
 func (s *APIModeServiceTests) testAPIModeOneSchemeMultipleIDs(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	// one schema
 	p, err := json.Marshal(map[string]interface{}{
@@ -1002,7 +1002,7 @@ func (s *APIModeServiceTests) testAPIModeOneSchemeMultipleIDs(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeTwoDifferentSchemesMultipleIDs(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	// one schema
 	p, err := json.Marshal(map[string]interface{}{
@@ -1109,7 +1109,7 @@ func (s *APIModeServiceTests) testAPIModeTwoDifferentSchemesMultipleIDs(t *testi
 
 func (s *APIModeServiceTests) testAPIModeTwoSchemesMultipleIDs(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1217,7 +1217,7 @@ func (s *APIModeServiceTests) testAPIModeTwoSchemesMultipleIDs(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeJSONParseError(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
@@ -1241,7 +1241,7 @@ func (s *APIModeServiceTests) testAPIModeJSONParseError(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeInvalidCTParseError(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1277,7 +1277,7 @@ func (s *APIModeServiceTests) testAPIModeInvalidCTParseError(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeCTNotInSpec(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1313,7 +1313,7 @@ func (s *APIModeServiceTests) testAPIModeCTNotInSpec(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeEmptyBody(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
@@ -1337,7 +1337,7 @@ func (s *APIModeServiceTests) testAPIModeEmptyBody(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeNoXWallarmSchemaIDHeader(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1439,7 +1439,7 @@ func (s *APIModeServiceTests) testAPIModeNoXWallarmSchemaIDHeader(t *testing.T) 
 
 func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1530,7 +1530,7 @@ func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterMissed(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/query?id=" + uuid.New().String())
@@ -1566,7 +1566,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterMissed(t *testing
 
 func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterMissed(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	xReqTestValue := uuid.New()
 
@@ -1605,7 +1605,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterMissed(t *testin
 
 func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterMissed(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/cookies/request")
@@ -1642,7 +1642,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterMissed(t *testin
 
 func (s *APIModeServiceTests) testAPIModeRequiredBodyMissed(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"status":  uuid.New().String(),
@@ -1693,7 +1693,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyMissed(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterMissed(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"status":  uuid.New().String(),
@@ -1756,7 +1756,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterMissed(t *testing.
 // Invalid parameters errors
 func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterInvalidValue(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/query?id=" + uuid.New().String())
@@ -1806,7 +1806,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterInvalidValue(t *t
 
 func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterInvalidValue(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	xReqTestValue := uuid.New()
 
@@ -1862,7 +1862,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterInvalidValue(t *
 
 func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterInvalidValue(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/cookies/request")
@@ -1914,7 +1914,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterInvalidValue(t *
 
 func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"status":  uuid.New().String(),
@@ -2069,7 +2069,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 // security requirements
 func (s *APIModeServiceTests) testAPIModeBasicAuthFailed(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/security/basic")
@@ -2138,7 +2138,7 @@ func (s *APIModeServiceTests) testAPIModeBasicAuthFailed(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeBearerTokenFailed(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/security/bearer")
@@ -2207,7 +2207,7 @@ func (s *APIModeServiceTests) testAPIModeBearerTokenFailed(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeAPITokenCookieFailed(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/security/cookie")
@@ -2276,7 +2276,7 @@ func (s *APIModeServiceTests) testAPIModeAPITokenCookieFailed(t *testing.T) {
 // unknown parameters
 func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyJSON(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname":    "test",
@@ -2344,7 +2344,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyJSON(t *testing.T) 
 
 func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyPost(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
@@ -2398,7 +2398,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyPost(t *testing.T) 
 
 func (s *APIModeServiceTests) testAPIModeUnknownParameterQuery(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/query?uparam=test&id=" + uuid.New().String())
@@ -2437,7 +2437,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterQuery(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeUnknownParameterTextPlainCT(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/plain")
@@ -2461,7 +2461,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterTextPlainCT(t *testing.
 
 func (s *APIModeServiceTests) testAPIModeUnknownParameterInvalidCT(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/unknownCT")
@@ -2510,7 +2510,7 @@ func (s *APIModeServiceTests) testAPIModePassOptionsRequest(t *testing.T) {
 		PassOptionsRequests:        true,
 	}
 
-	handler := handlersAPI.Handlers(s.lock, &cfgPassOptions, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfgPassOptions, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
@@ -2532,7 +2532,7 @@ func (s *APIModeServiceTests) testAPIModePassOptionsRequest(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeMultipartOptionalParams(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/multipart")
@@ -2599,7 +2599,7 @@ func (s *APIModeServiceTests) testAPIModeMultipartOptionalParams(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequest(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -2655,7 +2655,7 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequest(t *testing.T) {
 
 func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequestInMultipleSchemas(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -2713,7 +2713,7 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequestInMultipleSchemas(
 
 func (s *APIModeServiceTests) testAPIModeAllMethods(t *testing.T) {
 
-	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec)
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil)
 
 	// check all supported methods: GET POST PUT PATCH DELETE TRACE OPTIONS HEAD
 	for _, m := range []string{"GET", "POST", "PUT", "PATCH", "DELETE", "TRACE", "OPTIONS", "HEAD"} {

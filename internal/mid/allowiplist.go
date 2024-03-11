@@ -22,7 +22,7 @@ type IPAllowListOptions struct {
 
 var errAccessDeniedIP = errors.New("access denied to this IP")
 
-// This function checks if an IP is allowed else gives error.
+// This function checks if an IP is allowed else gives error
 func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 
 	// This is the actual middleware function to be executed.
@@ -30,24 +30,26 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 
 		// Create the handler that will be attached in the middleware chain.
 		h := func(ctx *fasthttp.RequestCtx) error {
-			addr := ctx.RemoteAddr()
-			ipAddr, _ := addr.(*net.TCPAddr)
-			ipToCheck := ipAddr.IP.String()
-			if options.Config.HeaderName != "" {
-				ipFromHeader := string(ctx.Request.Header.Peek(options.Config.HeaderName))
-
-				if strings.EqualFold(options.Config.HeaderName, "X-Forwarded-For") {
-					ipFromHeader = strings.Split(ipFromHeader, ",")[0]
-				}
-
-				if ipFromHeader != "" {
-					ipToCheck = ipFromHeader
-				}
-			}
-
-			ipToCheck = strings.TrimSpace(ipToCheck)
 
 			if options.AllowedIPs != nil && options.AllowedIPs.ElementsNum > 0 {
+
+				// get header or remote addr
+				addr := ctx.RemoteAddr()
+				ipAddr, _ := addr.(*net.TCPAddr)
+				ipToCheck := ipAddr.IP.String()
+				if options.Config.HeaderName != "" {
+					ipFromHeader := string(ctx.Request.Header.Peek(options.Config.HeaderName))
+
+					if strings.EqualFold(options.Config.HeaderName, "X-Forwarded-For") {
+						ipFromHeader = strings.Split(ipFromHeader, ",")[0]
+					}
+
+					if ipFromHeader != "" {
+						ipToCheck = ipFromHeader
+					}
+				}
+
+				ipToCheck = strings.TrimSpace(ipToCheck)
 				ip := net.ParseIP(ipToCheck)
 
 				if ip == nil {
@@ -57,7 +59,12 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 						"path":              string(ctx.Path()),
 						"source_ip_address": ipToCheck,
 					}).Info("allow IP: could not parse source IP address")
-					if strings.EqualFold(options.Mode, web.GraphQLMode) {
+
+					switch options.Mode {
+					case web.APIMode:
+						ctx.SetUserValue(web.GlobalResponseStatusCodeKey, options.CustomBlockStatusCode)
+						return nil
+					case web.GraphQLMode:
 						ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
 						return web.RespondGraphQLErrors(&ctx.Response, errAccessDeniedIP)
 					}
@@ -71,10 +78,16 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 						"path":              string(ctx.Path()),
 						"source_ip_address": ipToCheck,
 					}).Info("allow IP: requests from the source IP address are not allowed")
-					if strings.EqualFold(options.Mode, web.GraphQLMode) {
+
+					switch options.Mode {
+					case web.APIMode:
+						ctx.SetUserValue(web.GlobalResponseStatusCodeKey, options.CustomBlockStatusCode)
+						return nil
+					case web.GraphQLMode:
 						ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
 						return web.RespondGraphQLErrors(&ctx.Response, errAccessDeniedIP)
 					}
+
 					return web.RespondError(ctx, options.CustomBlockStatusCode, "")
 				}
 

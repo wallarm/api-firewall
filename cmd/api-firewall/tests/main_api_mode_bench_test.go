@@ -34,7 +34,7 @@ func BenchmarkAPIModeBasic(b *testing.B) {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	handler := handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage)
+	handler := handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
