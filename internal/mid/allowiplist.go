@@ -2,6 +2,7 @@ package mid
 
 import (
 	"errors"
+	"github.com/savsgio/gotils/strconv"
 	"net"
 	"strings"
 
@@ -34,24 +35,31 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 			if options.AllowedIPs != nil && options.AllowedIPs.ElementsNum > 0 {
 
 				// get header or remote addr
-				addr := ctx.RemoteAddr()
-				ipAddr, _ := addr.(*net.TCPAddr)
-				ipToCheck := ipAddr.IP.String()
-				if options.Config.HeaderName != "" {
-					ipFromHeader := string(ctx.Request.Header.Peek(options.Config.HeaderName))
+				var ipToCheck string
 
-					if strings.EqualFold(options.Config.HeaderName, "X-Forwarded-For") {
-						ipFromHeader = strings.Split(ipFromHeader, ",")[0]
+				switch strings.ToLower(options.Config.HeaderName) {
+				case "":
+					addr := ctx.RemoteAddr()
+					ipAddr, ok := addr.(*net.TCPAddr)
+					if !ok {
+						options.Logger.WithFields(logrus.Fields{
+							"request_id": ctx.UserValue(web.RequestID),
+							"host":       string(ctx.Request.Header.Host()),
+							"path":       string(ctx.Path()),
+						}).Error("allow IP: can't get client IP address")
+						break
 					}
-
-					if ipFromHeader != "" {
-						ipToCheck = ipFromHeader
-					}
+					ipToCheck = ipAddr.IP.String()
+				case "x-forwarded-for":
+					ipToCheck = strconv.B2S(ctx.Request.Header.Peek(options.Config.HeaderName))
+					ipToCheck = strings.Split(ipToCheck, ",")[0]
+				default:
+					ipToCheck = strconv.B2S(ctx.Request.Header.Peek(options.Config.HeaderName))
 				}
 
 				ipToCheck = strings.TrimSpace(ipToCheck)
-				ip := net.ParseIP(ipToCheck)
 
+				ip := net.ParseIP(ipToCheck)
 				if ip == nil {
 					options.Logger.WithFields(logrus.Fields{
 						"request_id":        ctx.UserValue(web.RequestID),

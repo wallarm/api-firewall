@@ -663,7 +663,6 @@ func (s *ServiceTests) testAllowlist(t *testing.T) {
 	}
 
 	// no header
-
 	handler(&reqCtx)
 
 	if reqCtx.Response.StatusCode() != 403 {

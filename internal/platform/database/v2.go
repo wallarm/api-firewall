@@ -50,6 +50,11 @@ func NewOpenAPIDBV2(log *logrus.Logger, dbStoragePath string) (DBOpenAPILoader, 
 		return &sqlObj, err
 	}
 
+	if err := sqlObj.AfterLoad(dbStoragePath); err != nil {
+		sqlObj.isReady = false
+		return &sqlObj, err
+	}
+
 	log.Debugf("OpenAPI specifications with the following IDs were found in the DB: %v", sqlObj.SchemaIDs())
 
 	return &sqlObj, nil
@@ -229,10 +234,25 @@ func (s *SQLLiteV2) AfterLoad(dbStoragePath string) error {
 		}
 	}
 
+	// nothing to update
+	if updatedSchemaIDs == nil {
+		return nil
+	}
+
 	q := fmt.Sprintf("UPDATE openapi_schemas SET status = 'applied' WHERE schema_id IN (%s)", strings.Join(updatedSchemaIDs, ","))
 	_, err = db.Exec(q)
 	if err != nil {
 		return err
+	}
+
+	// update current struct
+	for _, specId := range updatedSchemaIDs {
+		id, err := strconv2.Atoi(specId)
+		if err != nil {
+			return err
+		}
+
+		s.RawSpecs[id].Status = "applied"
 	}
 
 	return nil

@@ -131,6 +131,109 @@ func cleanSpecV2(dbFilePath string, schemaID int) error {
 	return nil
 }
 
+func TestLoadBasicV2(t *testing.T) {
+
+	logger := logrus.New()
+	logger.SetLevel(logrus.ErrorLevel)
+
+	var lock sync.RWMutex
+
+	// create DB entry with spec and status = 'new'
+	entry, err := insertSpecV2(currentDBPath, testYamlSpecification)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//check and clean
+	defer func() {
+		if err := cleanSpecV2(currentDBPath, entry.SchemaID); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// load spec from the database
+	specStorage, err := database.NewOpenAPIDB(logger, currentDBPath, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	api := fasthttp.Server{}
+	api.Handler = handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil)
+
+	// invalid route in the old spec
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/new")
+	req.Header.SetMethod("GET")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", entry.SchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	lock.RLock()
+	api.Handler(&reqCtx)
+	lock.RUnlock()
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	apifwResponse := web.APIModeResponse{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
+		t.Errorf("Error while JSON response parsing: %v", err)
+	}
+
+	if len(apifwResponse.Summary) > 0 {
+		if *apifwResponse.Summary[0].SchemaID != entry.SchemaID {
+			t.Errorf("Incorrect error code. Expected: %d and got %d",
+				entry.SchemaID, *apifwResponse.Summary[0].SchemaID)
+		}
+		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusForbidden {
+			t.Errorf("Incorrect result status. Expected: %d and got %d",
+				fasthttp.StatusForbidden, *apifwResponse.Summary[0].StatusCode)
+		}
+	}
+
+	// valid route in the same spec
+	req = fasthttp.AcquireRequest()
+	req.SetRequestURI("/")
+	req.Header.SetMethod("GET")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", entry.SchemaID))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	lock.RLock()
+	api.Handler(&reqCtx)
+	lock.RUnlock()
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	apifwResponse = web.APIModeResponse{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
+		t.Errorf("Error while JSON response parsing: %v", err)
+	}
+
+	if len(apifwResponse.Summary) > 0 {
+		if *apifwResponse.Summary[0].SchemaID != entry.SchemaID {
+			t.Errorf("Incorrect error code. Expected: %d and got %d",
+				entry.SchemaID, *apifwResponse.Summary[0].SchemaID)
+		}
+		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusOK {
+			t.Errorf("Incorrect result status. Expected: %d and got %d",
+				fasthttp.StatusOK, *apifwResponse.Summary[0].StatusCode)
+		}
+	}
+}
+
 func TestUpdaterBasicV2(t *testing.T) {
 
 	logger := logrus.New()
