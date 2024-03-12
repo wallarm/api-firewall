@@ -285,7 +285,16 @@ svg.navigation-arrow {
   color: #3942EA;
 }
 
+.md-typeset a>code {
+  color: #3942EA;
+}
+
 .md-typeset a:hover {
+  color: #3942EA;
+  text-decoration: underline;
+}
+
+.md-typeset a:hover > code {
   color: #3942EA;
   text-decoration: underline;
 }
