@@ -8,12 +8,27 @@ If you need to validate individual API requests based on a given OpenAPI specifi
 ## Requirements
 
 * [Installed and configured Docker](https://docs.docker.com/get-docker/)
-* [SQLite database](https://www.sqlite.org/index.html) with the `openapi_schemas` table containing one or more [OpenAPI 3.0 specifications](https://swagger.io/specification/). The table should adhere to the following schema:
+* [SQLite database](https://www.sqlite.org/index.html) with the table containing one or more [OpenAPI 3.0 specifications](https://swagger.io/specification/). The database can be of one of the following formats:
 
-    * `schema_id`, integer (auto-increment) - ID of the specification.
-    * `schema_version`, string - Specification version. You can assign any preferred version. When this field changes, API Firewall assumes the specification itself has changed and updates it accordingly.
-    * `schema_format`, string - The specification format, can be `json` or `yaml`.
-    * `schema_content`, string - The specification content.
+    === "SQLite database V1"
+        * Table name is `openapi_schemas`.
+        * `schema_id`, integer (auto-increment) - ID of the specification.
+        * `schema_version`, string - Specification version. You can assign any preferred version. When this field changes, API Firewall assumes the specification itself has changed and updates it accordingly.
+        * `schema_format`, string - The specification format, can be `json` or `yaml`.
+        * `schema_content`, string - The specification content.
+    === "SQLite database V2"
+        Use this format if you need to control whether a specification from the database has been handled by the API Firewall or not.
+
+        * Table name is `openapi_schemas`.
+        * `schema_id`, integer (auto-increment) - ID of the specification.
+        * `schema_version`, string - Specification version. You can assign any preferred version. When this field changes, API Firewall assumes the specification itself has changed and updates it accordingly.
+        * `schema_format`, string - The specification format, can be `json` or `yaml`.
+        * `schema_content`, string - The specification content.
+        * `status`, string - Specifies whether a specification is `new` (not yet processed) or `applied` (already processed). It is expected to be set to `new` by default.
+        
+            At startup, the API Firewall automatically updates processed specification status from `new` to `applied`.
+            
+            During the `APIFW_SPECIFICATION_UPDATE_PERIOD`, only specifications marked as `new` receive updates.
 
 ## Running the API Firewall container
 
@@ -23,7 +38,7 @@ Use the following command to run the API Firewall container:
 
 ```
 docker run --rm -it -v <PATH_TO_SQLITE_DATABASE>:/var/lib/wallarm-api/1/wallarm_api.db \
-    -e APIFW_MODE=API -p 8282:8282 wallarm/api-firewall:v0.6.16
+    -e APIFW_MODE=API -p 8282:8282 wallarm/api-firewall:v0.6.17
 ```
 
 You can pass to the container the following variables:
@@ -39,6 +54,7 @@ You can pass to the container the following variables:
 | `APIFW_READ_TIMEOUT` | The timeout for API Firewall to read the full request (including the body). The default value is `5s`. | No |
 | `APIFW_WRITE_TIMEOUT` | The timeout for API Firewall to return the response to the request. The default value is `5s`. | No |
 | `APIFW_HEALTH_HOST` | The host of the health check service. The default value is `0.0.0.0:9667`. The liveness probe service path is `/v1/liveness` and the readiness service path is `/v1/readiness`. | No |
+| `APIFW_API_MODE_DB_VERSION` | Determines the SQLite database version that the API Firewall is configured to use. Available options are:<ul><li>`0` (default) - tries to load V2 (with the `status` field) first; if unsuccessful, attempts V1. On both failures, the firewall fails to start.</li><li>`1` - recognize and process the database as V1 only.</li><li>`2` - recognize and process the database as V2 only.</li></ul> | No |
 
 ## Evaluating requests against the specification
 

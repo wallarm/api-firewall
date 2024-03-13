@@ -2,6 +2,15 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.6.17 (TBD)
+
+* Added [IP allowlisting](configuration-guides/allowlist.md) support in the `API` mode
+* ​​Added support for subnets in allowlisted IP file and IP address validation during the file upload
+* Added support for a new SQLite database structure (V2) in the [`API`](installation-guides/api-mode.md) mode of the API Firewall. This version adds a `status` field to track specifications as `new` (unprocessed by the firewall) or `applied` (processed).
+    
+    For backward compatibility, the `APIFW_API_MODE_DB_VERSION` environment variable has been added - it defaults to attempting to parse the database as V2; if unsuccessful, it falls back to previous format  (V1).
+* Upgraded Go up to 1.21 and some other dependencies
+
 ## v0.6.16 (2024-02-27)
 
 * Added IP allowlisting, enabling secure access to backends by allowing only requests from predefined IP addresses for both REST and GraphQL APIs. This update ensures requests from allowlisted IPs are validated against the OpenAPI specification 3.0, with non-allowlisted IP requests being rejected with a 403 error code. Thanks for [PR #76 contributors](https://github.com/wallarm/api-firewall/pull/76). [Read more](configuration-guides/allowlist.md)
