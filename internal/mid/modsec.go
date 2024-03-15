@@ -1,6 +1,7 @@
 package mid
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -67,7 +68,7 @@ func processRequest(tx types.Transaction, ctx *fasthttp.RequestCtx) (*types.Inte
 		// body inspection, otherwise we just let the request follow its
 		// regular flow.
 		bodyRaw := ctx.Request.Body()
-		bodyReader := io.NopCloser(ctx.Request.BodyStream())
+		bodyReader := io.NopCloser(bytes.NewReader(bodyRaw))
 		if bodyRaw != nil {
 			it, _, err := tx.ReadRequestBodyFrom(bodyReader)
 			if err != nil {
@@ -83,12 +84,11 @@ func processRequest(tx types.Transaction, ctx *fasthttp.RequestCtx) (*types.Inte
 				return nil, fmt.Errorf("failed to get the request body: %s", err.Error())
 			}
 
-			bodyReader = io.NopCloser(ctx.Request.BodyStream())
+			bodyReader = io.NopCloser(bytes.NewReader(bodyRaw))
 
 			// Adds all remaining bytes beyond the coraza limit to its buffer
 			// It happens when the partial body has been processed and it did not trigger an interruption
 			body := io.MultiReader(rbr, bodyReader)
-			// req.Body is transparently reinizialied with a new io.ReadCloser.
 			// The http handler will be able to read it.
 			// Prior to Go 1.19 NopCloser does not implement WriterTo if the reader implements it.
 			// - https://github.com/golang/go/issues/51566
