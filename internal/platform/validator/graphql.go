@@ -12,6 +12,7 @@ import (
 
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/complexity"
 	"github.com/wundergraph/graphql-go-tools/pkg/ast"
@@ -27,7 +28,8 @@ var bufferPool = sync.Pool{
 }
 
 var (
-	ErrNotAllowIntrospectionQuery        = errors.New("introspection query is not allowed")
+	ErrBatchQueryLimitExceeded           = errors.New("batch query limit exceeded")
+	ErrNotAllowIntrospectionQuery        = errors.New("introspection queries are not allowed")
 	ErrGraphQLQueryNotFound              = errors.New("GraphQL query not found in the request")
 	ErrWrongGraphQLQueryTypeInGETRequest = errors.New("wrong GraphQL query type in GET request")
 	ErrFieldDuplicationFound             = errors.New("duplicate fields were found in the GraphQL document")
@@ -64,13 +66,6 @@ func ValidateGraphQLRequest(cfg *config.GraphQL, schema *graphql.Schema, r *grap
 		}
 	}
 
-	if cfg.FieldDuplication {
-		// validate operation name value
-		if err := validateDuplicateFields(&document); err != nil {
-			return &graphql.ValidationResult{Valid: false, Errors: graphql.RequestErrorsFromError(err)}, nil
-		}
-	}
-
 	// skip query complexity check if it is not configured
 	if cfg.NodeCountLimit > 0 || cfg.MaxQueryDepth > 0 || cfg.MaxQueryComplexity > 0 {
 
@@ -101,13 +96,102 @@ func ValidateGraphQLRequest(cfg *config.GraphQL, schema *graphql.Schema, r *grap
 		return &result, nil
 	}
 
+	if cfg.DisableFieldDuplication {
+		// validate operation name value
+		if err := validateDuplicateFields(&document); err != nil {
+			return &graphql.ValidationResult{Valid: false, Errors: graphql.RequestErrorsFromError(err)}, nil
+		}
+	}
+
 	return &graphql.ValidationResult{Valid: true, Errors: nil}, nil
 }
 
-// ParseGraphQLRequest function parses the GraphQL request
-func ParseGraphQLRequest(ctx *fasthttp.RequestCtx) (*graphql.Request, error) {
+// UnmarshalGraphQLRequest function parse the JSON document and build graphql.Request
+func UnmarshalGraphQLRequest(reader io.Reader, jsonParserPool *fastjson.ParserPool) ([]graphql.Request, error) {
 
-	gqlRequest := new(graphql.Request)
+	var queries []graphql.Request
+
+	// Get fastjson parser
+	jsonParser := jsonParserPool.Get()
+	defer jsonParserPool.Put(jsonParser)
+
+	requestBytes, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(requestBytes) == 0 {
+		return nil, graphql.ErrEmptyRequest
+	}
+
+	parsedRequest, err := jsonParser.ParseBytes(requestBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	switch parsedRequest.Type() {
+	case fastjson.TypeObject:
+		var gqlReq graphql.Request
+		var varValue, queryValue, opNameValue []byte
+
+		if variables := parsedRequest.Get("variables"); variables != nil {
+			gqlReq.Variables = variables.MarshalTo(varValue)
+		}
+
+		if query := parsedRequest.Get("query"); query != nil {
+			if queryValue, err = query.StringBytes(); err != nil {
+				return nil, err
+			}
+			gqlReq.Query = strconv.B2S(queryValue)
+		}
+
+		if opName := parsedRequest.Get("operationName"); opName != nil {
+			if opNameValue, err = opName.StringBytes(); err != nil {
+				return nil, err
+			}
+			gqlReq.OperationName = strconv.B2S(opNameValue)
+		}
+
+		queries = append(queries, gqlReq)
+	case fastjson.TypeArray:
+		batchQueries, err := parsedRequest.Array()
+		if err != nil {
+			return nil, err
+		}
+		for _, query := range batchQueries {
+			var gqlReq graphql.Request
+			var varValue, queryValue, opNameValue []byte
+
+			if variables := query.Get("variables"); variables != nil {
+				gqlReq.Variables = variables.MarshalTo(varValue)
+			}
+
+			if query := query.Get("query"); query != nil {
+				if queryValue, err = query.StringBytes(); err != nil {
+					return nil, err
+				}
+				gqlReq.Query = strconv.B2S(queryValue)
+			}
+
+			if opName := query.Get("operationName"); opName != nil {
+				if opNameValue, err = opName.StringBytes(); err != nil {
+					return nil, err
+				}
+				gqlReq.OperationName = strconv.B2S(opNameValue)
+			}
+			queries = append(queries, gqlReq)
+		}
+	default:
+		return nil, errors.New("JSON parsing error: invalid query")
+	}
+
+	return queries, nil
+}
+
+// ParseGraphQLRequest function parses the GraphQL request
+func ParseGraphQLRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPool) ([]graphql.Request, error) {
+
+	//var gqlRequest graphql.Request
 
 	query := bufferPool.Get().(*bytes.Buffer)
 	defer func() {
@@ -141,17 +225,21 @@ func ParseGraphQLRequest(ctx *fasthttp.RequestCtx) (*graphql.Request, error) {
 
 	if query.Len() > 0 {
 
-		if err := graphql.UnmarshalRequest(io.NopCloser(query), gqlRequest); err != nil {
-			return nil, err
-		}
-
-		operationType, err := gqlRequest.OperationType()
+		gqlRequest, err := UnmarshalGraphQLRequest(io.NopCloser(query), jsonParserPool)
 		if err != nil {
 			return nil, err
 		}
 
-		if httpMethod == fasthttp.MethodGet && operationType != graphql.OperationTypeQuery {
-			return nil, ErrWrongGraphQLQueryTypeInGETRequest
+		for _, req := range gqlRequest {
+			operationType, err := req.OperationType()
+			if err != nil {
+				return nil, err
+			}
+
+			if httpMethod == fasthttp.MethodGet && operationType != graphql.OperationTypeQuery {
+				return nil, ErrWrongGraphQLQueryTypeInGETRequest
+			}
+
 		}
 
 		return gqlRequest, nil

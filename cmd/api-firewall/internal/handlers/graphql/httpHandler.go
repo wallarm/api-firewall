@@ -2,6 +2,7 @@ package graphql
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
+	"golang.org/x/sync/errgroup"
 )
 
 type Handler struct {
@@ -30,7 +32,10 @@ type Handler struct {
 	mu         sync.Mutex
 }
 
-var ErrNetworkConnection = errors.New("network connection error")
+var (
+	ErrNetworkConnection = errors.New("network connection error")
+	ErrInvalidQuery      = errors.New("invalid query")
+)
 
 // GraphQLHandle performs complexity checks to the GraphQL query and proxy request to the backend if all checks are passed
 func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
@@ -59,7 +64,8 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Debug("GET request without \"query\" query parameter is received")
 
-		return web.RespondError(ctx, fasthttp.StatusForbidden, "")
+		ctx.Response.SetStatusCode(fasthttp.StatusBadRequest)
+		return web.RespondGraphQLErrors(&ctx.Response, ErrInvalidQuery)
 	}
 
 	// Proxy request if the validation is disabled
@@ -77,7 +83,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 		return nil
 	}
 
-	gqlRequest, err := validator.ParseGraphQLRequest(ctx)
+	gqlRequest, err := validator.ParseGraphQLRequest(ctx, h.parserPool)
 	if err != nil {
 		h.logger.WithFields(logrus.Fields{
 			"error":      err,
@@ -86,37 +92,58 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 		}).Error("GraphQL request unmarshal")
 
 		if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
-			return web.RespondGraphQLErrors(&ctx.Response, err)
+			return web.RespondGraphQLErrors(&ctx.Response, ErrInvalidQuery)
 		}
 	}
 
-	// validate request
-	if gqlRequest != nil {
-		validationResult, err := validator.ValidateGraphQLRequest(&h.cfg.Graphql, h.schema, gqlRequest)
-		// internal errors
-		if err != nil {
-			h.logger.WithFields(logrus.Fields{
-				"error":      err,
-				"protocol":   "HTTP",
-				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("GraphQL query validation")
+	// batch query limit
+	if h.cfg.Graphql.BatchQueryLimit > 0 && h.cfg.Graphql.BatchQueryLimit < len(gqlRequest) {
+		h.logger.WithFields(logrus.Fields{
+			"error":      errors.New(fmt.Sprintf("the batch query limit has been exceeded. The number of queries in the batch is %d. The current batch query limit is %d", len(gqlRequest), h.cfg.Graphql.BatchQueryLimit)),
+			"protocol":   "HTTP",
+			"request_id": ctx.UserValue(web.RequestID),
+		}).Error("GraphQL query validation")
 
-			if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
-				return web.RespondGraphQLErrors(&ctx.Response, err)
-			}
+		if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
+			return web.RespondGraphQLErrors(&ctx.Response, ErrInvalidQuery)
 		}
+	}
 
-		// validation failed
-		if !validationResult.Valid && validationResult.Errors != nil {
-			h.logger.WithFields(logrus.Fields{
-				"error":      validationResult.Errors,
-				"protocol":   "HTTP",
-				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("GraphQL query validation")
+	eg := errgroup.Group{}
 
-			if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
-				return web.RespondGraphQLErrors(&ctx.Response, validationResult.Errors)
+	for _, req := range gqlRequest {
+		eg.Go(func() error {
+			// validate request
+			if gqlRequest != nil {
+				validationResult, err := validator.ValidateGraphQLRequest(&h.cfg.Graphql, h.schema, &req)
+				// internal errors
+				if err != nil {
+					h.logger.WithFields(logrus.Fields{
+						"error":      err,
+						"protocol":   "HTTP",
+						"request_id": ctx.UserValue(web.RequestID),
+					}).Error("GraphQL query validation")
+					return err
+				}
+
+				// validation failed
+				if !validationResult.Valid && validationResult.Errors != nil {
+					h.logger.WithFields(logrus.Fields{
+						"error":      validationResult.Errors,
+						"protocol":   "HTTP",
+						"request_id": ctx.UserValue(web.RequestID),
+					}).Error("GraphQL query validation")
+
+					return validationResult.Errors
+				}
 			}
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
+			return web.RespondGraphQLErrors(&ctx.Response, ErrInvalidQuery)
 		}
 	}
 

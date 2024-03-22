@@ -15,7 +15,6 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/mux v1.8.1
 	github.com/karlseguin/ccache/v2 v2.0.8
 	github.com/klauspost/compress v1.17.7
 	github.com/mattn/go-sqlite3 v1.14.22
@@ -27,6 +26,7 @@ require (
 	github.com/valyala/fastjson v1.6.4
 	github.com/wundergraph/graphql-go-tools v1.67.1
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -45,6 +45,7 @@ require (
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/huandu/xstrings v1.2.1 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect

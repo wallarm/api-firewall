@@ -195,6 +195,7 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 				"request_id": ctx.UserValue(RequestID),
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
 			}).Debug("pass request with OPTIONS method")
 		}
 	}()
@@ -207,6 +208,7 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 			"error":      err,
 			"host":       string(ctx.Request.Header.Host()),
 			"path":       string(ctx.Path()),
+			"method":     string(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(RequestID),
 		}).Error("error while getting schema ID")
 
@@ -215,6 +217,7 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 				"error":      err,
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(RequestID),
 			}).Error("error while sending response")
 		}
@@ -292,6 +295,7 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 			"request_id": ctx.UserValue(RequestID),
 			"host":       string(ctx.Request.Header.Host()),
 			"path":       string(ctx.Path()),
+			"method":     string(ctx.Request.Header.Method()),
 			"error":      err,
 		}).Error("respond error")
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/fasthttp/websocket"
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/valyala/fasthttp"
 	graphqlHandler "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
@@ -29,10 +30,16 @@ type ServiceGraphQLTests struct {
 	serverUrl       *url.URL
 	shutdown        chan os.Signal
 	logger          *logrus.Logger
+	loggerHook      *test.Hook
 	proxy           *proxy.MockPool
 	client          *proxy.MockHTTPClient
 	backendWSClient *proxy.MockWebSocketClient
 }
+
+var (
+	validationErr = "GraphQL query validation"
+	unmarshalErr  = "GraphQL request unmarshal"
+)
 
 const (
 	testSchema = `
@@ -81,8 +88,8 @@ func TestGraphQLBasic(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	testLogger, hook := test.NewNullLogger()
+	testLogger.SetLevel(logrus.ErrorLevel)
 
 	serverUrl, err := url.ParseRequestURI("http://127.0.0.1:80/query")
 	if err != nil {
@@ -99,7 +106,8 @@ func TestGraphQLBasic(t *testing.T) {
 	apifwTests := ServiceGraphQLTests{
 		serverUrl:       serverUrl,
 		shutdown:        shutdown,
-		logger:          logger,
+		logger:          testLogger,
+		loggerHook:      hook,
 		proxy:           pool,
 		client:          client,
 		backendWSClient: backendWSClient,
@@ -114,6 +122,7 @@ func TestGraphQLBasic(t *testing.T) {
 	t.Run("basicGraphQLQueryInvalidMaxComplexity", apifwTests.testGQLInvalidMaxComplexity)
 	t.Run("basicGraphQLQueryInvalidMaxDepth", apifwTests.testGQLInvalidMaxDepth)
 	t.Run("basicGraphQLQueryInvalidNodeLimit", apifwTests.testGQLInvalidNodeLimit)
+	t.Run("basicGraphQLBatchQueryLimit", apifwTests.testGQLBatchQueryLimit)
 
 	t.Run("basicGraphQLQueryDenylistBlock", apifwTests.testGQLDenylistBlock)
 
@@ -370,9 +379,15 @@ func (s *ServiceGraphQLTests) testGQLGETMutationFailed(t *testing.T) {
 	}
 
 	expectedErrMsg := "wrong GraphQL query type in GET request"
-	if gqlResp.Errors[0].Message != expectedErrMsg {
-		t.Errorf("Incorrect error message in the response. Expected: %s and got %s",
-			expectedErrMsg, gqlResp.Errors[0].Message)
+
+	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+
+	if s.loggerHook.LastEntry().Message != unmarshalErr {
+		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, unmarshalErr)
+	}
+
+	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
 	}
 
 }
@@ -450,9 +465,15 @@ func (s *ServiceGraphQLTests) testGQLValidationFailed(t *testing.T) {
 	}
 
 	expectedErrMsg := "field: wrongParameter not defined on type: Message"
-	if gqlResp.Errors[0].Message != expectedErrMsg {
-		t.Errorf("Incorrect error message in the response. Expected: %s and got %s",
-			expectedErrMsg, gqlResp.Errors[0].Message)
+
+	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+
+	if s.loggerHook.LastEntry().Message != validationErr {
+		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
+	}
+
+	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
 	}
 
 }
@@ -529,10 +550,16 @@ func (s *ServiceGraphQLTests) testGQLInvalidQuerySyntax(t *testing.T) {
 			len(gqlResp.Errors))
 	}
 
-	expectedErrMsg := "unexpected token - got: LBRACE want one of: [RBRACE IDENT SPREAD]"
-	if gqlResp.Errors[0].Message != expectedErrMsg {
-		t.Errorf("Incorrect error message in the response. Expected: %s and got %s",
-			expectedErrMsg, gqlResp.Errors[0].Message)
+	expectedErrMsg := "external: unexpected token - got: LBRACE want one of: [RBRACE IDENT SPREAD]"
+
+	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+
+	if s.loggerHook.LastEntry().Message != unmarshalErr {
+		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, unmarshalErr)
+	}
+
+	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
 	}
 
 }
@@ -610,9 +637,14 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxComplexity(t *testing.T) {
 
 	expectedErrMsg := "the maximum query complexity value has been exceeded. The maximum query complexity value is 1. The current query complexity is 2"
 
-	if gqlResp.Errors[0].Message != expectedErrMsg {
-		t.Errorf("Incorrect error message. Expected: \"%s\" and got \"%s\"",
-			expectedErrMsg, gqlResp.Errors[0].Message)
+	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+
+	if s.loggerHook.LastEntry().Message != validationErr {
+		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
+	}
+
+	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
 	}
 
 }
@@ -690,9 +722,14 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxDepth(t *testing.T) {
 
 	expectedErrMsg := "the maximum query depth value has been exceeded. The maximum query depth value is 1. The current query depth is 3"
 
-	if gqlResp.Errors[0].Message != expectedErrMsg {
-		t.Errorf("Incorrect error message. Expected: \"%s\" and got \"%s\"",
-			expectedErrMsg, gqlResp.Errors[0].Message)
+	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+
+	if s.loggerHook.LastEntry().Message != validationErr {
+		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
+	}
+
+	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
 	}
 
 }
@@ -771,9 +808,86 @@ func (s *ServiceGraphQLTests) testGQLInvalidNodeLimit(t *testing.T) {
 
 	expectedErrMsg := "the query node limit has been exceeded. The query node count limit is 1. The current query node count value is 2"
 
-	if gqlResp.Errors[0].Message != expectedErrMsg {
-		t.Errorf("Incorrect error message. Expected: \"%s\" and got \"%s\"",
-			expectedErrMsg, gqlResp.Errors[0].Message)
+	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+
+	if s.loggerHook.LastEntry().Message != validationErr {
+		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
+	}
+
+	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
+	}
+
+}
+
+func (s *ServiceGraphQLTests) testGQLBatchQueryLimit(t *testing.T) {
+
+	gqlCfg := config.GraphQL{
+		MaxQueryComplexity: 0,
+		MaxQueryDepth:      0,
+		NodeCountLimit:     0,
+		MaxAliasesNum:      0,
+		BatchQueryLimit:    1,
+		Playground:         false,
+		Introspection:      false,
+		Schema:             "",
+		RequestValidation:  "BLOCK",
+	}
+	var cfg = config.GraphQLMode{
+		Graphql: gqlCfg,
+	}
+
+	// parse the GraphQL schema
+	schema, err := graphql.NewSchemaFromString(testSchema)
+	if err != nil {
+		t.Fatalf("Loading GraphQL Schema error: %v", err)
+	}
+
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+
+	// Construct GraphQL request payload
+	bqReq := `[
+{"query":"query {\n  room(name: \"GeneralChat\") {\n name\n}\n}","variables":[]},
+{"query":"query {\n  room(name: \"GeneralChat\") {\n name\n}\n}","variables":[]},
+{"query":"query {\n  room(name: \"GeneralChat\") {\n name\n}\n}","variables":[]}
+]
+	`
+
+	//jsonValue, _ := json.Marshal(requestBody)
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/query")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(strings.NewReader(bqReq), -1)
+	req.Header.SetContentType("application/json")
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	gqlResp := new(Response)
+
+	if err := json.Unmarshal(reqCtx.Response.Body(), &gqlResp); err != nil {
+		t.Fatal(err)
+	}
+
+	expectedErrMsg := "the batch query limit has been exceeded. The number of queries in the batch is 3. The current batch query limit is 1"
+
+	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+
+	if s.loggerHook.LastEntry().Message != validationErr {
+		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
+	}
+
+	if !strings.EqualFold(lastErrMsg.Error(), expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
 	}
 
 }
@@ -1401,11 +1515,16 @@ func (s *ServiceGraphQLTests) testGQLMaxAliasesNum(t *testing.T) {
 			len(gqlResp.Errors))
 	}
 
-	expectedErrMsg := "the maximum number of aliases in the GraphQL document has been exceeded. The maximum number of aliases value is 1. The current number of aliases is 2"
+	expectedErrMsg := "the maximum number of aliases in the GraphQL document has been exceeded. The maximum number of aliases value is 1. The current number of aliases is 2, locations: [], path: []"
 
-	if gqlResp.Errors[0].Message != expectedErrMsg {
-		t.Errorf("Incorrect error message. Expected: \"%s\" and got \"%s\"",
-			expectedErrMsg, gqlResp.Errors[0].Message)
+	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+
+	if s.loggerHook.LastEntry().Message != validationErr {
+		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
+	}
+
+	if !strings.EqualFold(lastErrMsg.Error(), expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
 	}
 
 }
@@ -1413,15 +1532,15 @@ func (s *ServiceGraphQLTests) testGQLMaxAliasesNum(t *testing.T) {
 func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
 
 	gqlCfg := config.GraphQL{
-		MaxQueryComplexity: 0,
-		MaxQueryDepth:      0,
-		NodeCountLimit:     0,
-		MaxAliasesNum:      0,
-		FieldDuplication:   true,
-		Playground:         false,
-		Introspection:      false,
-		Schema:             "",
-		RequestValidation:  "BLOCK",
+		MaxQueryComplexity:      0,
+		MaxQueryDepth:           0,
+		NodeCountLimit:          0,
+		MaxAliasesNum:           0,
+		DisableFieldDuplication: true,
+		Playground:              false,
+		Introspection:           false,
+		Schema:                  "",
+		RequestValidation:       "BLOCK",
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
@@ -1574,9 +1693,13 @@ func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
 			len(gqlResp.Errors))
 	}
 
-	if gqlResp.Errors[0].Message != validator.ErrFieldDuplicationFound.Error() {
-		t.Errorf("Incorrect error message. Expected: \"%s\" and got \"%s\"",
-			validator.ErrFieldDuplicationFound.Error(), gqlResp.Errors[0].Message)
+	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+
+	if s.loggerHook.LastEntry().Message != validationErr {
+		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
 	}
 
+	if !strings.HasPrefix(lastErrMsg.Error(), validator.ErrFieldDuplicationFound.Error()) {
+		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, validator.ErrFieldDuplicationFound.Error())
+	}
 }

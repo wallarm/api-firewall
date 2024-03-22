@@ -94,6 +94,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		s.Log.WithFields(logrus.Fields{
 			"host":       string(ctx.Request.Header.Host()),
 			"path":       string(ctx.Path()),
+			"method":     string(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Debug("method or path were not found")
 		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
@@ -119,6 +120,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			"error":      err,
 			"host":       string(ctx.Request.Header.Host()),
 			"path":       string(ctx.Path()),
+			"method":     string(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("error while converting http request")
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
@@ -134,6 +136,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      err,
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request body decompression error")
 			ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
@@ -211,6 +214,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      valReqErrors,
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request validation error")
 		default:
@@ -225,6 +229,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 					"error":      valErr,
 					"host":       string(ctx.Request.Header.Host()),
 					"path":       string(ctx.Path()),
+					"method":     string(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Warning("request validation error")
 
@@ -243,6 +248,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      valReqErrors,
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request validation error")
 
@@ -260,6 +266,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      valUPReqErrors,
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("searching for undefined parameters")
 
@@ -277,6 +284,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 					"error":      upResult.Err,
 					"host":       string(ctx.Request.Header.Host()),
 					"path":       string(ctx.Path()),
+					"method":     string(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("searching for undefined parameters")
 
