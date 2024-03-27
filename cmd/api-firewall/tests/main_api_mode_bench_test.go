@@ -16,6 +16,8 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
+const dbVersion = 1
+
 func BenchmarkAPIModeBasic(b *testing.B) {
 
 	logger := logrus.New()
@@ -24,7 +26,7 @@ func BenchmarkAPIModeBasic(b *testing.B) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, "../../../resources/test/database/wallarm_api.db")
+	specStorage, err := database.NewOpenAPIDB(logger, "../../../resources/test/database/wallarm_api.db", dbVersion)
 	if err != nil {
 		b.Fatalf("trying to load API Spec value from SQLLite Database : %v\n", err.Error())
 	}

@@ -43,6 +43,7 @@ type APIMode struct {
 
 	SpecificationUpdatePeriod  time.Duration `conf:"default:1m,env:API_MODE_SPECIFICATION_UPDATE_PERIOD"`
 	PathToSpecDB               string        `conf:"env:API_MODE_DEBUG_PATH_DB"`
+	DBVersion                  int           `conf:"default:0,env:API_MODE_DB_VERSION"`
 	UnknownParametersDetection bool          `conf:"default:true,env:API_MODE_UNKNOWN_PARAMETERS_DETECTION"`
 
 	APIHost             string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
@@ -147,17 +148,18 @@ type ModSecurity struct {
 }
 
 type GraphQL struct {
-	MaxQueryComplexity int      `conf:"required" validate:"required"`
-	MaxQueryDepth      int      `conf:"required" validate:"required"`
-	MaxAliasesNum      int      `conf:"required" validate:"required"`
-	NodeCountLimit     int      `conf:"required" validate:"required"`
-	FieldDuplication   bool     `conf:"default:false"`
-	Playground         bool     `conf:"default:false"`
-	PlaygroundPath     string   `conf:"default:/" validate:"path"`
-	Introspection      bool     `conf:"required" validate:"required"`
-	Schema             string   `conf:"required" validate:"required"`
-	WSCheckOrigin      bool     `conf:"default:false"`
-	WSOrigin           []string `conf:"" validate:"url"`
+	MaxQueryComplexity      int      `conf:"required" validate:"required"`
+	MaxQueryDepth           int      `conf:"required" validate:"required"`
+	MaxAliasesNum           int      `conf:"required" validate:"required"`
+	NodeCountLimit          int      `conf:"required" validate:"required"`
+	BatchQueryLimit         int      `conf:"required" validate:"required"`
+	DisableFieldDuplication bool     `conf:"default:false"`
+	Playground              bool     `conf:"default:false"`
+	PlaygroundPath          string   `conf:"default:/" validate:"path"`
+	Introspection           bool     `conf:"required" validate:"required"`
+	Schema                  string   `conf:"required" validate:"required"`
+	WSCheckOrigin           bool     `conf:"default:false"`
+	WSOrigin                []string `conf:"" validate:"url"`
 
 	RequestValidation string `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
 }

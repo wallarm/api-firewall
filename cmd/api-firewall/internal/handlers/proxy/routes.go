@@ -81,7 +81,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 	}
 
 	denylistOptions := mid.DenylistOptions{
-		Mode:                  web.GraphQLMode,
+		Mode:                  web.ProxyMode,
 		Config:                &cfg.Denylist,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
 		DeniedTokens:          deniedTokens,
@@ -89,7 +89,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 	}
 
 	ipAllowlistOptions := mid.IPAllowListOptions{
-		Mode:                  web.GraphQLMode,
+		Mode:                  web.ProxyMode,
 		Config:                &cfg.AllowIP,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
 		AllowedIPs:            AllowedIPCache,

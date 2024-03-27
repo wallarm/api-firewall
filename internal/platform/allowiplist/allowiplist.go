@@ -2,7 +2,8 @@ package allowiplist
 
 import (
 	"bufio"
-	"io"
+	"net"
+	"net/netip"
 	"os"
 	"strings"
 
@@ -14,13 +15,36 @@ import (
 const (
 	BufferItems = 64
 	ElementCost = 1
+
 	// The actual need is 56 (size of ristretto's storeItem struct)
-	StoreItemSize = 128
+	StoreItemSize = 56
 )
 
 type AllowedIPsType struct {
 	Cache       *ristretto.Cache
 	ElementsNum int64
+}
+
+func getIPsFromCIDR(subnet string) ([]string, error) {
+
+	var ips []string
+
+	p, err := netip.ParsePrefix(subnet)
+	if err != nil {
+		return ips, err
+	}
+
+	p = p.Masked()
+
+	for addr := p.Addr(); p.Contains(addr); addr = addr.Next() {
+		ips = append(ips, addr.String())
+	}
+
+	if len(ips) <= 2 {
+		return ips, nil
+	}
+
+	return ips[1 : len(ips)-1], nil
 }
 
 func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
@@ -30,6 +54,8 @@ func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 	}
 
 	var totalEntries int64
+
+	var ips []string
 
 	// open IPs cache storage
 	f, err := os.Open(cfg.File)
@@ -41,7 +67,26 @@ func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 	c := bufio.NewScanner(f)
 	for c.Scan() {
 		if c.Text() != "" {
-			totalEntries += 1
+
+			if strings.Contains(c.Text(), "/") {
+				subnetIPs, err := getIPsFromCIDR(c.Text())
+				if err != nil {
+					logger.Debugf("Allowlist (IP): entry with the key %s is not a valid subnet. Error: %v", c.Text(), err)
+					continue
+				}
+				ips = append(ips, subnetIPs...)
+				totalEntries += int64(len(subnetIPs))
+				continue
+			}
+
+			if ip := net.ParseIP(c.Text()); ip != nil {
+				totalEntries += 1
+				ips = append(ips, ip.String())
+				continue
+			} else {
+				logger.Debugf("Allowlist (IP): entry with the key %s is not a valid IP address. Error: %v", c.Text(), err)
+			}
+
 		}
 	}
 	err = c.Err()
@@ -49,17 +94,10 @@ func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 		return nil, err
 	}
 
-	// go to the beginning of the storage file
-	if _, err = f.Seek(0, io.SeekStart); err != nil {
-		return nil, err
-	}
-
-	logger.Debugf("AllowIPList: total entries (lines) found in the file: %d", totalEntries)
+	logger.Debugf("Allowlist (IP): total entries (lines) found in the file: %d", totalEntries)
 
 	// max cost = total entries * size of ristretto's storeItem struct
-	maxCost := StoreItemSize * totalEntries
-
-	logger.Debugf("AllowIPList: cache capacity: %d bytes", maxCost)
+	maxCost := totalEntries * (StoreItemSize + ElementCost)
 
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: maxCost * 10, // recommended value
@@ -75,27 +113,22 @@ func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 	// 10% counter
 	var counter10P int64
 
-	// ip's loading to the cache
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		loadedIP := strings.TrimSpace(s.Text())
-		if loadedIP != "" {
-			if ok := cache.Set(loadedIP, nil, ElementCost); ok {
-				numOfElements += 1
-				currentPercent := numOfElements * 100 / totalEntries
-				if currentPercent/10 > counter10P {
-					counter10P = currentPercent / 10
-					logger.Debugf("Allow IP List: loaded %d perecents of ip's. Total elements in the cache: %d", counter10P*10, numOfElements)
-				}
-			} else {
-				logger.Errorf("Allowed IP List: can't add the ip to the cache: %s", s.Text())
+	// ips loading to the cache
+	for _, ip := range ips {
+
+		if ok := cache.Set(ip, nil, ElementCost); ok {
+			numOfElements += 1
+
+			currentPercent := numOfElements * 100 / totalEntries
+			if currentPercent/10 > counter10P {
+				counter10P = currentPercent / 10
+				logger.Debugf("Allowlist (IP): loaded %d perecents of IPs. Total elements in the cache: %d", counter10P*10, numOfElements)
 			}
-			cache.Wait()
+		} else {
+			logger.Errorf("Allowlist (IP): can't add the token to the cache: %s", ip)
 		}
-	}
-	err = s.Err()
-	if err != nil {
-		return nil, err
+		cache.Wait()
+
 	}
 
 	if err := f.Close(); err != nil {
