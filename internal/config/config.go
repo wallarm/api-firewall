@@ -39,7 +39,8 @@ type APIMode struct {
 	conf.Version
 	APIFWMode
 	ModSecurity
-	TLS TLS
+	AllowIP AllowIP
+	TLS     TLS
 
 	SpecificationUpdatePeriod  time.Duration `conf:"default:1m,env:API_MODE_SPECIFICATION_UPDATE_PERIOD"`
 	PathToSpecDB               string        `conf:"env:API_MODE_DEBUG_PATH_DB"`

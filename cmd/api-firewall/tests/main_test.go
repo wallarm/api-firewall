@@ -731,7 +731,7 @@ func (s *ServiceTests) testAllowlistXForwardedFor(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, allowedIPs)
+	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, allowedIPs, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
