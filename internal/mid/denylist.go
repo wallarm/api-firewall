@@ -39,6 +39,7 @@ func Denylist(options *DenylistOptions) web.Middleware {
 							"request_id": ctx.UserValue(web.RequestID),
 							"host":       string(ctx.Request.Header.Host()),
 							"path":       string(ctx.Path()),
+							"method":     string(ctx.Request.Header.Method()),
 							"token":      token,
 						}).Info("the request with the API token has been blocked")
 						if strings.EqualFold(options.Mode, web.GraphQLMode) {
@@ -58,6 +59,7 @@ func Denylist(options *DenylistOptions) web.Middleware {
 							"request_id": ctx.UserValue(web.RequestID),
 							"host":       string(ctx.Request.Header.Host()),
 							"path":       string(ctx.Path()),
+							"method":     string(ctx.Request.Header.Method()),
 							"token":      token,
 						}).Info("the request with the API token has been blocked")
 						if strings.EqualFold(options.Mode, web.GraphQLMode) {

@@ -165,15 +165,32 @@ func runAPIMode(logger *logrus.Logger) error {
 	serverErrors := make(chan error, 1)
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, cfg.PathToSpecDB)
+	specStorage, err := database.NewOpenAPIDB(logger, cfg.PathToSpecDB, cfg.DBVersion)
 	if err != nil {
 		logger.Errorf("%s: trying to load API Spec value from SQLLite Database : %v\n", logPrefix, err.Error())
 	}
 
 	// =========================================================================
+	// Init Allow IP List
+
+	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
+
+	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
+	if err != nil {
+		return errors.Wrap(err, "allowiplist init error")
+	}
+
+	switch allowedIPCache {
+	case nil:
+		logger.Infof("%s: allowiplist not configured", logPrefix)
+	default:
+		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
+	}
+
+	// =========================================================================
 	// Init Handlers
 
-	requestHandlers := handlersAPI.Handlers(&dbLock, &cfg, shutdown, logger, specStorage)
+	requestHandlers := handlersAPI.Handlers(&dbLock, &cfg, shutdown, logger, specStorage, allowedIPCache)
 
 	// =========================================================================
 	// Start Health API Service
@@ -246,7 +263,7 @@ func runAPIMode(logger *logrus.Logger) error {
 
 	updSpecErrors := make(chan error, 1)
 
-	updOpenAPISpec := updater.NewController(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData)
+	updOpenAPISpec := updater.NewController(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache)
 
 	// disable updater if SpecificationUpdatePeriod == 0
 	if cfg.SpecificationUpdatePeriod.Seconds() > 0 {
@@ -479,7 +496,9 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	default:
 		logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
 	}
+
 	// =========================================================================
+	// Init Allow IP List
 
 	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
 
@@ -791,6 +810,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
+	// Init Allow IP List
 
 	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
 

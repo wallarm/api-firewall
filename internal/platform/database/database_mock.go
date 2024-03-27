@@ -34,6 +34,20 @@ func (m *MockDBOpenAPILoader) EXPECT() *MockDBOpenAPILoaderMockRecorder {
 	return m.recorder
 }
 
+// AfterLoad mocks base method.
+func (m *MockDBOpenAPILoader) AfterLoad(dbStoragePath string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AfterLoad", dbStoragePath)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AfterLoad indicates an expected call of AfterLoad.
+func (mr *MockDBOpenAPILoaderMockRecorder) AfterLoad(dbStoragePath interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AfterLoad", reflect.TypeOf((*MockDBOpenAPILoader)(nil).AfterLoad), dbStoragePath)
+}
+
 // IsLoaded mocks base method.
 func (m *MockDBOpenAPILoader) IsLoaded(schemaID int) bool {
 	m.ctrl.T.Helper()
@@ -90,6 +104,20 @@ func (mr *MockDBOpenAPILoaderMockRecorder) SchemaIDs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SchemaIDs", reflect.TypeOf((*MockDBOpenAPILoader)(nil).SchemaIDs))
 }
 
+// ShouldUpdate mocks base method.
+func (m *MockDBOpenAPILoader) ShouldUpdate(newStorage DBOpenAPILoader) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShouldUpdate", newStorage)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ShouldUpdate indicates an expected call of ShouldUpdate.
+func (mr *MockDBOpenAPILoaderMockRecorder) ShouldUpdate(newStorage interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldUpdate", reflect.TypeOf((*MockDBOpenAPILoader)(nil).ShouldUpdate), newStorage)
+}
+
 // Specification mocks base method.
 func (m *MockDBOpenAPILoader) Specification(schemaID int) *openapi3.T {
 	m.ctrl.T.Helper()
@@ -105,10 +133,10 @@ func (mr *MockDBOpenAPILoaderMockRecorder) Specification(schemaID interface{}) *
 }
 
 // SpecificationRaw mocks base method.
-func (m *MockDBOpenAPILoader) SpecificationRaw(schemaID int) []byte {
+func (m *MockDBOpenAPILoader) SpecificationRaw(schemaID int) interface{} {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SpecificationRaw", schemaID)
-	ret0, _ := ret[0].([]byte)
+	ret0, _ := ret[0].(interface{})
 	return ret0
 }
 
@@ -116,6 +144,20 @@ func (m *MockDBOpenAPILoader) SpecificationRaw(schemaID int) []byte {
 func (mr *MockDBOpenAPILoaderMockRecorder) SpecificationRaw(schemaID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpecificationRaw", reflect.TypeOf((*MockDBOpenAPILoader)(nil).SpecificationRaw), schemaID)
+}
+
+// SpecificationRawContent mocks base method.
+func (m *MockDBOpenAPILoader) SpecificationRawContent(schemaID int) []byte {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SpecificationRawContent", schemaID)
+	ret0, _ := ret[0].([]byte)
+	return ret0
+}
+
+// SpecificationRawContent indicates an expected call of SpecificationRawContent.
+func (mr *MockDBOpenAPILoaderMockRecorder) SpecificationRawContent(schemaID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpecificationRawContent", reflect.TypeOf((*MockDBOpenAPILoader)(nil).SpecificationRawContent), schemaID)
 }
 
 // SpecificationVersion mocks base method.
@@ -130,4 +172,18 @@ func (m *MockDBOpenAPILoader) SpecificationVersion(schemaID int) string {
 func (mr *MockDBOpenAPILoaderMockRecorder) SpecificationVersion(schemaID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpecificationVersion", reflect.TypeOf((*MockDBOpenAPILoader)(nil).SpecificationVersion), schemaID)
+}
+
+// Version mocks base method.
+func (m *MockDBOpenAPILoader) Version() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Version")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Version indicates an expected call of Version.
+func (mr *MockDBOpenAPILoaderMockRecorder) Version() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockDBOpenAPILoader)(nil).Version))
 }

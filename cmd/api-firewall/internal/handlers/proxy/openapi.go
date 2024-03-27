@@ -103,6 +103,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      err,
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("error while proxying request")
 		}
@@ -127,6 +128,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      err,
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("error while proxying request")
 		}
@@ -151,6 +153,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			"error":      err,
 			"host":       string(ctx.Request.Header.Host()),
 			"path":       string(ctx.Path()),
+			"method":     string(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("error while converting http request")
 		return web.RespondError(ctx, fasthttp.StatusBadRequest, "")
@@ -166,6 +169,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      err,
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request body decompression error")
 			return err
@@ -240,6 +244,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 						"error":      err,
 						"host":       string(ctx.Request.Header.Host()),
 						"path":       string(ctx.Path()),
+						"method":     string(ctx.Request.Header.Method()),
 						"request_id": ctx.UserValue(web.RequestID),
 					}).Error("request body parsing error: request passed")
 					isRequestBlocked = false
@@ -254,6 +259,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 					"error":      err,
 					"host":       string(ctx.Request.Header.Host()),
 					"path":       string(ctx.Path()),
+					"method":     string(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("request validation error: request blocked")
 
@@ -287,6 +293,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 					"errors":     upResults,
 					"host":       string(ctx.Request.Header.Host()),
 					"path":       string(ctx.Path()),
+					"method":     string(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("Shadow API: undefined parameters found")
 
@@ -301,6 +308,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"error":      err,
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request validation error")
 		}
@@ -320,6 +328,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 					"errors":     upResults,
 					"host":       string(ctx.Request.Header.Host()),
 					"path":       string(ctx.Path()),
+					"method":     string(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("Shadow API: undefined parameters found")
 			}
