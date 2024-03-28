@@ -29,7 +29,7 @@ networks:
 services:
   api-firewall:
     container_name: api-firewall
-    image: wallarm/api-firewall:v0.6.16
+    image: wallarm/api-firewall:v0.6.17
     restart: on-failure
     volumes:
       - <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC>
@@ -99,6 +99,7 @@ Pass API Firewall configuration in **docker-compose.yml** → `services.api-fire
 | `APIFW_GRAPHQL_MAX_ALIASES_NUM` | Sets a limit on the number of aliases that can be used in a GraphQL document. If this variable is set to `0`, it implies that there is no limit on the number of aliases that can be used. | Yes |
 | <a name="apifw-graphql-introspection"></a>`APIFW_GRAPHQL_INTROSPECTION` | Allows introspection queries, which disclose the layout of your GraphQL schema. When set to `true`, these queries are permitted. | Yes |
 | `APIFW_GRAPHQL_FIELD_DUPLICATION` | Defines whether to allow or prevent the duplication of fields in a GraphQL document. The default value is `false` (prevent). | No |
+| `APIFW_GRAPHQL_BATCH_QUERY_LIMIT` | Sets a limit on the number of queries that can be batched together in a single GraphQL request. If this variable is set to `0`, it implies that there is no limit on the number of batched queries. | No |
 | `APIFW_LOG_LEVEL` | API Firewall logging level. Possible values:<ul><li>`DEBUG` to log events of any type (INFO, ERROR, WARNING, and DEBUG).</li><li>`INFO` to log events of the INFO, WARNING, and ERROR types.</li><li>`WARNING` to log events of the WARNING and ERROR types.</li><li>`ERROR` to log events of only the ERROR type.</li><li>`TRACE` to log incoming requests and API Firewall responses, including their content.</li></ul> The default value is `DEBUG`. Logs on requests and responses that do not match the provided schema have the ERROR type. | No |
 | `APIFW_SERVER_DELETE_ACCEPT_ENCODING` | If it is set to `true`, the `Accept-Encoding` header is deleted from proxied requests. The default value is `false`. | No |
 | `APIFW_LOG_FORMAT` | The format of API Firewall logs. The value can be `TEXT` or `JSON`. The default value is `TEXT`. | No |
@@ -129,21 +130,35 @@ With `APIFW_GRAPHQL_REQUEST_VALIDATION` set to `BLOCK`, the firewall works as fo
 * If the API Firewall cannot parse the request, it responds with the GraphQL error with a 500 status code.
 * If the validation fails by the API Firewall, it does not proxy the request to the backend server but responds to the client with 200 status code and GraphQL error in response. 
 
-If the request does not match the provided API schema, the appropriate ERROR message will be added to the API Firewall Docker container logs, e.g. in the JSON format:
+If the request does not match the provided API schema:
 
-```json
-{
-  "errors": [
+* The API Firewall returns the following response:
+
+    ```json
     {
-      "message": "field: name not defined on type: Query",
-      "path": [
-        "query",
-        "name"
+      "errors": [
+        {
+          "message":"invalid query"
+        }
       ]
     }
-  ]
-}
-```
+    ```
+
+* The appropriate ERROR message is added to the API Firewall Docker container logs, e.g. in the JSON format:
+
+    ```json
+    {
+      "errors": [
+        {
+          "message": "field: name not defined on type: Query",
+          "path": [
+            "query",
+            "name"
+          ]
+        }
+      ]
+    }
+    ```
 
 In scenarios where multiple fields in the request are invalid, only a singular error message will be generated.
 
@@ -184,6 +199,6 @@ To start API Firewall on Docker, you can also use regular Docker commands as in 
         -e APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY=<MAX_QUERY_COMPLEXITY> \
         -e APIFW_GRAPHQL_MAX_QUERY_DEPTH=<MAX_QUERY_DEPTH> -e APIFW_GRAPHQL_NODE_COUNT_LIMIT=<NODE_COUNT_LIMIT> \
         -e APIFW_GRAPHQL_INTROSPECTION=<ALLOW_INTROSPECTION_OR_NOT> \
-        -p 8088:8088 wallarm/api-firewall:v0.6.16
+        -p 8088:8088 wallarm/api-firewall:v0.6.17
     ```
 4. When the environment is started, test it and enable traffic on API Firewall following steps 6 and 7.
