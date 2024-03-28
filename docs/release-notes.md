@@ -2,13 +2,26 @@
 
 This page describes new releases of Wallarm API Firewall.
 
-## v0.6.17 (TBD)
+## v0.6.17 (2024-03-28)
 
 * Added [IP allowlisting](configuration-guides/allowlist.md) support in the `API` mode
 * ​​Added support for subnets in allowlisted IP file and IP address validation during the file upload
 * Added support for a new SQLite database structure (V2) in the [`API`](installation-guides/api-mode.md) mode of the API Firewall. This version adds a `status` field to track specifications as `new` (unprocessed by the firewall) or `applied` (processed).
     
     For backward compatibility, the `APIFW_API_MODE_DB_VERSION` environment variable has been added - it defaults to attempting to parse the database as V2; if unsuccessful, it falls back to previous format  (V1).
+* Added the following default response from the API Firewall to GraphQL requests that do not match a provided API schema:
+
+
+    ```json
+    {
+      "errors": [
+        {
+          "message":"invalid query"
+        }
+      ]
+    }
+    ```
+* Introduced the new environment variable to limit the number of queries that can be batched together in a single GraphQL request, `APIFW_GRAPHQL_BATCH_QUERY_LIMIT`
 * Upgraded Go up to 1.21 and some other dependencies
 
 ## v0.6.16 (2024-02-27)

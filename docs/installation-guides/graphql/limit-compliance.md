@@ -9,8 +9,9 @@ When [running](docker-container.md) the API Firewall Docker container for a Grap
 | `APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY` | Defines the maximum number of Node requests that might be needed to execute the query. Setting it to `0` disables the complexity check. |
 | `APIFW_GRAPHQL_MAX_QUERY_DEPTH` | Specifies the maximum permitted depth of a GraphQL query. A value of `0` means the query depth check is skipped. |
 | `APIFW_GRAPHQL_NODE_COUNT_LIMIT` | Sets the upper limit for the node count in a query. When set to `0`, the node count limit check is skipped. |
-| `APIFW_GRAPHQL_MAX_ALIASES_NUM` | Sets a limit on the number of aliases that can be used in a GraphQL document. If this variable is set to `0`, it implies that there is no limit on the number of aliases that can be used. | Yes |
+| `APIFW_GRAPHQL_MAX_ALIASES_NUM` | Sets a limit on the number of aliases that can be used in a GraphQL document. If this variable is set to `0`, it implies that there is no limit on the number of aliases that can be used. |
 | `APIFW_GRAPHQL_FIELD_DUPLICATION` | Defines whether to allow or prevent the duplication of fields in a GraphQL document. The default value is `false` (prevent). |
+| `APIFW_GRAPHQL_BATCH_QUERY_LIMIT` | Sets a limit on the number of queries that can be batched together in a single GraphQL request. If this variable is set to `0`, it implies that there is no limit on the number of batched queries. |
 
 ## How limit calculation works
 
@@ -288,3 +289,21 @@ fragment TypeRef on __Type {
 * Depth = {int} 0
 
 Since the `__schema: __Schema! @nodeCountSkip` directive is present in the schema, the calculated NodeCount, Complexity, and Depth are all 0.
+
+### Example 6 (limiting batched queries)
+
+Assume you have set the `APIFW_GRAPHQL_BATCH_QUERY_LIMIT` environment variable to `2`. If you attempt to execute the following batch of 3 GraphQL queries sequentially against the backend:
+
+```json
+[
+  {"query":"query {\n  systemHealth\n}","variables":[]},
+  {"query":"query {\n  systemHealth\n}","variables":[]},
+  {"query":"query {\n  systemHealth\n}","variables":[]}
+]
+```
+
+The API Firewall will intercept this request and log an error, indicating that the number of queries in the batch exceeds the configured limit. The logged error message will be:
+
+```
+ERROR GraphQL query validation error=the batch query limit has been exceeded. The number of queries in the batch is 3. The current batch query limit is 2 protocol=HTTP
+```
