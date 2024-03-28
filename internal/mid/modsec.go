@@ -97,6 +97,7 @@ func processRequest(tx types.Transaction, ctx *fasthttp.RequestCtx) (*types.Inte
 			// using io.Copy.
 			// In Go 1.19 we just do `req.Body = io.NopCloser(reader)`
 			ctx.Request.SetBodyStream(body, -1)
+			//TODO: check it
 			//if rwt, ok := body.(io.WriterTo); ok {
 			//	req.Body = struct {
 			//		io.Reader
