@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -289,11 +290,12 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			}
 
 			if len(upResults) > 0 {
+				unknownParameters, _ := json.Marshal(upResults)
 				s.logger.WithFields(logrus.Fields{
-					"errors":     upResults,
-					"host":       string(ctx.Request.Header.Host()),
-					"path":       string(ctx.Path()),
-					"method":     string(ctx.Request.Header.Method()),
+					"errors":     strconv.B2S(unknownParameters),
+					"host":       strconv.B2S(ctx.Request.Header.Host()),
+					"path":       strconv.B2S(ctx.Path()),
+					"method":     strconv.B2S(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("Shadow API: undefined parameters found")
 
@@ -324,11 +326,12 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			}
 
 			if len(upResults) > 0 {
+				unknownParameters, _ := json.Marshal(upResults)
 				s.logger.WithFields(logrus.Fields{
-					"errors":     upResults,
-					"host":       string(ctx.Request.Header.Host()),
-					"path":       string(ctx.Path()),
-					"method":     string(ctx.Request.Header.Method()),
+					"errors":     strconv.B2S(unknownParameters),
+					"host":       strconv.B2S(ctx.Request.Header.Host()),
+					"path":       strconv.B2S(ctx.Path()),
+					"method":     strconv.B2S(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("Shadow API: undefined parameters found")
 			}

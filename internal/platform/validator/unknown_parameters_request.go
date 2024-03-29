@@ -5,11 +5,12 @@ import (
 	"encoding/csv"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/pkg/errors"
+	utils "github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
 )
@@ -23,12 +24,54 @@ var ErrUnknownBodyParameter = errors.New("body parameter not defined in the Open
 // ErrDecodingFailed is returned when the API FW got error or unexpected value from the decoder
 var ErrDecodingFailed = errors.New("the decoder returned the error")
 
+// RequestParameterDetails contains details about found unknown parameter
+type RequestParameterDetails struct {
+	Name        string `json:"name"`
+	Placeholder string `json:"location"`
+	Type        string `json:"type"`
+}
+
 // RequestUnknownParameterError is returned by ValidateRequest when request does not match OpenAPI spec
 type RequestUnknownParameterError struct {
-	Input       *openapi3filter.RequestValidationInput
-	Parameters  []string
-	RequestBody *openapi3.RequestBody
-	Err         error
+	Parameters []RequestParameterDetails `json:"parameters"`
+	Message    string                    `json:"message"`
+}
+
+// identifyData returns the type of the arg
+func identifyData(data any) string {
+
+	switch v := data.(type) {
+	case int:
+		return "integer"
+	case string:
+		// Try to parse as an integer
+		if _, err := strconv.Atoi(v); err == nil {
+			return "integer"
+		}
+
+		// Try to parse as a float
+		if _, err := strconv.ParseFloat(v, 64); err == nil {
+			return "float"
+		}
+
+		return "string"
+	case float64, float32:
+		return "float"
+	case []byte:
+		// Try to parse as an integer
+		if _, err := strconv.Atoi(utils.B2S(v)); err == nil {
+			return "integer"
+		}
+
+		// Try to parse as a float
+		if _, err := strconv.ParseFloat(utils.B2S(v), 64); err == nil {
+			return "float"
+		}
+
+		return "string"
+	}
+
+	return "unknown"
 }
 
 // ValidateUnknownRequestParameters is used to get a list of request parameters that are not specified in the OpenAPI specification
@@ -54,13 +97,17 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 	unknownQueryParams := RequestUnknownParameterError{}
 	// compare list of all query params and list of params defined in the specification
 	ctx.Request.URI().QueryArgs().VisitAll(func(key, value []byte) {
-		if _, ok := specParams[string(key)+openapi3.ParameterInQuery]; !ok {
-			unknownQueryParams.Err = ErrUnknownQueryParameter
-			unknownQueryParams.Parameters = append(unknownQueryParams.Parameters, string(key))
+		if _, ok := specParams[utils.B2S(key)+openapi3.ParameterInQuery]; !ok {
+			unknownQueryParams.Message = ErrUnknownQueryParameter.Error()
+			unknownQueryParams.Parameters = append(unknownQueryParams.Parameters, RequestParameterDetails{
+				Name:        utils.B2S(key),
+				Placeholder: openapi3.ParameterInQuery,
+				Type:        identifyData(utils.B2S(value)),
+			})
 		}
 	})
 
-	if unknownQueryParams.Err != nil {
+	if unknownQueryParams.Message != "" {
 		foundUnknownParams = append(foundUnknownParams, unknownQueryParams)
 	}
 
@@ -109,9 +156,14 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 
 		for _, rName := range record {
 			if _, found := contentType.Schema.Value.Properties[rName]; !found {
-				unknownBodyParams.Err = ErrUnknownBodyParameter
-				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, rName)
+				unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
+				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
+					Name:        rName,
+					Placeholder: "body",
+					Type:        identifyData(value),
+				})
 			}
+
 		}
 	case "application/x-www-form-urlencoded":
 		// required params in paramList
@@ -121,8 +173,12 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 		}
 		ctx.Request.PostArgs().VisitAll(func(key, value []byte) {
 			if _, ok := paramList[string(key)]; !ok {
-				unknownBodyParams.Err = ErrUnknownBodyParameter
-				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, string(key))
+				unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
+				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
+					Name:        utils.B2S(key),
+					Placeholder: "body",
+					Type:        identifyData(value),
+				})
 			}
 		})
 	case "application/json", "application/xml", "multipart/form-data":
@@ -132,15 +188,19 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 		}
 		for paramName, _ := range paramList {
 			if _, found := contentType.Schema.Value.Properties[paramName]; !found {
-				unknownBodyParams.Err = ErrUnknownBodyParameter
-				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, paramName)
+				unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
+				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
+					Name:        paramName,
+					Placeholder: "body",
+					Type:        identifyData(paramList[paramName]),
+				})
 			}
 		}
 	default:
 		return foundUnknownParams, ErrDecodingFailed
 	}
 
-	if unknownBodyParams.Err != nil {
+	if unknownBodyParams.Message != "" {
 		foundUnknownParams = append(foundUnknownParams, unknownBodyParams)
 	}
 

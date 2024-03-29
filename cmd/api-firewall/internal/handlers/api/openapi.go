@@ -281,18 +281,23 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		if len(upResults) > 0 {
 			for _, upResult := range upResults {
 				s.Log.WithFields(logrus.Fields{
-					"error":      upResult.Err,
+					"error":      upResult.Message,
 					"host":       string(ctx.Request.Header.Host()),
 					"path":       string(ctx.Path()),
 					"method":     string(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("searching for undefined parameters")
 
+				fields := make([]string, len(upResult.Parameters))
+				for _, f := range upResult.Parameters {
+					fields = append(fields, f.Name)
+				}
+
 				response := web.ValidationError{}
 				response.SchemaVersion = s.OpenAPIRouter.SchemaVersion
-				response.Message = upResult.Err.Error()
+				response.Message = upResult.Message
 				response.Code = ErrCodeUnknownParameterFound
-				response.Fields = upResult.Parameters
+				response.Fields = fields
 				respErrors = append(respErrors, &response)
 			}
 		}
