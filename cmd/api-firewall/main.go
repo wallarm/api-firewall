@@ -684,7 +684,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	validate := validator.New()
 
 	if err := validate.RegisterValidation("HttpStatusCodes", config.ValidateStatusList); err != nil {
-		return errors.Errorf("configuration validation error: %s", err.Error())
+		return errors.Errorf("Configuration validation error: %s", err.Error())
 	}
 
 	if err := validate.Struct(cfg); err != nil {

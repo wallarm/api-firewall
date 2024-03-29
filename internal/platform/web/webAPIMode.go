@@ -196,7 +196,7 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
 				"method":     string(ctx.Request.Header.Method()),
-			}).Debug("pass request with OPTIONS method")
+			}).Info("Pass request with OPTIONS method")
 		}
 	}()
 

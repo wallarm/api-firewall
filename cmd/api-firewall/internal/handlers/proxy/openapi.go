@@ -105,7 +105,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"path":       string(ctx.Path()),
 				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("error while proxying request")
+			}).Error("Error while proxying request")
 		}
 		return nil
 	}
@@ -130,7 +130,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"path":       string(ctx.Path()),
 				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("error while proxying request")
+			}).Error("Error while proxying request")
 		}
 		return nil
 	}
@@ -155,7 +155,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			"path":       string(ctx.Path()),
 			"method":     string(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("error while converting http request")
+		}).Error("Error while converting http request")
 		return web.RespondError(ctx, fasthttp.StatusBadRequest, "")
 	}
 
@@ -171,7 +171,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"path":       string(ctx.Path()),
 				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("request body decompression error")
+			}).Error("Request body decompression error")
 			return err
 		}
 	}
@@ -246,7 +246,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 						"path":       string(ctx.Path()),
 						"method":     string(ctx.Request.Header.Method()),
 						"request_id": ctx.UserValue(web.RequestID),
-					}).Error("request body parsing error: request passed")
+					}).Error("Request body parsing error: request passed")
 					isRequestBlocked = false
 				}
 			}
@@ -261,7 +261,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 					"path":       string(ctx.Path()),
 					"method":     string(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
-				}).Error("request validation error: request blocked")
+				}).Error("Request validation error: request blocked")
 
 				if s.cfg.AddValidationStatusHeader {
 					if vh := getValidationHeader(ctx, err); vh != nil {
@@ -310,7 +310,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"path":       string(ctx.Path()),
 				"method":     string(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("request validation error")
+			}).Error("Request validation error")
 		}
 
 		if s.cfg.ShadowAPI.UnknownParametersDetection {
@@ -341,7 +341,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			"host":       string(ctx.Request.Header.Host()),
 			"path":       string(ctx.Path()),
 			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("error while proxying request")
+		}).Error("Error while proxying request")
 		return nil
 	}
 
@@ -362,7 +362,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			"host":       string(ctx.Request.Header.Host()),
 			"path":       string(ctx.Path()),
 			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("response body decompression error")
+		}).Error("Response body decompression error")
 		return err
 	}
 
@@ -392,13 +392,13 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("response validation error")
+			}).Error("Response validation error")
 			if s.cfg.AddValidationStatusHeader {
 				if vh := getValidationHeader(ctx, err); vh != nil {
 					s.logger.WithFields(logrus.Fields{
 						"error":      err,
 						"request_id": ctx.UserValue(web.RequestID),
-					}).Errorf("add header %s: %s", web.ValidationStatus, *vh)
+					}).Errorf("Add header %s: %s", web.ValidationStatus, *vh)
 					ctx.Response.Header.Add(web.ValidationStatus, *vh)
 					return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, *vh)
 				}
@@ -420,7 +420,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("response validation error")
+			}).Error("Response validation error")
 		}
 	}
 

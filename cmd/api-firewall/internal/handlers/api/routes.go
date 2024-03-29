@@ -31,8 +31,14 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		Logger:                logger,
 	}
 
+	modSecOptions := mid.ModSecurityOptions{
+		Mode:   web.APIMode,
+		WAF:    waf,
+		Logger: logger,
+	}
+
 	// Construct the web.App which holds all routes as well as common Middleware.
-	apps := web.NewAPIModeApp(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.IPAllowlist(&ipAllowlistOptions), mid.WAFModSecurity(waf, logger), mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
+	apps := web.NewAPIModeApp(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.IPAllowlist(&ipAllowlistOptions), mid.WAFModSecurity(&modSecOptions), mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
 
 	for _, schemaID := range schemaIDs {
 
@@ -54,7 +60,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		// get new router
 		newSwagRouter, err := router.NewRouterDBLoader(schemaID, storedSpecs)
 		if err != nil {
-			logger.WithFields(logrus.Fields{"error": err}).Error("new router creation failed")
+			logger.WithFields(logrus.Fields{"error": err}).Error("New router creation failed")
 		}
 
 		for i := 0; i < len(newSwagRouter.Routes); i++ {

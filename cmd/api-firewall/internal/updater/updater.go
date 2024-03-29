@@ -61,13 +61,13 @@ func (s *Specification) Run() {
 			// load new schemes
 			newSpecDB, err := s.Load()
 			if err != nil {
-				s.logger.WithFields(logrus.Fields{"error": err}).Error("updating OpenAPI specification")
+				s.logger.WithFields(logrus.Fields{"error": err}).Error("Updating OpenAPI specification")
 				continue
 			}
 
 			// do not downgrade the db version
 			if s.sqlLiteStorage.Version() > newSpecDB.Version() {
-				s.logger.Error("regular update checker: version of the new DB structure is lower then current one (V2)")
+				s.logger.Error("Regular update checker: version of the new DB structure is lower then current one (V2)")
 				continue
 			}
 
@@ -79,7 +79,7 @@ func (s *Specification) Run() {
 				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache, s.waf)
 				s.health.OpenAPIDB = s.sqlLiteStorage
 				if err := s.sqlLiteStorage.AfterLoad(s.cfg.PathToSpecDB); err != nil {
-					s.logger.WithFields(logrus.Fields{"error": err}).Error("regular update checker: error in after specification loading function")
+					s.logger.WithFields(logrus.Fields{"error": err}).Error("Regular update checker: error in after specification loading function")
 				}
 				s.lock.Unlock()
 

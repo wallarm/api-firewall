@@ -27,7 +27,7 @@ func Errors(logger *logrus.Logger) web.Middleware {
 					"path":       string(ctx.Path()),
 					"method":     string(ctx.Request.Header.Method()),
 					"error":      err,
-				}).Error("common error")
+				}).Error("Common error")
 
 				// Respond to the error.
 				if err := web.RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {

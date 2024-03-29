@@ -96,7 +96,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			"path":       string(ctx.Path()),
 			"method":     string(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
-		}).Debug("method or path were not found")
+		}).Debug("Method or path were not found")
 		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
 		return nil
