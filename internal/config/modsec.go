@@ -29,15 +29,17 @@ func LoadModSecurityConfiguration(logger *logrus.Logger, cfg *ModSecurity) (cora
 	var waf coraza.WAF
 	var err error
 
-	if cfg.ConfFile != "" || cfg.RulesDir != "" {
+	if len(cfg.ConfFiles) > 0 || cfg.RulesDir != "" {
 
 		wafConfig := coraza.NewWAFConfig().WithErrorCallback(logErr)
 
-		if cfg.ConfFile != "" {
-			if _, err := os.Stat(cfg.ConfFile); os.IsNotExist(err) {
-				return nil, errors.New("Loading ModSecurity configuration file error: no such file or directory: " + cfg.ConfFile)
+		if len(cfg.ConfFiles) > 0 {
+			for _, confFile := range cfg.ConfFiles {
+				if _, err := os.Stat(confFile); os.IsNotExist(err) {
+					return nil, errors.New("Loading ModSecurity configuration file error: no such file or directory: " + confFile)
+				}
+				wafConfig = wafConfig.WithDirectivesFromFile(confFile)
 			}
-			wafConfig.WithDirectivesFromFile(cfg.ConfFile)
 		}
 
 		if cfg.RulesDir != "" {
@@ -46,7 +48,7 @@ func LoadModSecurityConfiguration(logger *logrus.Logger, cfg *ModSecurity) (cora
 			}
 
 			rules := path.Join(cfg.RulesDir, "*.conf")
-			wafConfig.WithDirectivesFromFile(rules)
+			wafConfig = wafConfig.WithDirectivesFromFile(rules)
 		}
 
 		waf, err = coraza.NewWAF(wafConfig)
