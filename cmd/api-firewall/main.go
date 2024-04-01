@@ -23,8 +23,6 @@ import (
 	handlersProxy "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/updater"
 	"github.com/wallarm/api-firewall/internal/config"
-	coraza "github.com/wallarm/api-firewall/internal/modsec"
-	"github.com/wallarm/api-firewall/internal/modsec/types"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
@@ -175,48 +173,12 @@ func runAPIMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init ModSecurity Core
 
-	logErr := func(error types.MatchedRule) {
-		logger.WithFields(logrus.Fields{
-			"tags":     error.Rule().Tags(),
-			"version":  error.Rule().Version(),
-			"severity": error.Rule().Severity(),
-			"rule_id":  error.Rule().ID(),
-			"file":     error.Rule().File(),
-			"line":     error.Rule().Line(),
-			"maturity": error.Rule().Maturity(),
-			"accuracy": error.Rule().Accuracy(),
-			"uri":      error.URI(),
-		}).Error(error.Message())
+	waf, err := config.LoadModSecurityConfiguration(logger, &cfg.ModSecurity)
+	if err != nil {
+		logger.Fatal(err)
+		return err
 	}
-
-	var waf coraza.WAF
-
-	if cfg.ModSecurity.ConfFile != "" || cfg.ModSecurity.RulesDir != "" {
-
-		wafConfig := coraza.NewWAFConfig().WithErrorCallback(logErr)
-
-		if cfg.ModSecurity.ConfFile != "" {
-			if _, err := os.Stat(cfg.ModSecurity.ConfFile); os.IsNotExist(err) {
-				logger.Fatalf("Loading ModSecurity configruration file error: %s: no such file or directory", cfg.ModSecurity.ConfFile)
-				return err
-			}
-			wafConfig.WithDirectivesFromFile(cfg.ModSecurity.ConfFile)
-		}
-
-		if cfg.ModSecurity.RulesDir != "" {
-			if _, err := os.Stat(cfg.ModSecurity.RulesDir); os.IsNotExist(err) {
-				logger.Fatalf("Loading ModSecurity rules from dir error: %s: no such file or directory", cfg.ModSecurity.RulesDir)
-				return err
-			}
-			rules := path.Join(cfg.ModSecurity.RulesDir, "*.conf")
-			wafConfig.WithDirectivesFromFile(rules)
-		}
-
-		waf, err = coraza.NewWAF(wafConfig)
-		if err != nil {
-			logger.Fatal(err)
-		}
-	}
+	logger.Infof("%s: The ModSecurity configuration has been loaded successfully", logPrefix)
 
 	// Init Allow IP List
 
@@ -224,12 +186,12 @@ func runAPIMode(logger *logrus.Logger) error {
 
 	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
 	if err != nil {
-		return errors.Wrap(err, "allowiplist init error")
+		return errors.Wrap(err, "The allow IP list init error")
 	}
 
 	switch allowedIPCache {
 	case nil:
-		logger.Infof("%s: allowiplist not configured", logPrefix)
+		logger.Infof("%s: The allow IP list is not configured", logPrefix)
 	default:
 		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
 	}
@@ -550,12 +512,12 @@ func runGraphQLMode(logger *logrus.Logger) error {
 
 	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
 	if err != nil {
-		return errors.Wrap(err, "allowiplist init error")
+		return errors.Wrap(err, "The allow IP list init error")
 	}
 
 	switch allowedIPCache {
 	case nil:
-		logger.Infof("%s: allowiplist not configured", logPrefix)
+		logger.Infof("%s: The allow ip list is not configured", logPrefix)
 	default:
 		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
 	}
@@ -862,12 +824,12 @@ func runProxyMode(logger *logrus.Logger) error {
 
 	AllowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
 	if err != nil {
-		return errors.Wrap(err, "allowiplist init error")
+		return errors.Wrap(err, "The allow IP list init error")
 	}
 
 	switch AllowedIPCache {
 	case nil:
-		logger.Infof("%s: allowiplist not configured", logPrefix)
+		logger.Infof("%s: The allow ip list is not configured", logPrefix)
 	default:
 		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, AllowedIPCache.ElementsNum)
 	}
@@ -875,48 +837,12 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init ModSecurity Core
 
-	logErr := func(error types.MatchedRule) {
-		logger.WithFields(logrus.Fields{
-			"tags":     error.Rule().Tags(),
-			"version":  error.Rule().Version(),
-			"severity": error.Rule().Severity(),
-			"rule_id":  error.Rule().ID(),
-			"file":     error.Rule().File(),
-			"line":     error.Rule().Line(),
-			"maturity": error.Rule().Maturity(),
-			"accuracy": error.Rule().Accuracy(),
-			"uri":      error.URI(),
-		}).Error(error.Message())
+	waf, err := config.LoadModSecurityConfiguration(logger, &cfg.ModSecurity)
+	if err != nil {
+		logger.Fatal(err)
+		return err
 	}
-
-	var waf coraza.WAF = nil
-
-	if cfg.ModSecurity.ConfFile != "" || cfg.ModSecurity.RulesDir != "" {
-
-		wafConfig := coraza.NewWAFConfig().WithErrorCallback(logErr)
-
-		if cfg.ModSecurity.ConfFile != "" {
-			if _, err := os.Stat(cfg.ModSecurity.ConfFile); os.IsNotExist(err) {
-				logger.Fatalf("Loading ModSecurity configruration file error: %s: no such file or directory", cfg.ModSecurity.ConfFile)
-				return err
-			}
-			wafConfig.WithDirectivesFromFile(cfg.ModSecurity.ConfFile)
-		}
-
-		if cfg.ModSecurity.RulesDir != "" {
-			if _, err := os.Stat(cfg.ModSecurity.RulesDir); os.IsNotExist(err) {
-				logger.Fatalf("Loading ModSecurity rules from dir error: %s: no such file or directory", cfg.ModSecurity.RulesDir)
-				return err
-			}
-			rules := path.Join(cfg.ModSecurity.RulesDir, "*.conf")
-			wafConfig.WithDirectivesFromFile(rules)
-		}
-
-		waf, err = coraza.NewWAF(wafConfig)
-		if err != nil {
-			logger.Fatal(err)
-		}
-	}
+	logger.Infof("%s: The ModSecurity configuration has been loaded successfully", logPrefix)
 
 	// =========================================================================
 	// Init Handlers
