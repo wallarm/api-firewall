@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/corazawaf/coraza/v3"
+	"github.com/corazawaf/coraza/v3/experimental"
+	"github.com/corazawaf/coraza/v3/types"
 	utils "github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	coraza "github.com/wallarm/api-firewall/internal/modsec"
-	"github.com/wallarm/api-firewall/internal/modsec/experimental"
-	"github.com/wallarm/api-firewall/internal/modsec/types"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 

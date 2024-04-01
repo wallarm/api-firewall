@@ -1,9 +1,6 @@
 package tests
 
 import (
-	"github.com/sirupsen/logrus/hooks/test"
-	coraza "github.com/wallarm/api-firewall/internal/modsec"
-	"github.com/wallarm/api-firewall/internal/modsec/types"
 	"net/url"
 	"os"
 	"os/signal"
@@ -11,9 +8,12 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/corazawaf/coraza/v3"
+	"github.com/corazawaf/coraza/v3/types"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/valyala/fasthttp"
 	proxy2 "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"

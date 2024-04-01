@@ -5,9 +5,9 @@ import (
 	"os"
 	"path"
 
+	"github.com/corazawaf/coraza/v3"
+	"github.com/corazawaf/coraza/v3/types"
 	"github.com/sirupsen/logrus"
-	coraza "github.com/wallarm/api-firewall/internal/modsec"
-	"github.com/wallarm/api-firewall/internal/modsec/types"
 )
 
 func LoadModSecurityConfiguration(logger *logrus.Logger, cfg *ModSecurity) (coraza.WAF, error) {
