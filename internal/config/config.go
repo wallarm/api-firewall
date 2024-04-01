@@ -143,9 +143,8 @@ type ShadowAPI struct {
 }
 
 type ModSecurity struct {
-	Enabled  bool   `conf:"default:true"`
-	ConfFile string `conf:"default:./coreruleset/crs-setup.conf,env:MODSEC_CONF_FILE" validate:"file"`
-	RulesDir string `conf:"default:./coreruleset/rules,env:MODSEC_RULES_DIR" validate:"dir"`
+	ConfFile string `conf:"default:'',env:MODSEC_CONF_FILE"`
+	RulesDir string `conf:"default:'',env:MODSEC_RULES_DIR"`
 }
 
 type GraphQL struct {

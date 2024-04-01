@@ -191,14 +191,28 @@ func runAPIMode(logger *logrus.Logger) error {
 
 	var waf coraza.WAF
 
-	if cfg.ModSecurity.Enabled {
-		rules := path.Join(cfg.ModSecurity.RulesDir, "*.conf")
-		waf, err = coraza.NewWAF(
-			coraza.NewWAFConfig().
-				WithErrorCallback(logErr).
-				WithDirectivesFromFile(cfg.ModSecurity.ConfFile).
-				WithDirectivesFromFile(rules),
-		)
+	if cfg.ModSecurity.ConfFile != "" || cfg.ModSecurity.RulesDir != "" {
+
+		wafConfig := coraza.NewWAFConfig().WithErrorCallback(logErr)
+
+		if cfg.ModSecurity.ConfFile != "" {
+			if _, err := os.Stat(cfg.ModSecurity.ConfFile); os.IsNotExist(err) {
+				logger.Fatalf("Loading ModSecurity configruration file error: %s: no such file or directory", cfg.ModSecurity.ConfFile)
+				return err
+			}
+			wafConfig.WithDirectivesFromFile(cfg.ModSecurity.ConfFile)
+		}
+
+		if cfg.ModSecurity.RulesDir != "" {
+			if _, err := os.Stat(cfg.ModSecurity.RulesDir); os.IsNotExist(err) {
+				logger.Fatalf("Loading ModSecurity rules from dir error: %s: no such file or directory", cfg.ModSecurity.RulesDir)
+				return err
+			}
+			rules := path.Join(cfg.ModSecurity.RulesDir, "*.conf")
+			wafConfig.WithDirectivesFromFile(rules)
+		}
+
+		waf, err = coraza.NewWAF(wafConfig)
 		if err != nil {
 			logger.Fatal(err)
 		}
@@ -877,14 +891,28 @@ func runProxyMode(logger *logrus.Logger) error {
 
 	var waf coraza.WAF = nil
 
-	if cfg.ModSecurity.Enabled {
-		rules := path.Join(cfg.ModSecurity.RulesDir, "*.conf")
-		waf, err = coraza.NewWAF(
-			coraza.NewWAFConfig().
-				WithErrorCallback(logErr).
-				WithDirectivesFromFile(cfg.ModSecurity.ConfFile).
-				WithDirectivesFromFile(rules),
-		)
+	if cfg.ModSecurity.ConfFile != "" || cfg.ModSecurity.RulesDir != "" {
+
+		wafConfig := coraza.NewWAFConfig().WithErrorCallback(logErr)
+
+		if cfg.ModSecurity.ConfFile != "" {
+			if _, err := os.Stat(cfg.ModSecurity.ConfFile); os.IsNotExist(err) {
+				logger.Fatalf("Loading ModSecurity configruration file error: %s: no such file or directory", cfg.ModSecurity.ConfFile)
+				return err
+			}
+			wafConfig.WithDirectivesFromFile(cfg.ModSecurity.ConfFile)
+		}
+
+		if cfg.ModSecurity.RulesDir != "" {
+			if _, err := os.Stat(cfg.ModSecurity.RulesDir); os.IsNotExist(err) {
+				logger.Fatalf("Loading ModSecurity rules from dir error: %s: no such file or directory", cfg.ModSecurity.RulesDir)
+				return err
+			}
+			rules := path.Join(cfg.ModSecurity.RulesDir, "*.conf")
+			wafConfig.WithDirectivesFromFile(rules)
+		}
+
+		waf, err = coraza.NewWAF(wafConfig)
 		if err != nil {
 			logger.Fatal(err)
 		}
