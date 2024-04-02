@@ -137,8 +137,8 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 						continue
 					}
 
-					msgType := string(msg.Get("type").GetStringBytes())
-					msgID := string(msg.Get("id").GetStringBytes())
+					msgType := strconv.B2S(msg.Get("type").GetStringBytes())
+					msgID := strconv.B2S(msg.Get("id").GetStringBytes())
 
 					// Skip message types that do not contain payload
 					if msgType != "subscribe" && msgType != "start" {

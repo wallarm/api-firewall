@@ -144,7 +144,7 @@ type ShadowAPI struct {
 
 type ModSecurity struct {
 	ConfFiles []string `conf:"env:MODSEC_CONF_FILES"`
-	RulesDir  string   `conf:"default:'',env:MODSEC_RULES_DIR"`
+	RulesDir  string   `conf:"env:MODSEC_RULES_DIR"`
 }
 
 type GraphQL struct {

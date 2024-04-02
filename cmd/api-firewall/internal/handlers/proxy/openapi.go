@@ -43,7 +43,7 @@ func getValidationHeader(ctx *fasthttp.RequestCtx, err error) *string {
 			reason = err.Reason
 		}
 
-		id := fmt.Sprintf("response-%d-%s", ctx.Response.StatusCode(), strings.Split(string(ctx.Response.Header.ContentType()), ";")[0])
+		id := fmt.Sprintf("response-%d-%s", ctx.Response.StatusCode(), strings.Split(strconv.B2S(ctx.Response.Header.ContentType()), ";")[0])
 		value := fmt.Sprintf("%s:%s:response", id, reason)
 		return &value
 
@@ -69,7 +69,7 @@ func getValidationHeader(ctx *fasthttp.RequestCtx, err error) *string {
 		}
 
 		if err.RequestBody != nil {
-			id := fmt.Sprintf("request-body-%s", strings.Split(string(ctx.Request.Header.ContentType()), ";")[0])
+			id := fmt.Sprintf("request-body-%s", strings.Split(strconv.B2S(ctx.Request.Header.ContentType()), ";")[0])
 			value := fmt.Sprintf("%s:%s:request-body", id, reason)
 			return &value
 		}
@@ -102,9 +102,9 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("Error while proxying request")
 		}
@@ -127,9 +127,9 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("Error while proxying request")
 		}
@@ -152,25 +152,25 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	if err := fasthttpadaptor.ConvertRequest(ctx, &req, false); err != nil {
 		s.logger.WithFields(logrus.Fields{
 			"error":      err,
-			"host":       string(ctx.Request.Header.Host()),
-			"path":       string(ctx.Path()),
-			"method":     string(ctx.Request.Header.Method()),
+			"host":       strconv.B2S(ctx.Request.Header.Host()),
+			"path":       strconv.B2S(ctx.Path()),
+			"method":     strconv.B2S(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("Error while converting http request")
 		return web.RespondError(ctx, fasthttp.StatusBadRequest, "")
 	}
 
 	// decode request body
-	requestContentEncoding := string(ctx.Request.Header.ContentEncoding())
+	requestContentEncoding := strconv.B2S(ctx.Request.Header.ContentEncoding())
 	if requestContentEncoding != "" {
 		var err error
 		req.Body, err = web.GetDecompressedRequestBody(&ctx.Request, requestContentEncoding)
 		if err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("Request body decompression error")
 			return err
@@ -243,9 +243,9 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				if strings.HasPrefix(requestErr.Error(), "request body has an error: failed to decode request body: unsupported content type") {
 					s.logger.WithFields(logrus.Fields{
 						"error":      err,
-						"host":       string(ctx.Request.Header.Host()),
-						"path":       string(ctx.Path()),
-						"method":     string(ctx.Request.Header.Method()),
+						"host":       strconv.B2S(ctx.Request.Header.Host()),
+						"path":       strconv.B2S(ctx.Path()),
+						"method":     strconv.B2S(ctx.Request.Header.Method()),
 						"request_id": ctx.UserValue(web.RequestID),
 					}).Error("Request body parsing error: request passed")
 					isRequestBlocked = false
@@ -258,9 +258,9 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
 				s.logger.WithFields(logrus.Fields{
 					"error":      err,
-					"host":       string(ctx.Request.Header.Host()),
-					"path":       string(ctx.Path()),
-					"method":     string(ctx.Request.Header.Method()),
+					"host":       strconv.B2S(ctx.Request.Header.Host()),
+					"path":       strconv.B2S(ctx.Path()),
+					"method":     strconv.B2S(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Error("Request validation error: request blocked")
 
@@ -308,9 +308,9 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("Request validation error")
 		}
@@ -341,8 +341,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 		s.logger.WithFields(logrus.Fields{
 			"error":      err,
-			"host":       string(ctx.Request.Header.Host()),
-			"path":       string(ctx.Path()),
+			"host":       strconv.B2S(ctx.Request.Header.Host()),
+			"path":       strconv.B2S(ctx.Path()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("Error while proxying request")
 		return nil
@@ -351,19 +351,19 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	// Prepare http response headers
 	respHeader := http.Header{}
 	ctx.Response.Header.VisitAll(func(k, v []byte) {
-		sk := string(k)
-		sv := string(v)
+		sk := strconv.B2S(k)
+		sv := strconv.B2S(v)
 
 		respHeader.Set(sk, sv)
 	})
 
 	// decode response body
-	responseBodyReader, err := web.GetDecompressedResponseBody(&ctx.Response, string(ctx.Response.Header.ContentEncoding()))
+	responseBodyReader, err := web.GetDecompressedResponseBody(&ctx.Response, strconv.B2S(ctx.Response.Header.ContentEncoding()))
 	if err != nil {
 		s.logger.WithFields(logrus.Fields{
 			"error":      err,
-			"host":       string(ctx.Request.Header.Host()),
-			"path":       string(ctx.Path()),
+			"host":       strconv.B2S(ctx.Request.Header.Host()),
+			"path":       strconv.B2S(ctx.Path()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("Response body decompression error")
 		return err
@@ -392,8 +392,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("Response validation error")
 			if s.cfg.AddValidationStatusHeader {
@@ -420,8 +420,8 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			}
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("Response validation error")
 		}

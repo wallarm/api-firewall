@@ -11,6 +11,7 @@ import (
 	"github.com/corazawaf/coraza/v3"
 	"github.com/corazawaf/coraza/v3/experimental"
 	"github.com/corazawaf/coraza/v3/types"
+	"github.com/pkg/errors"
 	utils "github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
@@ -25,6 +26,8 @@ type ModSecurityOptions struct {
 	ResponseValidation    string
 	CustomBlockStatusCode int
 }
+
+var ErrModSecMaliciousRequest = errors.New("malicious request")
 
 // processRequest fills all transaction variables from an http.Request object
 // Most implementations of Coraza will probably use http.Request objects
@@ -142,17 +145,33 @@ func WAFModSecurity(options *ModSecurityOptions) web.Middleware {
 				// It fails if any of these functions returns an error and it stops on interruption.
 				if it, err := processRequest(tx, ctx); err != nil {
 					tx.DebugLogger().Error().Err(err).Msg("Failed to process request")
+
 					if options.Mode == web.APIMode {
-						ctx.SetUserValue(web.GlobalResponseStatusCodeKey, options.CustomBlockStatusCode)
+						if err := web.RespondAPIModeErrors(ctx, "ModSecurity rules: failed to process request", err.Error()); err != nil {
+							options.Logger.WithFields(logrus.Fields{
+								"host":       utils.B2S(ctx.Request.Header.Host()),
+								"path":       utils.B2S(ctx.Path()),
+								"method":     utils.B2S(ctx.Request.Header.Method()),
+								"request_id": ctx.UserValue(web.RequestID),
+							}).Error(err)
+						}
 						return nil
 					}
+
 					if strings.EqualFold(options.RequestValidation, web.ValidationBlock) {
 						return err
 					}
 				} else if it != nil {
 
 					if options.Mode == web.APIMode {
-						ctx.SetUserValue(web.GlobalResponseStatusCodeKey, options.CustomBlockStatusCode)
+						if err := web.RespondAPIModeErrors(ctx, ErrModSecMaliciousRequest.Error(), fmt.Sprintf("ModSecurity rules: request blocked due to rule %d", it.RuleID)); err != nil {
+							options.Logger.WithFields(logrus.Fields{
+								"host":       utils.B2S(ctx.Request.Header.Host()),
+								"path":       utils.B2S(ctx.Path()),
+								"method":     utils.B2S(ctx.Request.Header.Method()),
+								"request_id": ctx.UserValue(web.RequestID),
+							}).Error(err)
+						}
 						return nil
 					}
 

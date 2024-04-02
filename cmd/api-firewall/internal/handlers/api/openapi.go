@@ -92,9 +92,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	// Route not found
 	if s.CustomRoute == nil {
 		s.Log.WithFields(logrus.Fields{
-			"host":       string(ctx.Request.Header.Host()),
-			"path":       string(ctx.Path()),
-			"method":     string(ctx.Request.Header.Method()),
+			"host":       strconv.B2S(ctx.Request.Header.Host()),
+			"path":       strconv.B2S(ctx.Path()),
+			"method":     strconv.B2S(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Debug("Method or path were not found")
 		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
@@ -118,9 +118,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	if err := fasthttpadaptor.ConvertRequest(ctx, &req, false); err != nil {
 		s.Log.WithFields(logrus.Fields{
 			"error":      err,
-			"host":       string(ctx.Request.Header.Host()),
-			"path":       string(ctx.Path()),
-			"method":     string(ctx.Request.Header.Method()),
+			"host":       strconv.B2S(ctx.Request.Header.Host()),
+			"path":       strconv.B2S(ctx.Path()),
+			"method":     strconv.B2S(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("error while converting http request")
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
@@ -134,9 +134,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		if req.Body, err = web.GetDecompressedRequestBody(&ctx.Request, requestContentEncoding); err != nil {
 			s.Log.WithFields(logrus.Fields{
 				"error":      err,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request body decompression error")
 			ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
@@ -211,10 +211,10 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			}
 
 			s.Log.WithFields(logrus.Fields{
-				"error":      valReqErrors,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
+				"error":      strings.ReplaceAll(valReqErrors.Error(), "\n", " "),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request validation error")
 		default:
@@ -226,10 +226,10 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 			}
 			if parsedValErrs != nil {
 				s.Log.WithFields(logrus.Fields{
-					"error":      valErr,
-					"host":       string(ctx.Request.Header.Host()),
-					"path":       string(ctx.Path()),
-					"method":     string(ctx.Request.Header.Method()),
+					"error":      strings.ReplaceAll(valErr.Error(), "\n", " "),
+					"host":       strconv.B2S(ctx.Request.Header.Host()),
+					"path":       strconv.B2S(ctx.Path()),
+					"method":     strconv.B2S(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
 				}).Warning("request validation error")
 
@@ -245,10 +245,10 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
 		if len(respErrors) == 0 {
 			s.Log.WithFields(logrus.Fields{
-				"error":      valReqErrors,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
+				"error":      strings.ReplaceAll(valReqErrors.Error(), "\n", " "),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("request validation error")
 
@@ -264,9 +264,9 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 		if valUPReqErrors != nil {
 			s.Log.WithFields(logrus.Fields{
 				"error":      valUPReqErrors,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("searching for undefined parameters")
 

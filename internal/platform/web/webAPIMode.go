@@ -22,6 +22,8 @@ const (
 	APIModePostfixValidationErrors = "_validation_errors"
 
 	GlobalResponseStatusCodeKey = "global_response_status_code"
+
+	RequestSchemaID = "__wallarm_apifw_request_schema_id"
 )
 
 var (
@@ -233,6 +235,8 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 
 	// Validate requests against list of schemas
 	for _, schemaID := range schemaIDs {
+		// Save schema IDs
+		ctx.SetUserValue(RequestSchemaID, strconv2.Itoa(schemaID))
 		a.Routers[schemaID].Handler(ctx)
 	}
 

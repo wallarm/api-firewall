@@ -35,7 +35,7 @@ const (
 	GraphQLMode = "graphql"
 
 	AnyMethod = "any"
-	RequestID = "request_id"
+	RequestID = "__wallarm_apifw_request_id"
 )
 
 // A Handler is a type that handles an http request within our own little mini
