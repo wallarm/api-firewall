@@ -4,10 +4,9 @@ This page describes new releases of Wallarm API Firewall.
 
 ## v0.7.0 (2024-04-DD)
 
-* Added ModSecurity rules support
-    * ModSecurity rules support based on the [Coraza](https://github.com/corazawaf/coraza) project is added
-    * The Apache 2.0 license is included into the package
-    * The [OWASP ModSecurity Core Rule Set (CRS)](https://owasp.org/www-project-modsecurity-core-rule-set/) rules are included in API Firewall
+* Added [ModSecurity rules support](migrating/modseс-to-apif.md) (based on the [Coraza](https://github.com/corazawaf/coraza) project)
+* Fixed processing issues for the requests with the OPTIONS method
+* Added additional info to the log message of the Shadow API module
 
 ## v0.6.17 (2024-03-28)
 

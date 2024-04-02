@@ -29,7 +29,7 @@ networks:
 services:
   api-firewall:
     container_name: api-firewall
-    image: wallarm/api-firewall:v0.6.17
+    image: wallarm/api-firewall:v0.7.0
     restart: on-failure
     volumes:
       - <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC>
@@ -103,6 +103,8 @@ Pass API Firewall configuration in **docker-compose.yml** → `services.api-fire
 | `APIFW_LOG_LEVEL` | API Firewall logging level. Possible values:<ul><li>`DEBUG` to log events of any type (INFO, ERROR, WARNING, and DEBUG).</li><li>`INFO` to log events of the INFO, WARNING, and ERROR types.</li><li>`WARNING` to log events of the WARNING and ERROR types.</li><li>`ERROR` to log events of only the ERROR type.</li><li>`TRACE` to log incoming requests and API Firewall responses, including their content.</li></ul> The default value is `DEBUG`. Logs on requests and responses that do not match the provided schema have the ERROR type. | No |
 | `APIFW_SERVER_DELETE_ACCEPT_ENCODING` | If it is set to `true`, the `Accept-Encoding` header is deleted from proxied requests. The default value is `false`. | No |
 | `APIFW_LOG_FORMAT` | The format of API Firewall logs. The value can be `TEXT` or `JSON`. The default value is `TEXT`. | No |
+| `APIFW_MODSEC_CONF_FILES` | Allows to set the list of [ModSecurity](../../migrating/modseс-to-apif.md) configuration files. The delimiter is ;. The default value is [] (empty). Example: `APIFW_MODSEC_CONF_FILES=modsec.conf;crs-setup.conf.example`. | No |
+| `APIFW_MODSEC_RULES_DIR` | Allows to set the [ModSecurity](../../migrating/modseс-to-apif.md) directory with the rules that should be loaded. The files with the following wildcard *.conf will be loaded from the dir. The default value is “”. | No |
 
 **With `services.api-firewall.ports` and `services.api-firewall.networks`**, set the API Firewall container port and connect the container to the created network.
 
@@ -199,6 +201,6 @@ To start API Firewall on Docker, you can also use regular Docker commands as in 
         -e APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY=<MAX_QUERY_COMPLEXITY> \
         -e APIFW_GRAPHQL_MAX_QUERY_DEPTH=<MAX_QUERY_DEPTH> -e APIFW_GRAPHQL_NODE_COUNT_LIMIT=<NODE_COUNT_LIMIT> \
         -e APIFW_GRAPHQL_INTROSPECTION=<ALLOW_INTROSPECTION_OR_NOT> \
-        -p 8088:8088 wallarm/api-firewall:v0.6.17
+        -p 8088:8088 wallarm/api-firewall:v0.7.0
     ```
 4. When the environment is started, test it and enable traffic on API Firewall following steps 6 and 7.

@@ -27,7 +27,7 @@ networks:
 services:
   api-firewall:
     container_name: api-firewall
-    image: wallarm/api-firewall:v0.6.17
+    image: wallarm/api-firewall:v0.7.0
     restart: on-failure
     volumes:
       - <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC>
@@ -96,6 +96,9 @@ Pass API Firewall configuration in **docker-compose.yml** → `services.api-fire
 | `APIFW_MODE` | Sets the general API Firewall mode. Possible values are `PROXY` (default), [`graphql`](graphql/docker-container.md) and [`API`](api-mode.md). | No |
 | `APIFW_PASS_OPTIONS` | When set to `true`, the API Firewall allows `OPTIONS` requests to endpoints in the specification, even if the `OPTIONS` method is not described. The default value is `false`. | No |
 | `APIFW_SHADOW_API_UNKNOWN_PARAMETERS_DETECTION` | This specifies whether requests are identified as non-matching the specification if their parameters do not align with those defined in the OpenAPI specification. The default value is `true`.<br><br>If running API Firewall in the [`API` mode](api-mode.md), this variable takes on a different name `APIFW_API_MODE_UNKNOWN_PARAMETERS_DETECTION`. | No |
+| `APIFW_MODSEC_CONF_FILES` | Allows to set the list of [ModSecurity](../migrating/modseс-to-apif.md) configuration files. The delimiter is ;. The default value is [] (empty). Example: `APIFW_MODSEC_CONF_FILES=modsec.conf;crs-setup.conf.example`. | No |
+| `APIFW_MODSEC_RULES_DIR` | Allows to set the [ModSecurity](../migrating/modseс-to-apif.md) directory with the rules that should be loaded. The files with the following wildcard *.conf will be loaded from the dir. The default value is “”. | No |
+
 
 **With `services.api-firewall.ports` and `services.api-firewall.networks`**, set the API Firewall container port and connect the container to the created network. The provided **docker-compose.yml** instructs Docker to start API Firewall connected to the `api-firewall-network` [network](https://docs.docker.com/network/) on the port 8088.
 
@@ -153,6 +156,6 @@ To start API Firewall on Docker, you can also use regular Docker commands as in 
         -v <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC> -e APIFW_API_SPECS=<PATH_TO_MOUNTED_SPEC> \
         -e APIFW_URL=<API_FIREWALL_URL> -e APIFW_SERVER_URL=<PROTECTED_APP_URL> \
         -e APIFW_REQUEST_VALIDATION=<REQUEST_VALIDATION_MODE> -e APIFW_RESPONSE_VALIDATION=<RESPONSE_VALIDATION_MODE> \
-        -p 8088:8088 wallarm/api-firewall:v0.6.17
+        -p 8088:8088 wallarm/api-firewall:v0.7.0
     ```
 4. When the environment is started, test it and enable traffic on API Firewall following steps 6 and 7.
