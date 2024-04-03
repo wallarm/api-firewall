@@ -178,7 +178,10 @@ func runAPIMode(logger *logrus.Logger) error {
 		logger.Fatal(err)
 		return err
 	}
-	logger.Infof("%s: The ModSecurity configuration has been loaded successfully", logPrefix)
+
+	if waf != nil {
+		logger.Infof("%s: The ModSecurity configuration has been loaded successfully", logPrefix)
+	}
 
 	// Init Allow IP List
 
@@ -842,7 +845,10 @@ func runProxyMode(logger *logrus.Logger) error {
 		logger.Fatal(err)
 		return err
 	}
-	logger.Infof("%s: The ModSecurity configuration has been loaded successfully", logPrefix)
+
+	if waf != nil {
+		logger.Infof("%s: The ModSecurity configuration has been loaded successfully", logPrefix)
+	}
 
 	// =========================================================================
 	// Init Handlers
