@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/corazawaf/coraza/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
@@ -16,8 +17,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, logger *logrus.Logger, storedSpecs database.DBOpenAPILoader, AllowedIPCache *allowiplist.AllowedIPsType) fasthttp.RequestHandler {
-
+func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, logger *logrus.Logger, storedSpecs database.DBOpenAPILoader, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
 	schemaIDs := storedSpecs.SchemaIDs()
@@ -30,8 +30,14 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		Logger:                logger,
 	}
 
+	modSecOptions := mid.ModSecurityOptions{
+		Mode:   web.APIMode,
+		WAF:    waf,
+		Logger: logger,
+	}
+
 	// Construct the web.App which holds all routes as well as common Middleware.
-	apps := web.NewAPIModeApp(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger), mid.IPAllowlist(&ipAllowlistOptions))
+	apps := web.NewAPIModeApp(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.IPAllowlist(&ipAllowlistOptions), mid.WAFModSecurity(&modSecOptions), mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
 
 	for _, schemaID := range schemaIDs {
 
@@ -53,7 +59,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		// get new router
 		newSwagRouter, err := router.NewRouterDBLoader(schemaID, storedSpecs)
 		if err != nil {
-			logger.WithFields(logrus.Fields{"error": err}).Error("new router creation failed")
+			logger.WithFields(logrus.Fields{"error": err}).Error("New router creation failed")
 		}
 
 		for i := 0; i < len(newSwagRouter.Routes); i++ {

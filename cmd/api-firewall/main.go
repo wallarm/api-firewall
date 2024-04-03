@@ -171,26 +171,37 @@ func runAPIMode(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
+	// Init ModSecurity Core
+
+	waf, err := config.LoadModSecurityConfiguration(logger, &cfg.ModSecurity)
+	if err != nil {
+		logger.Fatal(err)
+		return err
+	}
+
+	if waf != nil {
+		logger.Infof("%s: The ModSecurity configuration has been loaded successfully", logPrefix)
+	}
+
 	// Init Allow IP List
 
 	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
 
 	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
 	if err != nil {
-		return errors.Wrap(err, "allowiplist init error")
+		return errors.Wrap(err, "The allow IP list init error")
 	}
 
 	switch allowedIPCache {
 	case nil:
-		logger.Infof("%s: allowiplist not configured", logPrefix)
+		logger.Infof("%s: The allow IP list is not configured", logPrefix)
 	default:
 		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
 	}
 
 	// =========================================================================
 	// Init Handlers
-
-	requestHandlers := handlersAPI.Handlers(&dbLock, &cfg, shutdown, logger, specStorage, allowedIPCache)
+	requestHandlers := handlersAPI.Handlers(&dbLock, &cfg, shutdown, logger, specStorage, allowedIPCache, waf)
 
 	// =========================================================================
 	// Start Health API Service
@@ -263,7 +274,7 @@ func runAPIMode(logger *logrus.Logger) error {
 
 	updSpecErrors := make(chan error, 1)
 
-	updOpenAPISpec := updater.NewController(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache)
+	updOpenAPISpec := updater.NewController(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache, waf)
 
 	// disable updater if SpecificationUpdatePeriod == 0
 	if cfg.SpecificationUpdatePeriod.Seconds() > 0 {
@@ -504,12 +515,12 @@ func runGraphQLMode(logger *logrus.Logger) error {
 
 	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
 	if err != nil {
-		return errors.Wrap(err, "allowiplist init error")
+		return errors.Wrap(err, "The allow IP list init error")
 	}
 
 	switch allowedIPCache {
 	case nil:
-		logger.Infof("%s: allowiplist not configured", logPrefix)
+		logger.Infof("%s: The allow ip list is not configured", logPrefix)
 	default:
 		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
 	}
@@ -652,7 +663,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	validate := validator.New()
 
 	if err := validate.RegisterValidation("HttpStatusCodes", config.ValidateStatusList); err != nil {
-		return errors.Errorf("configuration validation error: %s", err.Error())
+		return errors.Errorf("Configuration validation error: %s", err.Error())
 	}
 
 	if err := validate.Struct(cfg); err != nil {
@@ -793,7 +804,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
-	// Init Cache
+	// Init Deny List Cache
 
 	logger.Infof("%s: Initializing Token Cache", logPrefix)
 
@@ -810,26 +821,39 @@ func runProxyMode(logger *logrus.Logger) error {
 	}
 
 	// =========================================================================
-	// Init Allow IP List
+	// Init IP Allow List Cache
 
 	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
 
 	AllowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
 	if err != nil {
-		return errors.Wrap(err, "allowiplist init error")
+		return errors.Wrap(err, "The allow IP list init error")
 	}
 
 	switch AllowedIPCache {
 	case nil:
-		logger.Infof("%s: allowiplist not configured", logPrefix)
+		logger.Infof("%s: The allow ip list is not configured", logPrefix)
 	default:
 		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, AllowedIPCache.ElementsNum)
 	}
 
 	// =========================================================================
+	// Init ModSecurity Core
+
+	waf, err := config.LoadModSecurityConfiguration(logger, &cfg.ModSecurity)
+	if err != nil {
+		logger.Fatal(err)
+		return err
+	}
+
+	if waf != nil {
+		logger.Infof("%s: The ModSecurity configuration has been loaded successfully", logPrefix)
+	}
+
+	// =========================================================================
 	// Init Handlers
 
-	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens, AllowedIPCache)
+	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens, AllowedIPCache, waf)
 
 	// =========================================================================
 	// Start Health API Service

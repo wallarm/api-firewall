@@ -20,6 +20,14 @@ func Logger(logger *logrus.Logger) web.Middleware {
 		h := func(ctx *fasthttp.RequestCtx) error {
 			start := time.Now()
 
+			logger.WithFields(logrus.Fields{
+				"request_id":     ctx.UserValue(web.RequestID),
+				"method":         string(ctx.Request.Header.Method()),
+				"path":           string(ctx.Path()),
+				"uri":            string(ctx.Request.URI().RequestURI()),
+				"client_address": ctx.RemoteAddr(),
+			}).Debug("Received request from client")
+
 			err := before(ctx)
 
 			// check method and path
@@ -33,7 +41,7 @@ func Logger(logger *logrus.Logger) web.Middleware {
 						"path":            string(ctx.Path()),
 						"uri":             string(ctx.Request.URI().RequestURI()),
 						"client_address":  ctx.RemoteAddr(),
-					}).Error("method or path not found in the OpenAPI specification")
+					}).Error("Method or path not found in the OpenAPI specification")
 				}
 			}
 
@@ -45,7 +53,7 @@ func Logger(logger *logrus.Logger) web.Middleware {
 				"uri":             string(ctx.Request.URI().RequestURI()),
 				"client_address":  ctx.RemoteAddr(),
 				"processing_time": time.Since(start),
-			}).Debug("new request")
+			}).Debug("Sending response to client")
 
 			// log all information about the request
 			web.LogRequestResponseAtTraceLevel(ctx, logger)

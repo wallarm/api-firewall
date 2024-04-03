@@ -41,7 +41,7 @@ func Denylist(options *DenylistOptions) web.Middleware {
 							"path":       string(ctx.Path()),
 							"method":     string(ctx.Request.Header.Method()),
 							"token":      token,
-						}).Info("the request with the API token has been blocked")
+						}).Info("The request with the API token has been blocked")
 						if strings.EqualFold(options.Mode, web.GraphQLMode) {
 							ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
 							return web.RespondGraphQLErrors(&ctx.Response, errAccessDenied)
@@ -61,7 +61,7 @@ func Denylist(options *DenylistOptions) web.Middleware {
 							"path":       string(ctx.Path()),
 							"method":     string(ctx.Request.Header.Method()),
 							"token":      token,
-						}).Info("the request with the API token has been blocked")
+						}).Info("The request with the API token has been blocked")
 						if strings.EqualFold(options.Mode, web.GraphQLMode) {
 							ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
 							return web.RespondGraphQLErrors(&ctx.Response, errAccessDenied)

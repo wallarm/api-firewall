@@ -13,6 +13,7 @@ type APIFWMode struct {
 type ProxyMode struct {
 	conf.Version
 	APIFWMode
+	ModSecurity
 	TLS       TLS
 	ShadowAPI ShadowAPI
 	Denylist  Denylist
@@ -37,8 +38,9 @@ type ProxyMode struct {
 type APIMode struct {
 	conf.Version
 	APIFWMode
-	TLS     TLS
+	ModSecurity
 	AllowIP AllowIP
+	TLS     TLS
 
 	SpecificationUpdatePeriod  time.Duration `conf:"default:1m,env:API_MODE_SPECIFICATION_UPDATE_PERIOD"`
 	PathToSpecDB               string        `conf:"env:API_MODE_DEBUG_PATH_DB"`
@@ -138,6 +140,11 @@ type Oauth struct {
 type ShadowAPI struct {
 	ExcludeList                []int `conf:"default:404,env:SHADOW_API_EXCLUDE_LIST" validate:"HttpStatusCodes"`
 	UnknownParametersDetection bool  `conf:"default:true,env:SHADOW_API_UNKNOWN_PARAMETERS_DETECTION"`
+}
+
+type ModSecurity struct {
+	ConfFiles []string `conf:"env:MODSEC_CONF_FILES"`
+	RulesDir  string   `conf:"env:MODSEC_RULES_DIR"`
 }
 
 type GraphQL struct {

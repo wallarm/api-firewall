@@ -487,6 +487,10 @@
           "200": {
             "description": "Redirect to cookie list",
             "content": {}
+          },
+          "302": {
+            "description": "A redirection.",
+            "content": {}
           }
         }
       }

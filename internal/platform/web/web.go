@@ -2,13 +2,12 @@ package web
 
 import (
 	"bytes"
-	"github.com/google/uuid"
 	"os"
 	"strings"
 	"syscall"
 
 	"github.com/fasthttp/router"
-	"github.com/savsgio/gotils/strconv"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 )
@@ -24,8 +23,9 @@ const (
 	ValidationBlock   = "block"
 	ValidationLog     = "log_only"
 
-	RequestProxyNoRoute    = "proxy_no_route"
+	RequestProxyNoChecks   = "proxy_request_no_checks"
 	RequestProxyFailed     = "proxy_failed"
+	RequestProxyNoRoute    = "proxy_no_route"
 	RequestBlocked         = "request_blocked"
 	ResponseBlocked        = "response_blocked"
 	ResponseStatusNotFound = "response_status_not_found"
@@ -35,7 +35,7 @@ const (
 	GraphQLMode = "graphql"
 
 	AnyMethod = "any"
-	RequestID = "request_id"
+	RequestID = "__wallarm_apifw_request_id"
 )
 
 // A Handler is a type that handles an http request within our own little mini
@@ -59,6 +59,7 @@ type AppAdditionalOptions struct {
 	RequestValidation     string
 	ResponseValidation    string
 	CustomBlockStatusCode int
+	OptionsHandler        fasthttp.RequestHandler
 }
 
 func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
@@ -85,7 +86,7 @@ func (a *App) SetDefaultBehavior(handler Handler, mw ...Middleware) {
 					"host":           string(ctx.Request.Header.Host()),
 					"path":           string(ctx.Path()),
 					"client_address": ctx.RemoteAddr(),
-				}).Info("request blocked")
+				}).Info("Path or method not found: request blocked")
 			}
 		}
 
@@ -115,6 +116,7 @@ func NewApp(options *AppAdditionalOptions, shutdown chan os.Signal, logger *logr
 	}
 
 	app.Router.HandleOPTIONS = options.PassOptions
+	app.Router.GlobalOPTIONS = options.OptionsHandler
 
 	return &app
 }
@@ -138,15 +140,6 @@ func (a *App) Handle(method string, path string, handler Handler, mw ...Middlewa
 		if err := handler(ctx); err != nil {
 			a.SignalShutdown()
 			return
-		}
-
-		// if pass request with OPTIONS method is enabled then log reques
-		if ctx.Response.StatusCode() == fasthttp.StatusOK && a.Options.PassOptions && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
-			a.Log.WithFields(logrus.Fields{
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"request_id": ctx.UserValue(RequestID),
-			}).Debug("pass request with OPTIONS method")
 		}
 	}
 

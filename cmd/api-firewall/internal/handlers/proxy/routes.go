@@ -1,12 +1,15 @@
 package proxy
 
 import (
+	"bytes"
 	"crypto/rsa"
 	"net/url"
 	"os"
 	"strings"
 
+	"github.com/corazawaf/coraza/v3"
 	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
 	"github.com/karlseguin/ccache/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
@@ -21,7 +24,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType) fasthttp.RequestHandler {
+func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -63,6 +66,33 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		}
 	}
 
+	// Define options Handler to handle requests with Options method
+	optionsHandler := func(ctx *fasthttp.RequestCtx) {
+
+		// Add request ID
+		ctx.SetUserValue(web.RequestID, uuid.NewString())
+
+		// Log request
+		logger.WithFields(logrus.Fields{
+			"host":           string(ctx.Request.Header.Host()),
+			"method":         bytes.NewBuffer(ctx.Request.Header.Method()).String(),
+			"path":           string(ctx.Path()),
+			"client_address": ctx.RemoteAddr(),
+			"request_id":     ctx.UserValue(web.RequestID),
+		}).Info("Pass request with OPTIONS method")
+
+		// Proxy request
+		if err := proxy.Perform(ctx, httpClientsPool); err != nil {
+			logger.WithFields(logrus.Fields{
+				"error":      err,
+				"host":       string(ctx.Request.Header.Host()),
+				"path":       string(ctx.Path()),
+				"method":     string(ctx.Request.Header.Method()),
+				"request_id": ctx.UserValue(web.RequestID),
+			}).Error("Error while proxying request")
+		}
+	}
+
 	// Construct the web.App which holds all routes as well as common Middleware.
 	options := web.AppAdditionalOptions{
 		Mode:                  cfg.Mode,
@@ -70,6 +100,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		RequestValidation:     cfg.RequestValidation,
 		ResponseValidation:    cfg.ResponseValidation,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
+		OptionsHandler:        optionsHandler,
 	}
 
 	proxyOptions := mid.ProxyOptions{
@@ -95,7 +126,16 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		Logger:                logger,
 	}
 
-	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.IPAllowlist(&ipAllowlistOptions), mid.Denylist(&denylistOptions), mid.Proxy(&proxyOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
+	modSecOptions := mid.ModSecurityOptions{
+		Mode:                  web.ProxyMode,
+		WAF:                   waf,
+		Logger:                logger,
+		RequestValidation:     cfg.RequestValidation,
+		ResponseValidation:    cfg.ResponseValidation,
+		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
+	}
+
+	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.IPAllowlist(&ipAllowlistOptions), mid.Denylist(&denylistOptions), mid.WAFModSecurity(&modSecOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
 
 	serverPath := "/"
 	if serverURL.Path != "" {

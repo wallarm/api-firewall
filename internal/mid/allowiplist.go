@@ -2,10 +2,10 @@ package mid
 
 import (
 	"errors"
-	"github.com/savsgio/gotils/strconv"
 	"net"
 	"strings"
 
+	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/config"

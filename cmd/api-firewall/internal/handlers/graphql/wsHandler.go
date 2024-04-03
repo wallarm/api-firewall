@@ -22,7 +22,7 @@ func closeWSConn(ctx *fasthttp.RequestCtx, logger *logrus.Logger, conn proxy.Web
 			"error":      err,
 			"protocol":   "websocket",
 			"request_id": ctx.UserValue(web.RequestID),
-		}).Debug("send close message")
+		}).Debug("Send close message")
 	}
 
 	if err := conn.Close(); err != nil {
@@ -30,7 +30,7 @@ func closeWSConn(ctx *fasthttp.RequestCtx, logger *logrus.Logger, conn proxy.Web
 			"error":      err,
 			"protocol":   "websocket",
 			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("closing connection")
+		}).Error("Closing connection")
 	}
 }
 
@@ -84,7 +84,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 								"error":      err,
 								"protocol":   "websocket",
 								"request_id": ctx.UserValue(web.RequestID),
-							}).Debug("read from client")
+							}).Debug("Read from client")
 						}
 
 						close(errClient)
@@ -102,7 +102,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 								"error":      err,
 								"protocol":   "websocket",
 								"request_id": ctx.UserValue(web.RequestID),
-							}).Debug("write to backend")
+							}).Debug("Write to backend")
 
 							close(errClient)
 							return
@@ -127,7 +127,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 									"error":      err,
 									"protocol":   "websocket",
 									"request_id": ctx.UserValue(web.RequestID),
-								}).Debug("write to backend")
+								}).Debug("Write to backend")
 
 								close(errClient)
 								return
@@ -137,8 +137,8 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 						continue
 					}
 
-					msgType := string(msg.Get("type").GetStringBytes())
-					msgID := string(msg.Get("id").GetStringBytes())
+					msgType := strconv.B2S(msg.Get("type").GetStringBytes())
+					msgID := strconv.B2S(msg.Get("id").GetStringBytes())
 
 					// Skip message types that do not contain payload
 					if msgType != "subscribe" && msgType != "start" {
@@ -147,7 +147,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 								"error":      err,
 								"protocol":   "websocket",
 								"request_id": ctx.UserValue(web.RequestID),
-							}).Debug("write to backend")
+							}).Debug("Write to backend")
 
 							close(errClient)
 							return
@@ -185,7 +185,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 									"error":      err,
 									"protocol":   "websocket",
 									"request_id": ctx.UserValue(web.RequestID),
-								}).Debug("write to client")
+								}).Debug("Write to client")
 							}
 
 							if err := clientConn.SendComplete(messageType, msgID); err != nil {
@@ -193,7 +193,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 									"error":      err,
 									"protocol":   "websocket",
 									"request_id": ctx.UserValue(web.RequestID),
-								}).Debug("write to client")
+								}).Debug("Write to client")
 							}
 							continue
 						}
@@ -203,7 +203,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 								"error":      err,
 								"protocol":   "websocket",
 								"request_id": ctx.UserValue(web.RequestID),
-							}).Debug("write to backend")
+							}).Debug("Write to backend")
 
 							close(errClient)
 							return
@@ -227,7 +227,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 									"error":      err,
 									"protocol":   "websocket",
 									"request_id": ctx.UserValue(web.RequestID),
-								}).Debug("write to client")
+								}).Debug("Write to client")
 							}
 
 							if err := clientConn.SendComplete(messageType, msgID); err != nil {
@@ -235,7 +235,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 									"error":      err,
 									"protocol":   "websocket",
 									"request_id": ctx.UserValue(web.RequestID),
-								}).Debug("write to client")
+								}).Debug("Write to client")
 							}
 							continue
 						}
@@ -247,7 +247,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 							"error":      err,
 							"protocol":   "websocket",
 							"request_id": ctx.UserValue(web.RequestID),
-						}).Debug("write to backend")
+						}).Debug("Write to backend")
 
 						close(errClient)
 						return
@@ -271,7 +271,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 							"error":      err,
 							"protocol":   "websocket",
 							"request_id": ctx.UserValue(web.RequestID),
-						}).Debug("read from backend")
+						}).Debug("Read from backend")
 
 						close(errBackend)
 						return
@@ -282,7 +282,7 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 							"error":      err,
 							"protocol":   "websocket",
 							"request_id": ctx.UserValue(web.RequestID),
-						}).Debug("write to client")
+						}).Debug("Write to client")
 
 						close(errBackend)
 						return

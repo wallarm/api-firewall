@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/corazawaf/coraza/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
@@ -21,6 +22,7 @@ type Updater interface {
 
 type Specification struct {
 	logger         *logrus.Logger
+	waf            coraza.WAF
 	sqlLiteStorage database.DBOpenAPILoader
 	stop           chan struct{}
 	updateTime     time.Duration
@@ -33,9 +35,10 @@ type Specification struct {
 }
 
 // NewController function defines configuration updater controller
-func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health, allowedIPCache *allowiplist.AllowedIPsType) Updater {
+func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) Updater {
 	return &Specification{
 		logger:         logger,
+		waf:            waf,
 		sqlLiteStorage: sqlLiteStorage,
 		stop:           make(chan struct{}),
 		updateTime:     cfg.SpecificationUpdatePeriod,
@@ -58,13 +61,13 @@ func (s *Specification) Run() {
 			// load new schemes
 			newSpecDB, err := s.Load()
 			if err != nil {
-				s.logger.WithFields(logrus.Fields{"error": err}).Error("updating OpenAPI specification")
+				s.logger.WithFields(logrus.Fields{"error": err}).Error("Updating OpenAPI specification")
 				continue
 			}
 
 			// do not downgrade the db version
 			if s.sqlLiteStorage.Version() > newSpecDB.Version() {
-				s.logger.Error("regular update checker: version of the new DB structure is lower then current one (V2)")
+				s.logger.Error("Regular update checker: version of the new DB structure is lower then current one (V2)")
 				continue
 			}
 
@@ -73,10 +76,10 @@ func (s *Specification) Run() {
 
 				s.lock.Lock()
 				s.sqlLiteStorage = newSpecDB
-				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache)
+				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache, s.waf)
 				s.health.OpenAPIDB = s.sqlLiteStorage
 				if err := s.sqlLiteStorage.AfterLoad(s.cfg.PathToSpecDB); err != nil {
-					s.logger.WithFields(logrus.Fields{"error": err}).Error("regular update checker: error in after specification loading function")
+					s.logger.WithFields(logrus.Fields{"error": err}).Error("Regular update checker: error in after specification loading function")
 				}
 				s.lock.Unlock()
 

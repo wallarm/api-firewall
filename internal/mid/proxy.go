@@ -54,7 +54,7 @@ func Proxy(options *ProxyOptions) web.Middleware {
 
 				if options.Mode == web.GraphQLMode {
 					// skip (not delete) ws required headers
-					if h == "Connection" && ctx.Request.Header.ConnectionUpgrade() { //strings.EqualFold(string(ctx.Request.Header.Peek("Connection")), "upgrade") {
+					if h == "Connection" && ctx.Request.Header.ConnectionUpgrade() {
 						continue
 					}
 					if h == "Upgrade" && strings.EqualFold(string(ctx.Request.Header.Peek("Upgrade")), "websocket") {

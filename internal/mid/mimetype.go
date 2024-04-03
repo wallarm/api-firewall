@@ -29,7 +29,7 @@ func MIMETypeIdentifier(logger *logrus.Logger) web.Middleware {
 							"path":       string(ctx.Path()),
 							"method":     string(ctx.Request.Header.Method()),
 							"request_id": ctx.UserValue(web.RequestID),
-						}).Error("request body decompression error")
+						}).Error("Request body decompression error")
 						return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
 					}
 					mtype, err := mimetype.DetectReader(body)
@@ -39,7 +39,7 @@ func MIMETypeIdentifier(logger *logrus.Logger) web.Middleware {
 							"path":       string(ctx.Path()),
 							"method":     string(ctx.Request.Header.Method()),
 							"request_id": ctx.UserValue(web.RequestID),
-						}).Error("schema version mismatch")
+						}).Error("Schema version mismatch")
 						return web.RespondError(ctx, fasthttp.StatusInternalServerError, "")
 					}
 

@@ -135,8 +135,12 @@ paths:
 			expectedErr: nil,
 			expectedResp: []*RequestUnknownParameterError{
 				{
-					Parameters: []string{"invalidCategory"},
-					Err:        ErrUnknownQueryParameter,
+					Parameters: []RequestParameterDetails{{
+						Name:        "invalidCategory",
+						Placeholder: "query",
+						Type:        "string",
+					}},
+					Message: ErrUnknownQueryParameter.Error(),
 				},
 			},
 		},
@@ -159,8 +163,12 @@ paths:
 			expectedErr: nil,
 			expectedResp: []*RequestUnknownParameterError{
 				{
-					Parameters: []string{"unknown"},
-					Err:        ErrUnknownQueryParameter,
+					Parameters: []RequestParameterDetails{{
+						Name:        "unknown",
+						Placeholder: "query",
+						Type:        "string",
+					}},
+					Message: ErrUnknownQueryParameter.Error(),
 				},
 			},
 		},
@@ -174,8 +182,12 @@ paths:
 			expectedErr: nil,
 			expectedResp: []*RequestUnknownParameterError{
 				{
-					Parameters: []string{"unknown"},
-					Err:        ErrUnknownBodyParameter,
+					Parameters: []RequestParameterDetails{{
+						Name:        "unknown",
+						Placeholder: "body",
+						Type:        "string",
+					}},
+					Message: ErrUnknownBodyParameter.Error(),
 				},
 			},
 		},
@@ -189,8 +201,12 @@ paths:
 			expectedErr: nil,
 			expectedResp: []*RequestUnknownParameterError{
 				{
-					Parameters: []string{"unknown"},
-					Err:        ErrUnknownBodyParameter,
+					Parameters: []RequestParameterDetails{{
+						Name:        "unknown",
+						Placeholder: "body",
+						Type:        "string",
+					}},
+					Message: ErrUnknownBodyParameter.Error(),
 				},
 			},
 		},
@@ -214,8 +230,17 @@ paths:
 			expectedErr: nil,
 			expectedResp: []*RequestUnknownParameterError{
 				{
-					Parameters: []string{"subCategory", "category"},
-					Err:        ErrUnknownBodyParameter,
+					Parameters: []RequestParameterDetails{{
+						Name:        "subCategory",
+						Placeholder: "body",
+						Type:        "string",
+					},
+						{
+							Name:        "category",
+							Placeholder: "body",
+							Type:        "string",
+						}},
+					Message: ErrUnknownBodyParameter.Error(),
 				},
 			},
 		},
@@ -229,8 +254,12 @@ paths:
 			expectedErr: nil,
 			expectedResp: []*RequestUnknownParameterError{
 				{
-					Parameters: []string{"subCategory"},
-					Err:        ErrUnknownBodyParameter,
+					Parameters: []RequestParameterDetails{{
+						Name:        "subCategory",
+						Placeholder: "body",
+						Type:        "string",
+					}},
+					Message: ErrUnknownBodyParameter.Error(),
 				},
 			},
 		},

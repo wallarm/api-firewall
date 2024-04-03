@@ -1,4 +1,4 @@
-VERSION := 0.6.17
+VERSION := 0.7.0
 
 .DEFAULT_GOAL := build
 
