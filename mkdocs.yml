@@ -87,6 +87,8 @@ nav:
     - GraphQL Limits Compliance: installation-guides/graphql/limit-compliance.md
     - WebSocket Origin Validation: installation-guides/graphql/websocket-origin-check.md
     - GraphQL Playground: installation-guides/graphql/playground.md
+  - Migrating from Other WAFs:
+    - Migrating from ModSecurity: migrating/modseс-to-apif.md
   - Additional Configuration:
     - Validating Request Authentication Tokens: configuration-guides/validate-tokens.md
     - Blocking Requests with Compromised Tokens: configuration-guides/denylist-leaked-tokens.md
