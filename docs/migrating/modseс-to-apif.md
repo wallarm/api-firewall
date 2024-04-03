@@ -12,22 +12,21 @@ Wallarm supports easy transitioning from ModSecurity to Wallarm's API Firewall: 
 
 API Firewall's ModSecurity Rules Support module allows parsing and applying ModSecurity rules (secLang) to the traffic. The module is implemented using the [Coraza](https://github.com/corazawaf/coraza) project.
 
-The module works in API and Proxy modes. In the [API](../installation-guides/api-mode.md) mode, only requests will are checked.
+The module works for REST API both in the [API](../installation-guides/api-mode.md) and [PROXY](../installation-guides/docker-container.md) modes. In the API mode, only requests are checked.
 
 Supported response actions: 
 
 * `drop`, `deny` - respond to the client by error message with APIFW_CUSTOM_BLOCK_STATUS_CODE code or status value (if configured in the rule).
 * `redirect` - responds by status code and target which were specified in the rule.
 
+GraphQL API is currently not supported.
+
 ## Running API Firewall on ModSecurity rules
 
 To run API Firewall on ModSecurity rules:
 
 1. Prepare ModSecurity configuration and rule files.
-1. Run API Firewall using the [ModSecurity configuration parameters](#modsecurity-configuration-parameters) to connect the prepared configuration and rule files:
-
-    * For REST API following the procedure described [here](../installation-guides/docker-container.md) 
-    * For GraphQL API following the procedure described [here](../installation-guides/graphql/docker-container.md)
+1. Run API Firewall for REST API as described [here](../installation-guides/docker-container.md) using the [ModSecurity configuration parameters](#modsecurity-configuration-parameters) to connect the prepared configuration and rule files.
 
 ### ModSecurity configuration parameters
 
@@ -36,9 +35,9 @@ To start API Firewall on ModSecurity rules, you will need the set of configurati
 * `APIFW_MODSEC_CONF_FILES`: allows to set the list of ModSecurity configuration files. The delimiter is ;. The default value is [] (empty). Example: `APIFW_MODSEC_CONF_FILES=modsec.conf;crs-setup.conf`
 * `APIFW_MODSEC_RULES_DIR`: allows to set the ModSecurity directory with the rules that should be loaded. The files with the following wildcard *.conf will be loaded from the dir. The default value is “”.
 
-### Example: Starting API Firewall on OWASP CRS
+### Example: Starting API Firewall on OWASP CRS with Coraza recommended configuration
 
-You can start API Firewall on [OWASP ModSecurity Core Rule Set (CRS)](https://owasp.org/www-project-modsecurity-core-rule-set/):
+You can start API Firewall on [OWASP ModSecurity Core Rule Set (CRS)](https://owasp.org/www-project-modsecurity-core-rule-set/) with Coraza [recommended configuration](https://github.com/corazawaf/coraza/blob/main/coraza.conf-recommended) (copy in included into API Firewall's `./resources/` folder):
 
 1. Clone the repo with the OWASP CRS:
 
@@ -51,13 +50,14 @@ You can start API Firewall on [OWASP ModSecurity Core Rule Set (CRS)](https://ow
     ```
     docker docker run --rm -it --network api-firewall-network --network-alias api-firewall \
         -v <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC> \
+        -v ./resources/coraza.conf-recommended:/opt/coraza.conf \
         -v ./coreruleset/:/opt/coreruleset/ \
         -e APIFW_API_SPECS=<CONTAINER_PATH_TO_SPEC> \
         -e APIFW_URL=<API_FIREWALL_URL> \
         -e APIFW_SERVER_URL=<PROTECTED_APP_URL> \
         -e APIFW_REQUEST_VALIDATION=BLOCK \
         -e APIFW_RESPONSE_VALIDATION=BLOCK \
-        -e APIFW_MODSEC_CONF_FILES=/opt/coreruleset/crs-setup.conf \
+        -e APIFW_MODSEC_CONF_FILES=/opt/coraza.conf;/opt/coreruleset/crs-setup.conf.example \
         -e APIFW_MODSEC_RULES_DIR=/opt/coreruleset/rules/ \
         -p 8088:8088 wallarm/api-firewall:v0.7.0
     ```
