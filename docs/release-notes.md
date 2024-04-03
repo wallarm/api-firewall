@@ -2,7 +2,7 @@
 
 This page describes new releases of Wallarm API Firewall.
 
-## v0.7.0 (2024-04-DD)
+## v0.7.0 (2024-04-03)
 
 * Added [ModSecurity rules support](migrating/modseс-to-apif.md) (based on the [Coraza](https://github.com/corazawaf/coraza) project)
 * Fixed processing issues for the requests with the OPTIONS method
