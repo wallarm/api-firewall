@@ -970,6 +970,18 @@ func RegisterBodyDecoder(contentType string, decoder BodyDecoder) {
 	bodyDecoders[contentType] = decoder
 }
 
+// RegisterBodyDecoderSuffix registers a request body's decoder for a content type suffix.
+// This call is not thread-safe: body decoders should not be created/destroyed by multiple goroutines.
+func RegisterBodyDecoderSuffix(suffix string, decoder BodyDecoder) {
+	if suffix == "" {
+		panic("content type suffix is empty")
+	}
+	if decoder == nil {
+		panic("decoder is not defined")
+	}
+	bodyDecoders[suffix] = decoder
+}
+
 // UnregisterBodyDecoder dissociates a body decoder from a content type.
 //
 // Decoding this content type will result in an error.
@@ -984,6 +996,29 @@ func UnregisterBodyDecoder(contentType string) {
 var headerCT = http.CanonicalHeaderKey("Content-Type")
 
 const prefixUnsupportedCT = "unsupported content type"
+
+// getBodyDecoder searches by media type or suffix and returns body decoder or error
+func getBodyDecoder(mediaType, suffix string) (BodyDecoder, error) {
+	var decoder BodyDecoder
+	var ok bool
+
+	if suffix != "" {
+		decoder, ok = bodyDecoders[suffix]
+		if ok {
+			return decoder, nil
+		}
+	}
+
+	decoder, ok = bodyDecoders[mediaType]
+	if !ok {
+		return nil, &ParseError{
+			Kind:   KindUnsupportedFormat,
+			Reason: fmt.Sprintf("%s %q", prefixUnsupportedCT, mediaType),
+		}
+	}
+
+	return decoder, nil
+}
 
 // decodeBody returns a decoded body.
 // The function returns ParseError when a body is invalid.
@@ -1000,18 +1035,17 @@ func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, 
 			if err != nil {
 				return "", nil, err
 			}
-			return parseMediaType(contentType), value, nil
+			mediaType, _ := parseMediaType(contentType)
+			return mediaType, value, nil
 		}
 	}
 
-	mediaType := parseMediaType(contentType)
-	decoder, ok := bodyDecoders[mediaType]
-	if !ok {
-		return "", nil, &ParseError{
-			Kind:   KindUnsupportedFormat,
-			Reason: fmt.Sprintf("%s %q", prefixUnsupportedCT, mediaType),
-		}
+	mediaType, suffix := parseMediaType(contentType)
+	decoder, err := getBodyDecoder(mediaType, suffix)
+	if err != nil {
+		return "", nil, err
 	}
+
 	value, err := decoder(body, header, schema, encFn, jsonParser)
 	if err != nil {
 		return "", nil, err
@@ -1020,6 +1054,13 @@ func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, 
 }
 
 func init() {
+	RegisterBodyDecoderSuffix("+json", jsonBodyDecoder)
+	RegisterBodyDecoderSuffix("+xml", xmlBodyDecoder)
+	RegisterBodyDecoderSuffix("+yaml", yamlBodyDecoder)
+	RegisterBodyDecoderSuffix("+csv", csvBodyDecoder)
+	RegisterBodyDecoderSuffix("+plain", plainBodyDecoder)
+	RegisterBodyDecoderSuffix("+zip", zipFileBodyDecoder)
+
 	RegisterBodyDecoder("application/json", jsonBodyDecoder)
 	RegisterBodyDecoder("application/xml", xmlBodyDecoder)
 	RegisterBodyDecoder("application/json-patch+json", jsonBodyDecoder)

@@ -1168,6 +1168,12 @@ func TestDecodeBody(t *testing.T) {
 			want: "foo",
 		},
 		{
+			name: "json-suffix",
+			mime: "application/test.content-type+json",
+			body: strings.NewReader("\"foo\""),
+			want: "foo",
+		},
+		{
 			name: "x-yaml",
 			mime: "application/x-yaml",
 			body: strings.NewReader("foo"),
@@ -1176,6 +1182,12 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "yaml",
 			mime: "application/yaml",
+			body: strings.NewReader("foo"),
+			want: "foo",
+		},
+		{
+			name: "yaml-suffix",
+			mime: "application/test.content-type+yaml",
 			body: strings.NewReader("foo"),
 			want: "foo",
 		},
