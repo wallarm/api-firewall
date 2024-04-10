@@ -23,7 +23,7 @@ type IPAllowListOptions struct {
 
 var errAccessDeniedIP = errors.New("access denied to this IP")
 
-// This function checks if an IP is allowed else gives error
+// The IPAllowlist function checks if an IP is allowed else gives error
 func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 
 	// This is the actual middleware function to be executed.

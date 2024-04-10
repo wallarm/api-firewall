@@ -1,29 +1,23 @@
-package web
+package api
 
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	strconv2 "strconv"
 	"strings"
 	"sync"
 	"syscall"
 
-	"github.com/fasthttp/router"
 	"github.com/google/uuid"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpadaptor"
+	"github.com/wallarm/api-firewall/internal/platform/chi"
 	"github.com/wallarm/api-firewall/internal/platform/database"
-)
-
-const (
-	APIModePostfixStatusCode       = "_status_code"
-	APIModePostfixValidationErrors = "_validation_errors"
-
-	GlobalResponseStatusCodeKey = "global_response_status_code"
-
-	RequestSchemaID = "__wallarm_apifw_request_schema_id"
+	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
 var (
@@ -31,81 +25,30 @@ var (
 	statusInternalError = fasthttp.StatusInternalServerError
 )
 
-type FieldTypeError struct {
-	Name         string `json:"name"`
-	ExpectedType string `json:"expected_type,omitempty"`
-	Pattern      string `json:"pattern,omitempty"`
-	CurrentValue string `json:"current_value,omitempty"`
-}
-
-type ValidationError struct {
-	Message       string           `json:"message"`
-	Code          string           `json:"code"`
-	SchemaVersion string           `json:"schema_version,omitempty"`
-	SchemaID      *int             `json:"schema_id"`
-	Fields        []string         `json:"related_fields,omitempty"`
-	FieldsDetails []FieldTypeError `json:"related_fields_details,omitempty"`
-}
-
-type APIModeResponseSummary struct {
-	SchemaID   *int `json:"schema_id"`
-	StatusCode *int `json:"status_code"`
-}
-
-type APIModeResponse struct {
-	Summary []*APIModeResponseSummary `json:"summary"`
-	Errors  []*ValidationError        `json:"errors,omitempty"`
-}
-
 // APIModeApp is the entrypoint into our application and what configures our context
 // object for each of our http handlers. Feel free to add any configuration
 // data/logic on this App struct
 type APIModeApp struct {
-	Routers     map[int]*router.Router
+	Routers     map[int]*chi.Mux
 	Log         *logrus.Logger
 	passOPTIONS bool
 	shutdown    chan os.Signal
-	mw          []Middleware
+	mw          []web.Middleware
 	storedSpecs database.DBOpenAPILoader
 	lock        *sync.RWMutex
 }
 
-func (a *APIModeApp) SetDefaultBehavior(schemaID int, handler Handler, mw ...Middleware) {
-	// First wrap handler specific middleware around this handler.
-	handler = wrapMiddleware(mw, handler)
-
-	// Add the application's general middleware to the handler chain.
-	handler = wrapMiddleware(a.mw, handler)
-
-	customHandler := func(ctx *fasthttp.RequestCtx) {
-
-		// Add request ID
-		ctx.SetUserValue(RequestID, uuid.NewString())
-
-		if err := handler(ctx); err != nil {
-			a.SignalShutdown()
-			return
-		}
-
-	}
-
-	// Set NOT FOUND behavior
-	a.Routers[schemaID].NotFound = customHandler
-
-	// Set Method Not Allowed behavior
-	a.Routers[schemaID].MethodNotAllowed = customHandler
-}
-
 // NewAPIModeApp creates an APIModeApp value that handle a set of routes for the set of application.
-func NewAPIModeApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DBOpenAPILoader, shutdown chan os.Signal, logger *logrus.Logger, mw ...Middleware) *APIModeApp {
+func NewAPIModeApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DBOpenAPILoader, shutdown chan os.Signal, logger *logrus.Logger, mw ...web.Middleware) *APIModeApp {
 
 	schemaIDs := storedSpecs.SchemaIDs()
 
 	// Init routers
-	routers := make(map[int]*router.Router)
+	routers := make(map[int]*chi.Mux)
 	for _, schemaID := range schemaIDs {
-		routers[schemaID] = router.New()
-		routers[schemaID].HandleOPTIONS = passOPTIONS
+		//routers[schemaID] = make(map[string]*mux.Router)
+		routers[schemaID] = chi.NewRouter()
+		//routers[schemaID].HandleOPTIONS = passOPTIONS
 	}
 
 	app := APIModeApp{
@@ -123,25 +66,26 @@ func NewAPIModeApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DB
 
 // Handle is our mechanism for mounting Handlers for a given HTTP verb and path
 // pair, this makes for really easy, convenient routing.
-func (a *APIModeApp) Handle(schemaID int, method string, path string, handler Handler, mw ...Middleware) {
+func (a *APIModeApp) Handle(schemaID int, method string, path string, handler web.Handler, mw ...web.Middleware) {
 
 	// First wrap handler specific middleware around this handler.
-	handler = wrapMiddleware(mw, handler)
+	handler = web.WrapMiddleware(mw, handler)
 
 	// Add the application's general middleware to the handler chain.
-	handler = wrapMiddleware(a.mw, handler)
+	handler = web.WrapMiddleware(a.mw, handler)
 
 	// The function to execute for each request.
-	h := func(ctx *fasthttp.RequestCtx) {
+	h := func(ctx *fasthttp.RequestCtx) error {
 
 		if err := handler(ctx); err != nil {
 			a.SignalShutdown()
-			return
+			return err
 		}
+		return nil
 	}
 
 	// Add this handler for the specified verb and route.
-	a.Routers[schemaID].Handle(method, path, h)
+	a.Routers[schemaID].AddEndpoint(method, path, h)
 }
 
 // getWallarmSchemaID returns lists of found schema IDs in the DB, not found schema IDs in the DB and errors
@@ -152,7 +96,7 @@ func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPI
 	}
 
 	// Get Wallarm Schema ID
-	xWallarmSchemaIDsStr := string(ctx.Request.Header.Peek(XWallarmSchemaIDHeader))
+	xWallarmSchemaIDsStr := string(ctx.Request.Header.Peek(web.XWallarmSchemaIDHeader))
 	if xWallarmSchemaIDsStr == "" {
 		return nil, nil, errors.New("required X-WALLARM-SCHEMA-ID header is missing")
 	}
@@ -184,43 +128,31 @@ func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPI
 	return
 }
 
-// APIModeHandler routes request to the appropriate handler according to the OpenAPI specification schema ID
-func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
+// APIModeRouteHandler routes request to the appropriate handler according to the OpenAPI specification schema ID
+func (a *APIModeApp) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 
 	// Add request ID
-	ctx.SetUserValue(RequestID, uuid.NewString())
-
-	defer func() {
-		// If pass request with OPTIONS method is enabled then log request
-		if ctx.Response.StatusCode() == fasthttp.StatusOK && a.passOPTIONS && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
-			a.Log.WithFields(logrus.Fields{
-				"request_id": ctx.UserValue(RequestID),
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
-			}).Info("Pass request with OPTIONS method")
-		}
-	}()
+	ctx.SetUserValue(web.RequestID, uuid.NewString())
 
 	schemaIDs, notFoundSchemaIDs, err := getWallarmSchemaID(ctx, a.storedSpecs)
 	if err != nil {
-		defer LogRequestResponseAtTraceLevel(ctx, a.Log)
+		defer web.LogRequestResponseAtTraceLevel(ctx, a.Log)
 
 		a.Log.WithFields(logrus.Fields{
 			"error":      err,
 			"host":       string(ctx.Request.Header.Host()),
 			"path":       string(ctx.Path()),
 			"method":     string(ctx.Request.Header.Method()),
-			"request_id": ctx.UserValue(RequestID),
+			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("error while getting schema ID")
 
-		if err := RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
+		if err := web.RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
 			a.Log.WithFields(logrus.Fields{
 				"error":      err,
 				"host":       string(ctx.Request.Header.Host()),
 				"path":       string(ctx.Path()),
 				"method":     string(ctx.Request.Header.Method()),
-				"request_id": ctx.UserValue(RequestID),
+				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("error while sending response")
 		}
 
@@ -228,34 +160,92 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Delete internal header
-	ctx.Request.Header.Del(XWallarmSchemaIDHeader)
+	ctx.Request.Header.Del(web.XWallarmSchemaIDHeader)
 
 	a.lock.RLock()
 	defer a.lock.RUnlock()
+	//w := NewFastHTTPResponseAdapter(ctx)
 
 	// Validate requests against list of schemas
-	for _, schemaID := range schemaIDs {
+	for _, sID := range schemaIDs {
+		schemaID := sID
 		// Save schema IDs
-		ctx.SetUserValue(RequestSchemaID, strconv2.Itoa(schemaID))
-		a.Routers[schemaID].Handler(ctx)
+		ctx.SetUserValue(web.RequestSchemaID, strconv2.Itoa(schemaID))
+		var r http.Request
+		if err := fasthttpadaptor.ConvertRequest(ctx, &r, true); err != nil {
+			a.Log.WithFields(logrus.Fields{
+				"error":      err,
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
+				"request_id": ctx.UserValue(web.RequestID),
+			}).Error("error converting request")
+			return
+		}
+
+		// find the handler with the OAS information
+		rctx := chi.NewRouteContext()
+		handler := a.Routers[schemaID].Find(rctx, strconv.B2S(ctx.Method()), strconv.B2S(ctx.Request.URI().Path()))
+
+		// handler not found in the OAS
+		if handler == nil {
+			keyValidationErrors := strconv2.Itoa(schemaID) + web.APIModePostfixValidationErrors
+			keyStatusCode := strconv2.Itoa(schemaID) + web.APIModePostfixStatusCode
+
+			// OPTIONS methods are passed if the passOPTIONS is set to true
+			if a.passOPTIONS == true && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
+				ctx.SetUserValue(keyStatusCode, fasthttp.StatusOK)
+				a.Log.WithFields(logrus.Fields{
+					"host":       strconv.B2S(ctx.Request.Header.Host()),
+					"path":       strconv.B2S(ctx.Path()),
+					"method":     strconv.B2S(ctx.Request.Header.Method()),
+					"request_id": ctx.UserValue(web.RequestID),
+				}).Debug("Pass request with OPTIONS method")
+				continue
+			}
+
+			// Method or Path were not found
+			a.Log.WithFields(logrus.Fields{
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
+				"request_id": ctx.UserValue(web.RequestID),
+			}).Debug("Method or path were not found")
+			ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: &schemaID}})
+			ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
+			continue
+		}
+
+		// add router context to get URL params in the Handler
+		ctx.SetUserValue(chi.RouteCtxKey, rctx)
+
+		if err := handler(ctx); err != nil {
+			a.Log.WithFields(logrus.Fields{
+				"error":      err,
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
+				"request_id": ctx.UserValue(web.RequestID),
+			}).Error("error in the request handler")
+		}
 	}
 
-	responseSummary := make([]*APIModeResponseSummary, 0, len(schemaIDs))
-	responseErrors := make([]*ValidationError, 0)
+	responseSummary := make([]*web.APIModeResponseSummary, 0, len(schemaIDs))
+	responseErrors := make([]*web.ValidationError, 0)
 
 	for i := 0; i < len(schemaIDs); i++ {
 
-		if statusCode, ok := ctx.UserValue(GlobalResponseStatusCodeKey).(int); ok {
+		if statusCode, ok := ctx.UserValue(web.GlobalResponseStatusCodeKey).(int); ok {
 			ctx.Response.Header.Reset()
 			ctx.Response.Header.SetStatusCode(statusCode)
 			return
 		}
 
-		statusCode, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + APIModePostfixStatusCode).(int)
+		statusCode, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + web.APIModePostfixStatusCode).(int)
 		if !ok {
 			// set summary for the schema ID in pass Options mode
 			if a.passOPTIONS && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
-				responseSummary = append(responseSummary, &APIModeResponseSummary{
+				responseSummary = append(responseSummary, &web.APIModeResponseSummary{
 					SchemaID:   &schemaIDs[i],
 					StatusCode: &statusOK,
 				})
@@ -268,19 +258,19 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 			statusCode = fasthttp.StatusInternalServerError
 		}
 
-		responseSummary = append(responseSummary, &APIModeResponseSummary{
+		responseSummary = append(responseSummary, &web.APIModeResponseSummary{
 			SchemaID:   &schemaIDs[i],
 			StatusCode: &statusCode,
 		})
 
-		if validationErrors, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + APIModePostfixValidationErrors).([]*ValidationError); ok && validationErrors != nil {
+		if validationErrors, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + web.APIModePostfixValidationErrors).([]*web.ValidationError); ok && validationErrors != nil {
 			responseErrors = append(responseErrors, validationErrors...)
 		}
 	}
 
 	// Add schema IDs that were not found in the DB to the response
 	for i := 0; i < len(notFoundSchemaIDs); i++ {
-		responseSummary = append(responseSummary, &APIModeResponseSummary{
+		responseSummary = append(responseSummary, &web.APIModeResponseSummary{
 			SchemaID:   &notFoundSchemaIDs[i],
 			StatusCode: &statusInternalError,
 		})
@@ -294,9 +284,9 @@ func (a *APIModeApp) APIModeHandler(ctx *fasthttp.RequestCtx) {
 		ctx.Request.Header.SetMethod(fasthttp.MethodGet)
 	}
 
-	if err := Respond(ctx, APIModeResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
+	if err := web.Respond(ctx, web.APIModeResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
 		a.Log.WithFields(logrus.Fields{
-			"request_id": ctx.UserValue(RequestID),
+			"request_id": ctx.UserValue(web.RequestID),
 			"host":       string(ctx.Request.Header.Host()),
 			"path":       string(ctx.Path()),
 			"method":     string(ctx.Request.Header.Method()),

@@ -28,9 +28,13 @@ type CustomRoute struct {
 // If the given Swagger has servers, router will use them.
 // All operations of the Swagger will be added to the router.
 func NewRouter(doc *openapi3.T) (*Router, error) {
-	if err := doc.Validate(context.Background()); err != nil {
+	if err := doc.Validate(
+		context.Background(),
+		openapi3.DisableExamplesValidation(),
+	); err != nil {
 		return nil, fmt.Errorf("validating OpenAPI failed: %v", err)
 	}
+
 	var router Router
 
 	for path, pathItem := range doc.Paths {

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/wallarm/api-firewall/internal/platform/chi"
 	"net/http"
 	strconv2 "strconv"
 	"strings"
@@ -106,11 +107,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	var pathParams map[string]string
 
 	if s.CustomRoute.ParametersNumberInPath > 0 {
-		pathParams = make(map[string]string)
-
-		ctx.VisitUserValues(func(key []byte, value interface{}) {
-			pathParams[strconv.B2S(key)] = value.(string)
-		})
+		pathParams = chi.AllURLParams(ctx)
 	}
 
 	// Convert fasthttp request to net/http request
