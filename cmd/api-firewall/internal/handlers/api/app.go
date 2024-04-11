@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"runtime/debug"
 	strconv2 "strconv"
 	"strings"
 	"sync"
@@ -66,7 +67,7 @@ func NewAPIModeApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DB
 
 // Handle is our mechanism for mounting Handlers for a given HTTP verb and path
 // pair, this makes for really easy, convenient routing.
-func (a *APIModeApp) Handle(schemaID int, method string, path string, handler web.Handler, mw ...web.Middleware) {
+func (a *APIModeApp) Handle(schemaID int, method string, path string, handler web.Handler, mw ...web.Middleware) error {
 
 	// First wrap handler specific middleware around this handler.
 	handler = web.WrapMiddleware(mw, handler)
@@ -85,7 +86,10 @@ func (a *APIModeApp) Handle(schemaID int, method string, path string, handler we
 	}
 
 	// Add this handler for the specified verb and route.
-	a.Routers[schemaID].AddEndpoint(method, path, h)
+	if err := a.Routers[schemaID].AddEndpoint(method, path, h); err != nil {
+		return err
+	}
+	return nil
 }
 
 // getWallarmSchemaID returns lists of found schema IDs in the DB, not found schema IDs in the DB and errors
@@ -130,6 +134,17 @@ func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPI
 
 // APIModeRouteHandler routes request to the appropriate handler according to the OpenAPI specification schema ID
 func (a *APIModeApp) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
+
+	// handle panic
+	defer func() {
+		if r := recover(); r != nil {
+			a.Log.Errorf("panic: %v", r)
+
+			// Log the Go stack trace for this panic'd goroutine.
+			a.Log.Debugf("%s", debug.Stack())
+			return
+		}
+	}()
 
 	// Add request ID
 	ctx.SetUserValue(web.RequestID, uuid.NewString())

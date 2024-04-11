@@ -14,7 +14,7 @@ type Router interface {
 
 	// AddEndpoint adds routes for `pattern` that matches
 	// the `method` HTTP method.
-	AddEndpoint(method, pattern string, handler web.Handler)
+	AddEndpoint(method, pattern string, handler web.Handler) error
 }
 
 // Routes interface adds two methods for router traversal, which is also

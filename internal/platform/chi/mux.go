@@ -26,12 +26,17 @@ func NewMux() *Mux {
 
 // AddEndpoint adds the route `pattern` that matches `method` http method to
 // execute the `handler` web.Handler.
-func (mx *Mux) AddEndpoint(method, pattern string, handler web.Handler) {
+func (mx *Mux) AddEndpoint(method, pattern string, handler web.Handler) error {
 	m, ok := methodMap[strings.ToUpper(method)]
 	if !ok {
-		panic(fmt.Sprintf("chi: '%s' http method is not supported.", method))
+		return fmt.Errorf("'%s' http method is not supported", method)
 	}
-	mx.handle(m, pattern, handler)
+
+	if _, err := mx.handle(m, pattern, handler); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Routes returns a slice of routing information from the tree,
@@ -58,9 +63,9 @@ func (mx *Mux) Find(rctx *Context, method, path string) web.Handler {
 
 // handle registers a web.Handler in the routing tree for a particular http method
 // and routing pattern.
-func (mx *Mux) handle(method methodTyp, pattern string, handler web.Handler) *node {
+func (mx *Mux) handle(method methodTyp, pattern string, handler web.Handler) (*node, error) {
 	if len(pattern) == 0 || pattern[0] != '/' {
-		panic(fmt.Sprintf("chi: routing pattern must begin with '/' in '%s'", pattern))
+		return nil, fmt.Errorf("routing pattern must begin with '/' in '%s'", pattern)
 	}
 
 	// Add the endpoint to the tree and return the node

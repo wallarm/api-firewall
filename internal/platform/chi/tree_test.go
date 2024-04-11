@@ -34,46 +34,110 @@ func TestTree(t *testing.T) {
 
 	tr := &node{}
 
-	tr.InsertRoute(mGET, "/", hIndex)
-	tr.InsertRoute(mGET, "/favicon.ico", hFavicon)
+	if _, err := tr.InsertRoute(mGET, "/", hIndex); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/favicon.ico", hFavicon); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.InsertRoute(mGET, "/pages/*", hStub)
+	if _, err := tr.InsertRoute(mGET, "/pages/*", hStub); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.InsertRoute(mGET, "/article", hArticleList)
-	tr.InsertRoute(mGET, "/article/", hArticleList)
+	if _, err := tr.InsertRoute(mGET, "/article", hArticleList); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/article/", hArticleList); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.InsertRoute(mGET, "/article/near", hArticleNear)
-	tr.InsertRoute(mGET, "/article/{id}", hStub)
-	tr.InsertRoute(mGET, "/article/{id}", hArticleShow)
-	tr.InsertRoute(mGET, "/article/{id}", hArticleShow) // duplicate will have no effect
-	tr.InsertRoute(mGET, "/article/@{user}", hArticleByUser)
+	if _, err := tr.InsertRoute(mGET, "/article/near", hArticleNear); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/article/{id}", hStub); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/article/{id}", hArticleShow); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/article/{id}", hArticleShow); err != nil {
+		t.Fatal(err)
+	} // duplicate will have no effect
 
-	tr.InsertRoute(mGET, "/article/{sup}/{opts}", hArticleShowOpts)
-	tr.InsertRoute(mGET, "/article/{id}/{opts}", hArticleShowOpts) // overwrite above route, latest wins
+	if _, err := tr.InsertRoute(mGET, "/article/@{user}", hArticleByUser); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.InsertRoute(mGET, "/article/{iffd}/edit", hStub)
-	tr.InsertRoute(mGET, "/article/{id}//related", hArticleShowRelated)
-	tr.InsertRoute(mGET, "/article/slug/{month}/-/{day}/{year}", hArticleSlug)
+	if _, err := tr.InsertRoute(mGET, "/article/{sup}/{opts}", hArticleShowOpts); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/article/{id}/{opts}", hArticleShowOpts); err != nil {
+		t.Fatal(err)
+	} // overwrite above route, latest wins
 
-	tr.InsertRoute(mGET, "/admin/user", hUserList)
-	tr.InsertRoute(mGET, "/admin/user/", hStub) // will get replaced by next route
-	tr.InsertRoute(mGET, "/admin/user/", hUserList)
+	if _, err := tr.InsertRoute(mGET, "/article/{iffd}/edit", hStub); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/article/{id}//related", hArticleShowRelated); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/article/slug/{month}/-/{day}/{year}", hArticleSlug); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.InsertRoute(mGET, "/admin/user//{id}", hUserShow)
-	tr.InsertRoute(mGET, "/admin/user/{id}", hUserShow)
+	if _, err := tr.InsertRoute(mGET, "/admin/user", hUserList); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/admin/user/", hStub); err != nil {
+		t.Fatal(err)
+	} // will get replaced by next route
 
-	tr.InsertRoute(mGET, "/admin/apps/{id}", hAdminAppShow)
-	tr.InsertRoute(mGET, "/admin/apps/{id}/*", hAdminAppShowCatchall)
+	if _, err := tr.InsertRoute(mGET, "/admin/user/", hUserList); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.InsertRoute(mGET, "/admin/*", hStub) // catchall segment will get replaced by next route
-	tr.InsertRoute(mGET, "/admin/*", hAdminCatchall)
+	if _, err := tr.InsertRoute(mGET, "/admin/user//{id}", hUserShow); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/admin/user/{id}", hUserShow); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.InsertRoute(mGET, "/users/{userID}/profile", hUserProfile)
-	tr.InsertRoute(mGET, "/users/super/*", hUserSuper)
-	tr.InsertRoute(mGET, "/users/*", hUserAll)
+	if _, err := tr.InsertRoute(mGET, "/admin/apps/{id}", hAdminAppShow); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/admin/apps/{id}/*", hAdminAppShowCatchall); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.InsertRoute(mGET, "/hubs/{hubID}/view", hHubView1)
-	tr.InsertRoute(mGET, "/hubs/{hubID}/view/*", hHubView2)
+	if _, err := tr.InsertRoute(mGET, "/admin/*", hStub); err != nil {
+		t.Fatal(err)
+	} // catchall segment will get replaced by next route
+
+	if _, err := tr.InsertRoute(mGET, "/admin/*", hAdminCatchall); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := tr.InsertRoute(mGET, "/users/{userID}/profile", hUserProfile); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/users/super/*", hUserSuper); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/users/*", hUserAll); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := tr.InsertRoute(mGET, "/hubs/{hubID}/view", hHubView1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/hubs/{hubID}/view/*", hHubView2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/hubs/{hubID}/users", hHubView3); err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		r string      // input request path
@@ -173,21 +237,51 @@ func TestTreeMoar(t *testing.T) {
 
 	tr := &node{}
 
-	tr.InsertRoute(mGET, "/articlefun", hStub5)
-	tr.InsertRoute(mGET, "/articles/{id}", hStub)
-	tr.InsertRoute(mDELETE, "/articles/{slug}", hStub8)
-	tr.InsertRoute(mGET, "/articles/search", hStub1)
-	tr.InsertRoute(mGET, "/articles/{id}:delete", hStub8)
-	tr.InsertRoute(mGET, "/articles/{iidd}!sup", hStub4)
-	tr.InsertRoute(mGET, "/articles/{id}:{op}", hStub3)
-	tr.InsertRoute(mGET, "/articles/{id}:{op}", hStub2)                              // this route sets a new handler for the above route
-	tr.InsertRoute(mGET, "/articles/{slug:^[a-z]+}/posts", hStub)                    // up to tail '/' will only match if contents match the rex
-	tr.InsertRoute(mGET, "/articles/{id}/posts/{pid}", hStub6)                       // /articles/123/posts/1
-	tr.InsertRoute(mGET, "/articles/{id}/posts/{month}/{day}/{year}/{slug}", hStub7) // /articles/123/posts/09/04/1984/juice
-	tr.InsertRoute(mGET, "/articles/{id}.json", hStub10)
-	tr.InsertRoute(mGET, "/articles/{id}/data.json", hStub11)
-	tr.InsertRoute(mGET, "/articles/files/{file}.{ext}", hStub12)
-	tr.InsertRoute(mPUT, "/articles/me", hStub13)
+	if _, err := tr.InsertRoute(mGET, "/articlefun", hStub5); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id}", hStub); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mDELETE, "/articles/{slug}", hStub8); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/search", hStub1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id}:delete", hStub8); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{iidd}!sup", hStub4); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id}:{op}", hStub3); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id}:{op}", hStub2); err != nil {
+		t.Fatal(err) // this route sets a new handler for the above route
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{slug:^[a-z]+}/posts", hStub); err != nil { // up to tail '/' will only match if contents match the rex
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id}/posts/{pid}", hStub6); err != nil { // /articles/123/posts/1
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id}/posts/{month}/{day}/{year}/{slug}", hStub7); err != nil { // /articles/123/posts/09/04/1984/juice
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id}.json", hStub10); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id}/data.json", hStub11); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/files/{file}.{ext}", hStub12); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mPUT, "/articles/me", hStub13); err != nil {
+		t.Fatal(err)
+	}
 
 	// TODO: make a separate test case for this one..
 	// tr.InsertRoute(mGET, "/articles/{id}/{id}", hStub1)                              // panic expected, we're duplicating param keys
@@ -275,13 +369,27 @@ func TestTreeRegexp(t *testing.T) {
 	hStub7 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	tr := &node{}
-	tr.InsertRoute(mGET, "/articles/{rid:^[0-9]{5,6}}", hStub7)
-	tr.InsertRoute(mGET, "/articles/{zid:^0[0-9]+}", hStub3)
-	tr.InsertRoute(mGET, "/articles/{name:^@[a-z]+}/posts", hStub4)
-	tr.InsertRoute(mGET, "/articles/{op:^[0-9]+}/run", hStub5)
-	tr.InsertRoute(mGET, "/articles/{id:^[0-9]+}", hStub1)
-	tr.InsertRoute(mGET, "/articles/{id:^[1-9]+}-{aux}", hStub6)
-	tr.InsertRoute(mGET, "/articles/{slug}", hStub2)
+	if _, err := tr.InsertRoute(mGET, "/articles/{rid:^[0-9]{5,6}}", hStub7); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{zid:^0[0-9]+}", hStub3); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{name:^@[a-z]+}/posts", hStub4); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{op:^[0-9]+}/run", hStub5); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id:^[0-9]+}", hStub1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id:^[1-9]+}-{aux}", hStub6); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{slug}", hStub2); err != nil {
+		t.Fatal(err)
+	}
 
 	// log.Println("~~~~~~~~~")
 	// log.Println("~~~~~~~~~")
@@ -336,8 +444,12 @@ func TestTreeRegexpRecursive(t *testing.T) {
 	hStub2 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	tr := &node{}
-	tr.InsertRoute(mGET, "/one/{firstId:[a-z0-9-]+}/{secondId:[a-z0-9-]+}/first", hStub1)
-	tr.InsertRoute(mGET, "/one/{firstId:[a-z0-9-_]+}/{secondId:[a-z0-9-_]+}/second", hStub2)
+	if _, err := tr.InsertRoute(mGET, "/one/{firstId:[a-z0-9-]+}/{secondId:[a-z0-9-]+}/first", hStub1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/one/{firstId:[a-z0-9-_]+}/{secondId:[a-z0-9-_]+}/second", hStub2); err != nil {
+		t.Fatal(err)
+	}
 
 	// log.Println("~~~~~~~~~")
 	// log.Println("~~~~~~~~~")
@@ -387,9 +499,15 @@ func TestTreeRegexMatchWholeParam(t *testing.T) {
 
 	rctx := NewRouteContext()
 	tr := &node{}
-	tr.InsertRoute(mGET, "/{id:[0-9]+}", hStub1)
-	tr.InsertRoute(mGET, "/{x:.+}/foo", hStub1)
-	tr.InsertRoute(mGET, "/{param:[0-9]*}/test", hStub1)
+	if _, err := tr.InsertRoute(mGET, "/{id:[0-9]+}", hStub1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/{x:.+}/foo", hStub1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/{param:[0-9]*}/test", hStub1); err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		expectedHandler web.Handler
@@ -418,27 +536,33 @@ func TestTreeFindPattern(t *testing.T) {
 	hStub3 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	tr := &node{}
-	tr.InsertRoute(mGET, "/pages/*", hStub1)
-	tr.InsertRoute(mGET, "/articles/{id}/*", hStub2)
-	tr.InsertRoute(mGET, "/articles/{slug}/{uid}/*", hStub3)
+	if _, err := tr.InsertRoute(mGET, "/pages/*", hStub1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{id}/*", hStub2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/articles/{slug}/{uid}/*", hStub3); err != nil {
+		t.Fatal(err)
+	}
 
-	if tr.findPattern("/pages") != false {
-		t.Errorf("find /pages failed")
+	if ok, err := tr.findPattern("/pages"); ok != false {
+		t.Errorf("find /pages failed: %v", err)
 	}
-	if tr.findPattern("/pages*") != false {
-		t.Errorf("find /pages* failed - should be nil")
+	if ok, err := tr.findPattern("/pages*"); ok != false {
+		t.Errorf("find /pages* failed - should be nil: %v", err)
 	}
-	if tr.findPattern("/pages/*") == false {
-		t.Errorf("find /pages/* failed")
+	if ok, err := tr.findPattern("/pages/*"); ok == false {
+		t.Errorf("find /pages/* failed: %v", err)
 	}
-	if tr.findPattern("/articles/{id}/*") == false {
-		t.Errorf("find /articles/{id}/* failed")
+	if ok, err := tr.findPattern("/articles/{id}/*"); ok == false {
+		t.Errorf("find /articles/{id}/* failed: %v", err)
 	}
-	if tr.findPattern("/articles/{something}/*") == false {
-		t.Errorf("find /articles/{something}/* failed")
+	if ok, err := tr.findPattern("/articles/{something}/*"); ok == false {
+		t.Errorf("find /articles/{something}/* failed: %v", err)
 	}
-	if tr.findPattern("/articles/{slug}/{uid}/*") == false {
-		t.Errorf("find /articles/{slug}/{uid}/* failed")
+	if ok, err := tr.findPattern("/articles/{slug}/{uid}/*"); ok == false {
+		t.Errorf("find /articles/{slug}/{uid}/* failed: %v", err)
 	}
 }
 
@@ -448,11 +572,6 @@ func debugPrintTree(parent int, i int, n *node, label byte) bool {
 		numEdges += len(nds)
 	}
 
-	// if n.handlers != nil {
-	// 	log.Printf("[node %d parent:%d] typ:%d prefix:%s label:%s tail:%s numEdges:%d isLeaf:%v handler:%v pat:%s keys:%v\n", i, parent, n.typ, n.prefix, string(label), string(n.tail), numEdges, n.isLeaf(), n.handlers, n.pattern, n.paramKeys)
-	// } else {
-	// 	log.Printf("[node %d parent:%d] typ:%d prefix:%s label:%s tail:%s numEdges:%d isLeaf:%v pat:%s keys:%v\n", i, parent, n.typ, n.prefix, string(label), string(n.tail), numEdges, n.isLeaf(), n.pattern, n.paramKeys)
-	// }
 	if n.endpoints != nil {
 		log.Printf("[node %d parent:%d] typ:%d prefix:%s label:%s tail:%s numEdges:%d isLeaf:%v handler:%v\n", i, parent, n.typ, n.prefix, string(label), string(n.tail), numEdges, n.isLeaf(), n.endpoints)
 	} else {
@@ -487,14 +606,30 @@ func BenchmarkTreeGet(b *testing.B) {
 	h2 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	tr := &node{}
-	tr.InsertRoute(mGET, "/", h1)
-	tr.InsertRoute(mGET, "/ping", h2)
-	tr.InsertRoute(mGET, "/pingall", h2)
-	tr.InsertRoute(mGET, "/ping/{id}", h2)
-	tr.InsertRoute(mGET, "/ping/{id}/woop", h2)
-	tr.InsertRoute(mGET, "/ping/{id}/{opt}", h2)
-	tr.InsertRoute(mGET, "/pinggggg", h2)
-	tr.InsertRoute(mGET, "/hello", h1)
+	if _, err := tr.InsertRoute(mGET, "/", h1); err != nil {
+		b.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/ping", h2); err != nil {
+		b.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/pingall", h2); err != nil {
+		b.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/ping/{id}", h2); err != nil {
+		b.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/ping/{id}/woop", h2); err != nil {
+		b.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/ping/{id}/{opt}", h2); err != nil {
+		b.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/pinggggg", h2); err != nil {
+		b.Fatal(err)
+	}
+	if _, err := tr.InsertRoute(mGET, "/hello", h1); err != nil {
+		b.Fatal(err)
+	}
 
 	mctx := NewRouteContext()
 
@@ -506,16 +641,3 @@ func BenchmarkTreeGet(b *testing.B) {
 		tr.FindRoute(mctx, mGET, "/ping/123/456")
 	}
 }
-
-//func TestWalker(t *testing.T) {
-//	r := bigMux()
-//
-//	// Walk the muxBig router tree.
-//	if err := Walk(r, func(method string, route string, handler web.Handler, middlewares ...func(web.Handler) web.Handler) error {
-//		t.Logf("%v %v", method, route)
-//
-//		return nil
-//	}); err != nil {
-//		t.Error(err)
-//	}
-//}
