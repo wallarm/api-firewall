@@ -2646,9 +2646,9 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequest(t *testing.T) {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
 				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
-		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusInternalServerError {
+		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusForbidden {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
-				fasthttp.StatusInternalServerError, *apifwResponse.Summary[0].StatusCode)
+				fasthttp.StatusForbidden, *apifwResponse.Summary[0].StatusCode)
 		}
 	}
 }
@@ -2703,9 +2703,9 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequestInMultipleSchemas(
 				t.Errorf("Incorrect error code. Expected: %d or %d and got %d",
 					DefaultSchemaID, DefaultCopySchemaID, *apifwResponse.Summary[0].SchemaID)
 			}
-			if *apifwResponse.Summary[i].StatusCode != fasthttp.StatusInternalServerError {
+			if *apifwResponse.Summary[i].StatusCode != fasthttp.StatusForbidden {
 				t.Errorf("Incorrect result status. Expected: %d and got %d",
-					fasthttp.StatusInternalServerError, *apifwResponse.Summary[0].StatusCode)
+					fasthttp.StatusForbidden, *apifwResponse.Summary[0].StatusCode)
 			}
 		}
 	}

@@ -114,7 +114,10 @@ func (s *SQLLiteV2) Load(dbStoragePath string) error {
 			continue
 		}
 
-		if err := parsedSpec.Validate(loader.Context); err != nil {
+		if err := parsedSpec.Validate(
+			loader.Context,
+			openapi3.DisableExamplesValidation(),
+		); err != nil {
 			s.Log.Errorf("error: validation of the OpenAPI specification %s (schema ID %d): %v", spec.SchemaVersion, schemaID, err)
 			delete(s.RawSpecs, schemaID)
 			continue

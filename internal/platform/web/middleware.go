@@ -5,10 +5,10 @@ package web
 // direct to any given Handler.
 type Middleware func(Handler) Handler
 
-// wrapMiddleware creates a new handler by wrapping middleware around a final
+// WrapMiddleware creates a new handler by wrapping middleware around a final
 // handler. The middlewares' Handlers will be executed by requests in the order
 // they are provided.
-func wrapMiddleware(mw []Middleware, handler Handler) Handler {
+func WrapMiddleware(mw []Middleware, handler Handler) Handler {
 
 	// Loop backwards through the middleware invoking each one. Replace the
 	// handler with the new wrapped handler. Looping backwards ensures that the
