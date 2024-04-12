@@ -26,10 +26,10 @@ var (
 	statusInternalError = fasthttp.StatusInternalServerError
 )
 
-// APIModeApp is the entrypoint into our application and what configures our context
+// App is the entrypoint into our application and what configures our context
 // object for each of our http handlers. Feel free to add any configuration
 // data/logic on this App struct
-type APIModeApp struct {
+type App struct {
 	Routers     map[int]*router.Mux
 	Log         *logrus.Logger
 	passOPTIONS bool
@@ -39,20 +39,18 @@ type APIModeApp struct {
 	lock        *sync.RWMutex
 }
 
-// NewAPIModeApp creates an APIModeApp value that handle a set of routes for the set of application.
-func NewAPIModeApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DBOpenAPILoader, shutdown chan os.Signal, logger *logrus.Logger, mw ...web.Middleware) *APIModeApp {
+// NewApp creates an App value that handle a set of routes for the set of application.
+func NewApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DBOpenAPILoader, shutdown chan os.Signal, logger *logrus.Logger, mw ...web.Middleware) *App {
 
 	schemaIDs := storedSpecs.SchemaIDs()
 
 	// Init routers
 	routers := make(map[int]*router.Mux)
 	for _, schemaID := range schemaIDs {
-		//routers[schemaID] = make(map[string]*mux.Router)
 		routers[schemaID] = router.NewRouter()
-		//routers[schemaID].HandleOPTIONS = passOPTIONS
 	}
 
-	app := APIModeApp{
+	app := App{
 		Routers:     routers,
 		shutdown:    shutdown,
 		mw:          mw,
@@ -67,7 +65,7 @@ func NewAPIModeApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DB
 
 // Handle is our mechanism for mounting Handlers for a given HTTP verb and path
 // pair, this makes for really easy, convenient routing.
-func (a *APIModeApp) Handle(schemaID int, method string, path string, handler web.Handler, mw ...web.Middleware) error {
+func (a *App) Handle(schemaID int, method string, path string, handler web.Handler, mw ...web.Middleware) error {
 
 	// First wrap handler specific middleware around this handler.
 	handler = web.WrapMiddleware(mw, handler)
@@ -133,7 +131,7 @@ func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPI
 }
 
 // APIModeRouteHandler routes request to the appropriate handler according to the OpenAPI specification schema ID
-func (a *APIModeApp) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
+func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 
 	// handle panic
 	defer func() {
@@ -179,7 +177,6 @@ func (a *APIModeApp) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 
 	a.lock.RLock()
 	defer a.lock.RUnlock()
-	//w := NewFastHTTPResponseAdapter(ctx)
 
 	// Validate requests against list of schemas
 	for _, sID := range schemaIDs {
@@ -312,6 +309,6 @@ func (a *APIModeApp) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 
 // SignalShutdown is used to gracefully shutdown the app when an integrity
 // issue is identified.
-func (a *APIModeApp) SignalShutdown() {
+func (a *App) SignalShutdown() {
 	a.shutdown <- syscall.SIGTERM
 }

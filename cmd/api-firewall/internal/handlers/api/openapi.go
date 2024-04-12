@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 	"net/http"
 	strconv2 "strconv"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
@@ -75,7 +75,7 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 	},
 }
 
-type APIMode struct {
+type RequestValidator struct {
 	CustomRoute   *loader.CustomRoute
 	OpenAPIRouter *loader.Router
 	Log           *logrus.Logger
@@ -84,8 +84,8 @@ type APIMode struct {
 	SchemaID      int
 }
 
-// APIModeHandler validates request and respond with 200, 403 (with error) or 500 status code
-func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
+// Handler validates request and respond with 200, 403 (with error) or 500 status code
+func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 
 	keyValidationErrors := strconv2.Itoa(s.SchemaID) + web.APIModePostfixValidationErrors
 	keyStatusCode := strconv2.Itoa(s.SchemaID) + web.APIModePostfixStatusCode
