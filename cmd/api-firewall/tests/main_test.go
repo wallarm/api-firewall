@@ -26,8 +26,8 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 )
 
 const openAPISpecTest = `
@@ -317,7 +317,7 @@ type ServiceTests struct {
 	logger     *logrus.Logger
 	proxy      *proxy.MockPool
 	client     *proxy.MockHTTPClient
-	swagRouter *router.Router
+	swagRouter *loader.Router
 }
 
 func compressFlate(data []byte) ([]byte, error) {
@@ -395,7 +395,7 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("loading swagwaf file: %s", err.Error())
 	}
 
-	swagRouter, err := router.NewRouter(swagger)
+	swagRouter, err := loader.NewRouter(swagger, true)
 	if err != nil {
 		t.Fatalf("parsing swagwaf file: %s", err.Error())
 	}

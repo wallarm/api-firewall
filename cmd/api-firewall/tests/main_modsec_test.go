@@ -17,8 +17,8 @@ import (
 	"github.com/valyala/fasthttp"
 	proxy2 "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 )
 
 const openAPISpecModSecTest = `
@@ -99,7 +99,7 @@ type ModSecIntegrationTests struct {
 	logger     *logrus.Logger
 	proxy      *proxy.MockPool
 	client     *proxy.MockHTTPClient
-	swagRouter *router.Router
+	swagRouter *loader.Router
 	waf        coraza.WAF
 	loggerHook *test.Hook
 }
@@ -125,7 +125,7 @@ func TestModSec(t *testing.T) {
 		t.Fatalf("loading swagwaf file: %s", err.Error())
 	}
 
-	swagRouter, err := router.NewRouter(swagger)
+	swagRouter, err := loader.NewRouter(swagger, true)
 	if err != nil {
 		t.Fatalf("parsing swagwaf file: %s", err.Error())
 	}

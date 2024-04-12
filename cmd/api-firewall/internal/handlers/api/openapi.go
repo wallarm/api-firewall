@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
-	"github.com/wallarm/api-firewall/internal/platform/chi"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"net/http"
 	strconv2 "strconv"
 	"strings"
@@ -17,7 +17,7 @@ import (
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
-	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
@@ -76,8 +76,8 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 }
 
 type APIMode struct {
-	CustomRoute   *router.CustomRoute
-	OpenAPIRouter *router.Router
+	CustomRoute   *loader.CustomRoute
+	OpenAPIRouter *loader.Router
 	Log           *logrus.Logger
 	Cfg           *config.APIMode
 	ParserPool    *fastjson.ParserPool
@@ -107,7 +107,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	var pathParams map[string]string
 
 	if s.CustomRoute.ParametersNumberInPath > 0 {
-		pathParams = chi.AllURLParams(ctx)
+		pathParams = router.AllURLParams(ctx)
 	}
 
 	// Convert fasthttp request to net/http request

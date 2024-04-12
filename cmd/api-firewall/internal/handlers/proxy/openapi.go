@@ -16,15 +16,15 @@ import (
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
 type openapiWaf struct {
-	customRoute    *router.CustomRoute
+	customRoute    *loader.CustomRoute
 	proxyPool      proxy.Pool
 	logger         *logrus.Logger
 	cfg            *config.ProxyMode

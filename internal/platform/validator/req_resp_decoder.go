@@ -895,6 +895,7 @@ func parsePrimitive(raw string, schema *openapi3.SchemaRef) (interface{}, error)
 	if raw == "" {
 		return nil, nil
 	}
+
 	switch schema.Value.Type {
 	case "integer":
 		if len(schema.Value.Enum) > 0 {
@@ -932,7 +933,7 @@ func parsePrimitive(raw string, schema *openapi3.SchemaRef) (interface{}, error)
 	case "string":
 		return raw, nil
 	default:
-		panic(fmt.Sprintf("schema has non primitive type %q", schema.Value.Type))
+		return nil, &ParseError{Kind: KindOther, Value: raw, Reason: "schema has non primitive type " + schema.Value.Type}
 	}
 }
 

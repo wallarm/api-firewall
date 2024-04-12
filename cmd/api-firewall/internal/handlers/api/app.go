@@ -16,8 +16,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
-	"github.com/wallarm/api-firewall/internal/platform/chi"
 	"github.com/wallarm/api-firewall/internal/platform/database"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -30,7 +30,7 @@ var (
 // object for each of our http handlers. Feel free to add any configuration
 // data/logic on this App struct
 type APIModeApp struct {
-	Routers     map[int]*chi.Mux
+	Routers     map[int]*router.Mux
 	Log         *logrus.Logger
 	passOPTIONS bool
 	shutdown    chan os.Signal
@@ -45,10 +45,10 @@ func NewAPIModeApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DB
 	schemaIDs := storedSpecs.SchemaIDs()
 
 	// Init routers
-	routers := make(map[int]*chi.Mux)
+	routers := make(map[int]*router.Mux)
 	for _, schemaID := range schemaIDs {
 		//routers[schemaID] = make(map[string]*mux.Router)
-		routers[schemaID] = chi.NewRouter()
+		routers[schemaID] = router.NewRouter()
 		//routers[schemaID].HandleOPTIONS = passOPTIONS
 	}
 
@@ -199,7 +199,7 @@ func (a *APIModeApp) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 		}
 
 		// find the handler with the OAS information
-		rctx := chi.NewRouteContext()
+		rctx := router.NewRouteContext()
 		handler := a.Routers[schemaID].Find(rctx, strconv.B2S(ctx.Method()), strconv.B2S(ctx.Request.URI().Path()))
 
 		// handler not found in the OAS
@@ -232,7 +232,7 @@ func (a *APIModeApp) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 		}
 
 		// add router context to get URL params in the Handler
-		ctx.SetUserValue(chi.RouteCtxKey, rctx)
+		ctx.SetUserValue(router.RouteCtxKey, rctx)
 
 		if err := handler(ctx); err != nil {
 			a.Log.WithFields(logrus.Fields{

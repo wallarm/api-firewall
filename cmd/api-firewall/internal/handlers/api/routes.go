@@ -14,7 +14,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
-	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -70,7 +70,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		}
 
 		// get new router
-		newSwagRouter, err := router.NewRouterDBLoader(schemaID, storedSpecs)
+		newSwagRouter, err := loader.NewRouterDBLoader(storedSpecs.SpecificationVersion(schemaID), storedSpecs.Specification(schemaID))
 		if err != nil {
 			logger.WithFields(logrus.Fields{"error": err}).Error("New router creation failed")
 		}

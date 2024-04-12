@@ -26,8 +26,8 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 )
@@ -760,7 +760,7 @@ func runProxyMode(logger *logrus.Logger) error {
 		}
 	}
 
-	swagRouter, err := router.NewRouter(swagger)
+	swagRouter, err := loader.NewRouter(swagger, true)
 	if err != nil {
 		return errors.Wrap(err, "parsing swagwaf file")
 	}

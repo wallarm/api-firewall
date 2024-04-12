@@ -1,13 +1,11 @@
-package router
+package loader
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/routers"
-	"github.com/wallarm/api-firewall/internal/platform/database"
 )
 
 // Router helps link http.Request.s and an OpenAPIv3 spec
@@ -27,12 +25,11 @@ type CustomRoute struct {
 //
 // If the given Swagger has servers, router will use them.
 // All operations of the Swagger will be added to the router.
-func NewRouter(doc *openapi3.T) (*Router, error) {
-	if err := doc.Validate(
-		context.Background(),
-		openapi3.DisableExamplesValidation(),
-	); err != nil {
-		return nil, fmt.Errorf("validating OpenAPI failed: %v", err)
+func NewRouter(doc *openapi3.T, validate bool) (*Router, error) {
+	if validate {
+		if err := validateOAS(doc); err != nil {
+			return nil, fmt.Errorf("OpenAPI specification validation failed: %v", err)
+		}
 	}
 
 	var router Router
@@ -80,15 +77,14 @@ func NewRouter(doc *openapi3.T) (*Router, error) {
 }
 
 // NewRouterDBLoader creates a new router based on DB OpenAPI loader.
-func NewRouterDBLoader(schemaID int, openAPISpec database.DBOpenAPILoader) (*Router, error) {
-	doc := openAPISpec.Specification(schemaID)
+func NewRouterDBLoader(schemaVersion string, spec *openapi3.T) (*Router, error) {
 
-	router, err := NewRouter(doc)
+	newRouter, err := NewRouter(spec, false)
 	if err != nil {
 		return nil, err
 	}
 
-	router.SchemaVersion = openAPISpec.SpecificationVersion(schemaID)
+	newRouter.SchemaVersion = schemaVersion
 
-	return router, nil
+	return newRouter, nil
 }

@@ -1,4 +1,4 @@
-package chi
+package router
 
 import "github.com/wallarm/api-firewall/internal/platform/web"
 
