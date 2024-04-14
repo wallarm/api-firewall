@@ -368,6 +368,38 @@ paths:
         200:
           description: Ok
           content: { }
+  /path/{test}:
+    get:
+      parameters:
+        - name: test
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - testValue1
+              - testValue1
+      summary: Get Test Info
+      responses:
+        200:
+          description: Ok
+          content: { }
+  /path/{test}.php:
+    get:
+      parameters:
+        - name: test
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - value1
+              - value2
+      summary: Get Test Info
+      responses:
+        200:
+          description: Ok
+          content: { }
   /test/body/request:
     post:
       summary: Post Request to test Request Body presence
@@ -552,6 +584,8 @@ func TestAPIModeBasic(t *testing.T) {
 	// check all supported methods: GET POST PUT PATCH DELETE TRACE OPTIONS HEAD
 	t.Run("testAPIModeAllMethods", apifwTests.testAPIModeAllMethods)
 
+	// check conflicts in the Path
+	t.Run("testConflictsInThePath", apifwTests.testConflictsInThePath)
 }
 
 func createForm(form map[string]string) (string, io.Reader, error) {
@@ -2751,4 +2785,46 @@ func (s *APIModeServiceTests) testAPIModeAllMethods(t *testing.T) {
 
 	// check response status code and response body
 	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeMethodAndPathNotFound})
+}
+
+func (s *APIModeServiceTests) testConflictsInThePath(t *testing.T) {
+
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
+
+	// check all supported methods: GET POST PUT PATCH DELETE TRACE OPTIONS HEAD
+	for _, path := range []string{"/path/testValue1", "/path/value1.php"} {
+		req := fasthttp.AcquireRequest()
+		req.SetRequestURI(path)
+		req.Header.SetMethod("GET")
+		req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+		reqCtx := fasthttp.RequestCtx{
+			Request: *req,
+		}
+
+		handler(&reqCtx)
+
+		t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+		t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+		// check response status code and response body
+		checkResponseOkStatusCode(t, &reqCtx, DefaultSchemaID)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/path/valueNotExist.php")
+	req.Header.SetMethod("GET")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	// check response status code and response body
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredPathParameterInvalidValue})
 }

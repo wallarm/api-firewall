@@ -100,7 +100,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 			s.Log.Debugf("handler: Schema ID %d: OpenAPI version %s: Loaded path %s - %s", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Method, updRoutePath)
 
 			if err := apps.Handle(schemaID, newSwagRouter.Routes[i].Method, updRoutePath, s.Handler); err != nil {
-				logger.WithFields(logrus.Fields{"error": err, "schema_id": schemaID}).Error("Registration of the OAS failed")
+				logger.WithFields(logrus.Fields{"error": err, "schema_id": schemaID}).Errorf("The OAS endpoint registration failed: method %s, path %s", newSwagRouter.Routes[i].Method, updRoutePath)
 			}
 		}
 

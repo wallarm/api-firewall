@@ -65,7 +65,7 @@ func NewApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DBOpenAPI
 
 // Handle is our mechanism for mounting Handlers for a given HTTP verb and path
 // pair, this makes for really easy, convenient routing.
-func (a *App) Handle(schemaID int, method string, path string, handler web.Handler, mw ...web.Middleware) error {
+func (a *App) Handle(schemaID int, method string, path string, handler router.Handler, mw ...web.Middleware) error {
 
 	// First wrap handler specific middleware around this handler.
 	handler = web.WrapMiddleware(mw, handler)

@@ -217,6 +217,38 @@ paths:
         200:
           description: Ok
           content: { }
+  /path/{test}:
+    get:
+      parameters:
+        - name: test
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - testValue1
+              - testValue1
+      summary: Get Test Info
+      responses:
+        200:
+          description: Ok
+          content: { }
+  /path/{test}.php:
+    get:
+      parameters:
+        - name: test
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - value1
+              - value2
+      summary: Get Test Info
+      responses:
+        200:
+          description: Ok
+          content: { }
   /user:
     get:
       summary: Get User Info
@@ -413,6 +445,8 @@ func TestBasic(t *testing.T) {
 	}
 
 	// basic test
+	t.Run("basicCustomBlockStatusCode", apifwTests.testCustomBlockStatusCode)
+	t.Run("basicPathNotExists", apifwTests.testPathNotExists)
 	t.Run("basicBlockBlockMode", apifwTests.testBlockMode)
 	t.Run("basicLogOnlyLogOnlyMode", apifwTests.testLogOnlyMode)
 	t.Run("basicDisableDisableMode", apifwTests.testDisableMode)
@@ -450,6 +484,205 @@ func TestBasic(t *testing.T) {
 	t.Run("unknownParamPostBody", apifwTests.unknownParamPostBody)
 	t.Run("unknownParamJSONParam", apifwTests.unknownParamJSONParam)
 	t.Run("unknownParamInvalidMimeType", apifwTests.unknownParamUnsupportedMimeType)
+
+	t.Run("testConflictPaths", apifwTests.testConflictPaths)
+}
+
+func (s *ServiceTests) testCustomBlockStatusCode(t *testing.T) {
+
+	var cfg = config.ProxyMode{
+		RequestValidation:         "BLOCK",
+		ResponseValidation:        "BLOCK",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+	}
+
+	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signupNotExist")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != cfg.CustomBlockStatusCode {
+		t.Errorf("Incorrect response status code. Expected: %d and got %d",
+			cfg.CustomBlockStatusCode, reqCtx.Response.StatusCode())
+	}
+
+	// Repeat request with new Custom block status code
+	cfg = config.ProxyMode{
+		RequestValidation:         "BLOCK",
+		ResponseValidation:        "BLOCK",
+		CustomBlockStatusCode:     401,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+	}
+
+	handler = proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != cfg.CustomBlockStatusCode {
+		t.Errorf("Incorrect response status code. Expected: %d and got %d",
+			cfg.CustomBlockStatusCode, reqCtx.Response.StatusCode())
+	}
+
+}
+
+func (s *ServiceTests) testPathNotExists(t *testing.T) {
+
+	var cfg = config.ProxyMode{
+		RequestValidation:         "BLOCK",
+		ResponseValidation:        "BLOCK",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+	}
+
+	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+
+	p, err := json.Marshal(map[string]interface{}{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signupNotExist")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != cfg.CustomBlockStatusCode {
+		t.Errorf("Incorrect response status code. Expected: %d and got %d",
+			cfg.CustomBlockStatusCode, reqCtx.Response.StatusCode())
+	}
+
+	req = fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signup")
+	req.Header.SetMethod("TRACE")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != cfg.CustomBlockStatusCode {
+		t.Errorf("Incorrect response status code. Expected: %d and got %d",
+			cfg.CustomBlockStatusCode, reqCtx.Response.StatusCode())
+	}
+
+	// Repeat request with new Custom block status code
+	cfg = config.ProxyMode{
+		RequestValidation:         "LOG_ONLY",
+		ResponseValidation:        "LOG_ONLY",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+	}
+
+	handler = proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	// Repeat request with new Custom block status code
+	cfg = config.ProxyMode{
+		RequestValidation:         "DISABLE",
+		ResponseValidation:        "DISABLE",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+	}
+
+	handler = proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
 }
 
 func (s *ServiceTests) testBlockMode(t *testing.T) {
@@ -847,12 +1080,7 @@ func (s *ServiceTests) testShadowAPI(t *testing.T) {
 		}{Tokens: tokensCfg},
 	}
 
-	deniedTokens, err := denylist.New(&cfg.Denylist, s.logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, deniedTokens, nil, nil)
+	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -2454,6 +2682,65 @@ func (s *ServiceTests) unknownParamUnsupportedMimeType(t *testing.T) {
 	}
 
 	req.Header.SetContentType("application/unsupported-type")
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+}
+
+func (s *ServiceTests) testConflictPaths(t *testing.T) {
+
+	var cfg = config.ProxyMode{
+		RequestValidation:         "BLOCK",
+		ResponseValidation:        "BLOCK",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+	}
+
+	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/path/testValue1")
+	req.Header.SetMethod("GET")
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(s.client).Return(nil)
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	req = fasthttp.AcquireRequest()
+	req.SetRequestURI("/path/value1.php")
+	req.Header.SetMethod("GET")
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,

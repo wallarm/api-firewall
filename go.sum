@@ -40,8 +40,6 @@ github.com/eclipse/paho.mqtt.golang v1.2.0 h1:1F8mhG9+aO5/xpdtFkW4SxOJB67ukuDC3t
 github.com/eclipse/paho.mqtt.golang v1.2.0/go.mod h1:H9keYFcgq3Qr5OUJm/JZI/i6U7joQ8SYLhZwfeOo6Ts=
 github.com/evanphx/json-patch/v5 v5.1.0 h1:B0aXl1o/1cP8NbviYiBMkcHBtUjIJ1/Ccg6b+SwCLQg=
 github.com/evanphx/json-patch/v5 v5.1.0/go.mod h1:G79N1coSVB93tBe7j6PhzjmR3/2VvlbKOFpnXhI9Bw4=
-github.com/fasthttp/router v1.5.0 h1:3Qbbo27HAPzwbpRzgiV5V9+2faPkPt3eNuRaDV6LYDA=
-github.com/fasthttp/router v1.5.0/go.mod h1:FddcKNXFZg1imHcy+uKB0oo/o6yE9zD3wNguqlhWDak=
 github.com/fasthttp/websocket v1.5.8 h1:k5DpirKkftIF/w1R8ZzjSgARJrs54Je9YJK37DL/Ah8=
 github.com/fasthttp/websocket v1.5.8/go.mod h1:d08g8WaT6nnyvg9uMm8K9zMYyDjfKyj3170AtPRuVU0=
 github.com/foxcpp/go-mockdns v1.1.0 h1:jI0rD8M0wuYAxL7r/ynTrCQQq0BVqfB99Vgk7DlmewI=

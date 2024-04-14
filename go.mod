@@ -8,7 +8,6 @@ require (
 	github.com/clbanning/mxj/v2 v2.7.0
 	github.com/corazawaf/coraza/v3 v3.1.0
 	github.com/dgraph-io/ristretto v0.1.1
-	github.com/fasthttp/router v1.5.0
 	github.com/fasthttp/websocket v1.5.8
 	github.com/gabriel-vasile/mimetype v1.4.3
 	github.com/getkin/kin-openapi v0.118.0
@@ -16,7 +15,6 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
-	github.com/invopop/yaml v0.2.0
 	github.com/karlseguin/ccache/v2 v2.0.8
 	github.com/klauspost/compress v1.17.7
 	github.com/mattn/go-sqlite3 v1.14.22
@@ -52,6 +50,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/huandu/xstrings v1.2.1 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
+	github.com/invopop/yaml v0.2.0 // indirect
 	github.com/jensneuse/abstractlogger v0.0.4 // indirect
 	github.com/jensneuse/byte-template v0.0.0-20200214152254-4f3cf06e5c68 // indirect
 	github.com/jensneuse/pipeline v0.0.0-20200117120358-9fb4de085cd6 // indirect

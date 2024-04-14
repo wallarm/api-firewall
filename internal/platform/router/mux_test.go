@@ -3,11 +3,11 @@ package router
 import (
 	"bytes"
 	"fmt"
-	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/platform/web"
 	"io"
 	"net/http"
 	"testing"
+
+	"github.com/valyala/fasthttp"
 )
 
 func TestMuxBasic(t *testing.T) {
@@ -314,7 +314,7 @@ func TestMuxRegexp3(t *testing.T) {
 }
 
 func TestMuxSubrouterWildcardParam(t *testing.T) {
-	h := web.Handler(func(ctx *fasthttp.RequestCtx) error {
+	h := Handler(func(ctx *fasthttp.RequestCtx) error {
 		ctx.SetBody([]byte(fmt.Sprintf("param:%v *:%v", URLParam(ctx, "param"), URLParam(ctx, "*"))))
 		return nil
 	})

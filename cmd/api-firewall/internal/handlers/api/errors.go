@@ -71,6 +71,8 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 			response.Code = ErrCodeRequiredQueryParameterMissed
 		case "cookie":
 			response.Code = ErrCodeRequiredCookieParameterMissed
+		case "path":
+			response.Code = ErrCodeRequiredPathParameterMissed
 		case "header":
 			response.Code = ErrCodeRequiredHeaderMissed
 		}
@@ -91,6 +93,8 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 			response.Code = ErrCodeRequiredQueryParameterInvalidValue
 		case "cookie":
 			response.Code = ErrCodeRequiredCookieParameterInvalidValue
+		case "path":
+			response.Code = ErrCodeRequiredPathParameterInvalidValue
 		case "header":
 			response.Code = ErrCodeRequiredHeaderInvalidValue
 		}

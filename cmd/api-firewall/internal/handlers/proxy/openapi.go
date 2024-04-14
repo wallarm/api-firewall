@@ -19,6 +19,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
@@ -97,8 +98,15 @@ func getValidationHeader(ctx *fasthttp.RequestCtx, err error) *string {
 
 func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
+	// Pass OPTIONS if the feature is enabled
+	var isOptionsReq, ok bool
+	if isOptionsReq, ok = ctx.UserValue(web.PassRequestOPTIONS).(bool); !ok {
+		isOptionsReq = false
+	}
+
 	// Proxy request if APIFW is disabled
-	if strings.EqualFold(s.cfg.RequestValidation, web.ValidationDisable) && strings.EqualFold(s.cfg.ResponseValidation, web.ValidationDisable) {
+	if isOptionsReq == true ||
+		strings.EqualFold(s.cfg.RequestValidation, web.ValidationDisable) && strings.EqualFold(s.cfg.ResponseValidation, web.ValidationDisable) {
 		if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
@@ -139,12 +147,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	var pathParams map[string]string
 
 	if s.customRoute.ParametersNumberInPath > 0 {
-		pathParams = make(map[string]string)
-
-		ctx.VisitUserValues(func(key []byte, value interface{}) {
-			keyStr := strconv.B2S(key)
-			pathParams[keyStr] = value.(string)
-		})
+		pathParams = router.AllURLParams(ctx)
 	}
 
 	// Convert fasthttp request to net/http request

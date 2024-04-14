@@ -1,7 +1,5 @@
 package router
 
-import "github.com/wallarm/api-firewall/internal/platform/web"
-
 // NewRouter returns a new Mux object that implements the Router interface.
 func NewRouter() *Mux {
 	return NewMux()
@@ -14,7 +12,7 @@ type Router interface {
 
 	// AddEndpoint adds routes for `pattern` that matches
 	// the `method` HTTP method.
-	AddEndpoint(method, pattern string, handler web.Handler) error
+	AddEndpoint(method, pattern string, handler Handler) error
 }
 
 // Routes interface adds two methods for router traversal, which is also
@@ -26,5 +24,5 @@ type Routes interface {
 	// Find searches the routing tree for a handler that matches
 	// the method/path - similar to routing a http request, but without
 	// executing the handler thereafter.
-	Find(rctx *Context, method, path string) web.Handler
+	Find(rctx *Context, method, path string) Handler
 }

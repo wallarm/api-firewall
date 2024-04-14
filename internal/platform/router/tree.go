@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
 type methodTyp uint
@@ -108,7 +107,7 @@ type endpoints map[methodTyp]*endpoint
 
 type endpoint struct {
 	// endpoint handler
-	handler web.Handler
+	handler Handler
 
 	// pattern is the routing pattern for handler nodes
 	pattern string
@@ -126,7 +125,7 @@ func (s endpoints) Value(method methodTyp) *endpoint {
 	return mh
 }
 
-func (n *node) InsertRoute(method methodTyp, pattern string, handler web.Handler) (*node, error) {
+func (n *node) InsertRoute(method methodTyp, pattern string, handler Handler) (*node, error) {
 	var parent *node
 	search := pattern
 
@@ -362,7 +361,7 @@ func (n *node) getEdge(ntyp nodeTyp, label, tail byte, prefix string) *node {
 	return nil
 }
 
-func (n *node) setEndpoint(method methodTyp, handler web.Handler, pattern string) error {
+func (n *node) setEndpoint(method methodTyp, handler Handler, pattern string) error {
 	// Set the handler for the method type on the node
 	if n.endpoints == nil {
 		n.endpoints = make(endpoints)
@@ -396,7 +395,7 @@ func (n *node) setEndpoint(method methodTyp, handler web.Handler, pattern string
 	return nil
 }
 
-func (n *node) FindRoute(rctx *Context, method methodTyp, path string) (*node, endpoints, web.Handler) {
+func (n *node) FindRoute(rctx *Context, method methodTyp, path string) (*node, endpoints, Handler) {
 	// Reset the context routing pattern and params
 	rctx.routePattern = ""
 	rctx.routeParams.Keys = rctx.routeParams.Keys[:0]
@@ -668,7 +667,7 @@ func (n *node) routes() []Route {
 		}
 
 		for p, mh := range pats {
-			hs := make(map[string]web.Handler)
+			hs := make(map[string]Handler)
 			if mh[mALL] != nil && mh[mALL].handler != nil {
 				hs["*"] = mh[mALL].handler
 			}
@@ -872,21 +871,21 @@ func (ns nodes) findEdge(label byte) *node {
 // Handlers map key is an HTTP method
 type Route struct {
 	SubRoutes Routes
-	Handlers  map[string]web.Handler
+	Handlers  map[string]Handler
 	Pattern   string
 }
 
 // WalkFunc is the type of the function called for each method and route visited by Walk.
-type WalkFunc func(method string, route string, handler web.Handler, middlewares ...func(web.Handler) web.Handler) error
+type WalkFunc func(method string, route string, handler Handler, middlewares ...func(Handler) Handler) error
 
 // Walk walks any router tree that implements Routes interface.
 func Walk(r Routes, walkFn WalkFunc) error {
 	return walk(r, walkFn, "")
 }
 
-func walk(r Routes, walkFn WalkFunc, parentRoute string, parentMw ...func(web.Handler) web.Handler) error {
+func walk(r Routes, walkFn WalkFunc, parentRoute string, parentMw ...func(Handler) Handler) error {
 	for _, route := range r.Routes() {
-		mws := make([]func(web.Handler) web.Handler, len(parentMw))
+		mws := make([]func(Handler) Handler, len(parentMw))
 		copy(mws, parentMw)
 
 		if route.SubRoutes != nil {

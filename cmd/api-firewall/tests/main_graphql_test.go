@@ -115,6 +115,8 @@ func TestGraphQLBasic(t *testing.T) {
 
 	// basic test
 	t.Run("basicGraphQLQuerySuccess", apifwTests.testGQLSuccess)
+	t.Run("basicGraphQLEndpointNotExists", apifwTests.testGQLEndpointNotExists)
+
 	t.Run("basicGraphQLGETQuerySuccess", apifwTests.testGQLGETSuccess)
 	t.Run("basicGraphQLGETQueryMutationFailed", apifwTests.testGQLGETMutationFailed)
 	t.Run("basicGraphQLQueryValidationFailed", apifwTests.testGQLValidationFailed)
@@ -224,6 +226,89 @@ func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {
 	if recvBody != responseBody {
 		t.Errorf("Incorrect response status code. Expected: %s and got %s",
 			responseBody, recvBody)
+	}
+
+}
+
+func (s *ServiceGraphQLTests) testGQLEndpointNotExists(t *testing.T) {
+
+	gqlCfg := config.GraphQL{
+		MaxQueryComplexity: 0,
+		MaxQueryDepth:      0,
+		NodeCountLimit:     0,
+		Playground:         false,
+		Introspection:      false,
+		Schema:             "",
+		RequestValidation:  "BLOCK",
+	}
+	var cfg = config.GraphQLMode{
+		Graphql: gqlCfg,
+	}
+
+	// parse the GraphQL schema
+	schema, err := graphql.NewSchemaFromString(testSchema)
+	if err != nil {
+		t.Fatalf("Loading GraphQL Schema error: %v", err)
+	}
+
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+
+	// Construct GraphQL request payload
+	query := `
+		query {
+    room(name: "GeneralChat") {
+        name
+        messages {
+            id
+            text
+            createdBy
+            createdAt
+        }
+    }
+}
+	`
+	var requestBody = map[string]interface{}{
+		"query": query,
+	}
+
+	responseBody := `{
+    "data": {
+        "room": {
+            "name": "GeneralChat",
+            "messages": [
+                {
+                    "id": "TrsXJcKa",
+                    "text": "Hello, world!",
+                    "createdBy": "TestUser",
+                    "createdAt": "2023-01-01T00:00:00+00:00"
+                }
+            ]
+        }
+    }
+}`
+
+	jsonValue, _ := json.Marshal(requestBody)
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/endpointNotExists")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(jsonValue), -1)
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte(responseBody))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
 	}
 
 }

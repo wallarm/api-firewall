@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"golang.org/x/exp/slices"
 )
@@ -15,7 +16,7 @@ import (
 func ShadowAPIMonitor(logger *logrus.Logger, cfg *config.ShadowAPI) web.Middleware {
 
 	// This is the actual middleware function to be executed.
-	m := func(before web.Handler) web.Handler {
+	m := func(before router.Handler) router.Handler {
 
 		// Create the handler that will be attached in the middleware chain.
 		h := func(ctx *fasthttp.RequestCtx) error {
@@ -48,6 +49,7 @@ func ShadowAPIMonitor(logger *logrus.Logger, cfg *config.ShadowAPI) web.Middlewa
 			// check response status code
 			statusCode := ctx.Response.StatusCode()
 			idx := slices.IndexFunc(cfg.ExcludeList, func(c int) bool { return c == statusCode })
+
 			// if response status code not found in the OpenAPI spec AND the code not in the exclude list
 			if isProxyStatusCodeNotFound && idx < 0 {
 				logger.WithFields(logrus.Fields{

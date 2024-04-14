@@ -6,31 +6,30 @@ import (
 	"testing"
 
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
 func TestTree(t *testing.T) {
-	hStub := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hIndex := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hFavicon := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hArticleList := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hArticleNear := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hArticleShow := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hArticleShowRelated := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hArticleShowOpts := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hArticleSlug := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hArticleByUser := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hUserList := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hUserShow := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hAdminCatchall := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hAdminAppShow := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hAdminAppShowCatchall := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hUserProfile := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hUserSuper := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hUserAll := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hHubView1 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hHubView2 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hHubView3 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hIndex := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hFavicon := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hArticleList := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hArticleNear := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hArticleShow := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hArticleShowRelated := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hArticleShowOpts := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hArticleSlug := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hArticleByUser := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hUserList := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hUserShow := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hAdminCatchall := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hAdminAppShow := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hAdminAppShowCatchall := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hUserProfile := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hUserSuper := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hUserAll := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hHubView1 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hHubView2 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hHubView3 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	tr := &node{}
 
@@ -140,10 +139,10 @@ func TestTree(t *testing.T) {
 	}
 
 	tests := []struct {
-		r string      // input request path
-		h web.Handler // output matched handler
-		k []string    // output param keys
-		v []string    // output param values
+		r string   // input request path
+		h Handler  // output matched handler
+		k []string // output param keys
+		v []string // output param values
 	}{
 		{r: "/", h: hIndex, k: []string{}, v: []string{}},
 		{r: "/favicon.ico", h: hFavicon, k: []string{}, v: []string{}},
@@ -193,7 +192,7 @@ func TestTree(t *testing.T) {
 
 		_, handlers, _ := tr.FindRoute(rctx, mGET, tt.r)
 
-		var handler web.Handler
+		var handler Handler
 		if methodHandler, ok := handlers[mGET]; ok {
 			handler = methodHandler.handler
 		}
@@ -214,23 +213,23 @@ func TestTree(t *testing.T) {
 }
 
 func TestTreeMoar(t *testing.T) {
-	hStub := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub1 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub2 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub3 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub4 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub5 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub6 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub7 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub8 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub9 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub10 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub11 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub12 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub13 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub14 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub15 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub16 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub1 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub2 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub3 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub4 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub5 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub6 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub7 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub8 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub9 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub10 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub11 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub12 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub13 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub14 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub15 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub16 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	// TODO: panic if we see {id}{x} because we're missing a delimiter, its not possible.
 	// also {:id}* is not possible.
@@ -294,7 +293,7 @@ func TestTreeMoar(t *testing.T) {
 	tr.InsertRoute(mGET, "/users/{id}/settings/*", hStub16)
 
 	tests := []struct {
-		h web.Handler
+		h Handler
 		r string
 		k []string
 		v []string
@@ -339,7 +338,7 @@ func TestTreeMoar(t *testing.T) {
 
 		_, handlers, _ := tr.FindRoute(rctx, tt.m, tt.r)
 
-		var handler web.Handler
+		var handler Handler
 		if methodHandler, ok := handlers[tt.m]; ok {
 			handler = methodHandler.handler
 		}
@@ -360,13 +359,13 @@ func TestTreeMoar(t *testing.T) {
 }
 
 func TestTreeRegexp(t *testing.T) {
-	hStub1 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub2 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub3 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub4 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub5 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub6 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub7 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub1 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub2 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub3 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub4 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub5 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub6 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub7 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	tr := &node{}
 	if _, err := tr.InsertRoute(mGET, "/articles/{rid:^[0-9]{5,6}}", hStub7); err != nil {
@@ -398,10 +397,10 @@ func TestTreeRegexp(t *testing.T) {
 	// log.Println("~~~~~~~~~")
 
 	tests := []struct {
-		r string      // input request path
-		h web.Handler // output matched handler
-		k []string    // output param keys
-		v []string    // output param values
+		r string   // input request path
+		h Handler  // output matched handler
+		k []string // output param keys
+		v []string // output param values
 	}{
 		{r: "/articles", h: nil, k: []string{}, v: []string{}},
 		{r: "/articles/12345", h: hStub7, k: []string{"rid"}, v: []string{"12345"}},
@@ -419,7 +418,7 @@ func TestTreeRegexp(t *testing.T) {
 
 		_, handlers, _ := tr.FindRoute(rctx, mGET, tt.r)
 
-		var handler web.Handler
+		var handler Handler
 		if methodHandler, ok := handlers[mGET]; ok {
 			handler = methodHandler.handler
 		}
@@ -440,8 +439,8 @@ func TestTreeRegexp(t *testing.T) {
 }
 
 func TestTreeRegexpRecursive(t *testing.T) {
-	hStub1 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub2 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub1 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub2 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	tr := &node{}
 	if _, err := tr.InsertRoute(mGET, "/one/{firstId:[a-z0-9-]+}/{secondId:[a-z0-9-]+}/first", hStub1); err != nil {
@@ -458,10 +457,10 @@ func TestTreeRegexpRecursive(t *testing.T) {
 	// log.Println("~~~~~~~~~")
 
 	tests := []struct {
-		r string      // input request path
-		h web.Handler // output matched handler
-		k []string    // output param keys
-		v []string    // output param values
+		r string   // input request path
+		h Handler  // output matched handler
+		k []string // output param keys
+		v []string // output param values
 	}{
 		{r: "/one/hello/world/first", h: hStub1, k: []string{"firstId", "secondId"}, v: []string{"hello", "world"}},
 		{r: "/one/hi_there/ok/second", h: hStub2, k: []string{"firstId", "secondId"}, v: []string{"hi_there", "ok"}},
@@ -474,7 +473,7 @@ func TestTreeRegexpRecursive(t *testing.T) {
 
 		_, handlers, _ := tr.FindRoute(rctx, mGET, tt.r)
 
-		var handler web.Handler
+		var handler Handler
 		if methodHandler, ok := handlers[mGET]; ok {
 			handler = methodHandler.handler
 		}
@@ -495,7 +494,7 @@ func TestTreeRegexpRecursive(t *testing.T) {
 }
 
 func TestTreeRegexMatchWholeParam(t *testing.T) {
-	hStub1 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub1 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	rctx := NewRouteContext()
 	tr := &node{}
@@ -510,7 +509,7 @@ func TestTreeRegexMatchWholeParam(t *testing.T) {
 	}
 
 	tests := []struct {
-		expectedHandler web.Handler
+		expectedHandler Handler
 		url             string
 	}{
 		{url: "/13", expectedHandler: hStub1},
@@ -531,9 +530,9 @@ func TestTreeRegexMatchWholeParam(t *testing.T) {
 }
 
 func TestTreeFindPattern(t *testing.T) {
-	hStub1 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub2 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	hStub3 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub1 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub2 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	hStub3 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	tr := &node{}
 	if _, err := tr.InsertRoute(mGET, "/pages/*", hStub1); err != nil {
@@ -602,8 +601,8 @@ func stringSliceEqual(a, b []string) bool {
 }
 
 func BenchmarkTreeGet(b *testing.B) {
-	h1 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
-	h2 := web.Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	h1 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
+	h2 := Handler(func(ctx *fasthttp.RequestCtx) error { return nil })
 
 	tr := &node{}
 	if _, err := tr.InsertRoute(mGET, "/", h1); err != nil {

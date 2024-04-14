@@ -3,8 +3,6 @@ package router
 import (
 	"fmt"
 	"strings"
-
-	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
 var _ Router = &Mux{}
@@ -26,7 +24,7 @@ func NewMux() *Mux {
 
 // AddEndpoint adds the route `pattern` that matches `method` http method to
 // execute the `handler` web.Handler.
-func (mx *Mux) AddEndpoint(method, pattern string, handler web.Handler) error {
+func (mx *Mux) AddEndpoint(method, pattern string, handler Handler) error {
 	m, ok := methodMap[strings.ToUpper(method)]
 	if !ok {
 		return fmt.Errorf("'%s' http method is not supported", method)
@@ -45,7 +43,7 @@ func (mx *Mux) Routes() []Route {
 	return mx.tree.routes()
 }
 
-func (mx *Mux) Find(rctx *Context, method, path string) web.Handler {
+func (mx *Mux) Find(rctx *Context, method, path string) Handler {
 	m, ok := methodMap[method]
 	if !ok {
 		return nil
@@ -63,7 +61,7 @@ func (mx *Mux) Find(rctx *Context, method, path string) web.Handler {
 
 // handle registers a web.Handler in the routing tree for a particular http method
 // and routing pattern.
-func (mx *Mux) handle(method methodTyp, pattern string, handler web.Handler) (*node, error) {
+func (mx *Mux) handle(method methodTyp, pattern string, handler Handler) (*node, error) {
 	if len(pattern) == 0 || pattern[0] != '/' {
 		return nil, fmt.Errorf("routing pattern must begin with '/' in '%s'", pattern)
 	}
