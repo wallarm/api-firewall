@@ -34,7 +34,7 @@ func NewRouter(doc *openapi3.T, validate bool) (*Router, error) {
 
 	var router Router
 
-	for path, pathItem := range doc.Paths {
+	for path, pathItem := range doc.Paths.Map() {
 		for method, operation := range pathItem.Operations() {
 			method = strings.ToUpper(method)
 			route := routers.Route{

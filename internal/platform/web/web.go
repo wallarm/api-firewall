@@ -2,7 +2,6 @@ package web
 
 import (
 	"bytes"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 	"os"
 	"runtime/debug"
 	"syscall"
@@ -11,6 +10,7 @@ import (
 	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 )
 
 const (
@@ -35,7 +35,6 @@ const (
 	ProxyMode   = "proxy"
 	GraphQLMode = "graphql"
 
-	AnyMethod = "any"
 	RequestID = "__wallarm_apifw_request_id"
 )
 

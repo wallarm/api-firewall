@@ -300,10 +300,8 @@ func decodeValue(dec valueDecoder, param string, sm *openapi3.SerializationMetho
 				isMatched++
 			}
 		}
-		if isMatched == 1 {
+		if isMatched >= 1 {
 			return value, found, nil
-		} else if isMatched > 1 {
-			return nil, found, fmt.Errorf("decoding oneOf failed: %d schemas matched", isMatched)
 		}
 		if required {
 			return nil, found, fmt.Errorf("decoding oneOf failed: %q is required", param)
@@ -620,6 +618,10 @@ func (d *urlValuesDecoder) parseValue(v string, schema *openapi3.SchemaRef) (int
 
 }
 
+const (
+	urlDecoderDelimiter = "\x1F" // should not conflict with URL characters
+)
+
 func (d *urlValuesDecoder) DecodeObject(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (map[string]interface{}, bool, error) {
 	var propsFn func(url.Values) (map[string]string, error)
 	switch sm.Style {
@@ -672,6 +674,11 @@ func (d *urlValuesDecoder) DecodeObject(param string, sm *openapi3.Serialization
 		return nil, false, nil
 	}
 
+	val, err := makeObject(props, schema)
+	if err != nil {
+		return nil, false, err
+	}
+
 	// check the props
 	found := false
 	for propName := range schema.Value.Properties {
@@ -679,8 +686,18 @@ func (d *urlValuesDecoder) DecodeObject(param string, sm *openapi3.Serialization
 			found = true
 			break
 		}
+
+		if schema.Value.Type == "array" || schema.Value.Type == "object" {
+			for k := range props {
+				path := strings.Split(k, urlDecoderDelimiter)
+				if _, ok := deepGet(val, path...); ok {
+					found = true
+					break
+				}
+			}
+		}
 	}
-	val, err := makeObject(props, schema)
+
 	return val, found, err
 }
 
@@ -846,22 +863,258 @@ func propsFromString(src, propDelim, valueDelim string) (map[string]string, erro
 	return props, nil
 }
 
+func deepGet(m map[string]interface{}, keys ...string) (interface{}, bool) {
+	for _, key := range keys {
+		val, ok := m[key]
+		if !ok {
+			return nil, false
+		}
+		if m, ok = val.(map[string]interface{}); !ok {
+			return val, true
+		}
+	}
+	return m, true
+}
+
+func deepSet(m map[string]interface{}, keys []string, value interface{}) {
+	for i := 0; i < len(keys)-1; i++ {
+		key := keys[i]
+		if _, ok := m[key]; !ok {
+			m[key] = make(map[string]interface{})
+		}
+		m = m[key].(map[string]interface{})
+	}
+	m[keys[len(keys)-1]] = value
+}
+
+//func findNestedSchema(parentSchema *openapi3.SchemaRef, keys []string) (*openapi3.SchemaRef, error) {
+//	currentSchema := parentSchema
+//	for _, key := range keys {
+//		if currentSchema.Value.Type.Includes(openapi3.TypeArray) {
+//			currentSchema = currentSchema.Value.Items
+//		} else {
+//			propertySchema, ok := currentSchema.Value.Properties[key]
+//			if !ok {
+//				if currentSchema.Value.AdditionalProperties.Schema == nil {
+//					return nil, fmt.Errorf("nested schema for key %q not found", key)
+//				}
+//				currentSchema = currentSchema.Value.AdditionalProperties.Schema
+//				continue
+//			}
+//			currentSchema = propertySchema
+//		}
+//	}
+//	return currentSchema, nil
+//}
+
 // makeObject returns an object that contains properties from props.
 // A value of every property is parsed as a primitive value.
 // The function returns an error when an error happened while parse object's properties.
+//func makeObject(props map[string]string, schema *openapi3.SchemaRef) (map[string]interface{}, error) {
+//	obj := make(map[string]interface{})
+//	for propName, propSchema := range schema.Value.Properties {
+//		value, err := parsePrimitive(props[propName], propSchema)
+//		if err != nil {
+//			if v, ok := err.(*ParseError); ok {
+//				return nil, &ParseError{path: []interface{}{propName}, Cause: v}
+//			}
+//			return nil, fmt.Errorf("property %q: %w", propName, err)
+//		}
+//		obj[propName] = value
+//	}
+//	return obj, nil
+//}
+
+// makeObject returns an object that contains properties from props.
 func makeObject(props map[string]string, schema *openapi3.SchemaRef) (map[string]interface{}, error) {
-	obj := make(map[string]interface{})
-	for propName, propSchema := range schema.Value.Properties {
-		value, err := parsePrimitive(props[propName], propSchema)
-		if err != nil {
-			if v, ok := err.(*ParseError); ok {
-				return nil, &ParseError{path: []interface{}{propName}, Cause: v}
-			}
-			return nil, fmt.Errorf("property %q: %w", propName, err)
+	mobj := make(map[string]interface{})
+
+	for kk, value := range props {
+		keys := strings.Split(kk, urlDecoderDelimiter)
+		if strings.Contains(value, urlDecoderDelimiter) {
+			// don't support implicit array indexes anymore
+			p := pathFromKeys(keys)
+			return nil, &ParseError{path: p, Kind: KindInvalidFormat, Reason: "array items must be set with indexes"}
 		}
-		obj[propName] = value
+		deepSet(mobj, keys, value)
 	}
-	return obj, nil
+	r, err := buildResObj(mobj, nil, "", schema)
+	if err != nil {
+		return nil, err
+	}
+	result, ok := r.(map[string]interface{})
+	if !ok {
+		return nil, &ParseError{Kind: KindOther, Reason: "invalid param object", Value: result}
+	}
+
+	return result, nil
+}
+
+// example: map[0:map[key:true] 1:map[key:false]] -> [map[key:true] map[key:false]]
+func sliceMapToSlice(m map[string]interface{}) ([]interface{}, error) {
+	var result []interface{}
+
+	keys := make([]int, 0, len(m))
+	for k := range m {
+		key, err := strconv.Atoi(k)
+		if err != nil {
+			return nil, fmt.Errorf("array indexes must be integers: %w", err)
+		}
+		keys = append(keys, key)
+	}
+	max := -1
+	for _, k := range keys {
+		if k > max {
+			max = k
+		}
+	}
+	for i := 0; i <= max; i++ {
+		val, ok := m[strconv.Itoa(i)]
+		if !ok {
+			result = append(result, nil)
+			continue
+		}
+		result = append(result, val)
+	}
+	return result, nil
+}
+
+// buildResObj constructs an object based on a given schema and param values
+func buildResObj(params map[string]interface{}, parentKeys []string, key string, schema *openapi3.SchemaRef) (interface{}, error) {
+	mapKeys := parentKeys
+	if key != "" {
+		mapKeys = append(mapKeys, key)
+	}
+
+	switch {
+	case schema.Value.Type == "array":
+		paramArr, ok := deepGet(params, mapKeys...)
+		if !ok {
+			return nil, nil
+		}
+		t, isMap := paramArr.(map[string]interface{})
+		if !isMap {
+			return nil, &ParseError{path: pathFromKeys(mapKeys), Kind: KindInvalidFormat, Reason: "array items must be set with indexes"}
+		}
+		// intermediate arrays have to be instantiated
+		arr, err := sliceMapToSlice(t)
+		if err != nil {
+			return nil, &ParseError{path: pathFromKeys(mapKeys), Kind: KindInvalidFormat, Reason: fmt.Sprintf("could not convert value map to array: %v", err)}
+		}
+		resultArr := make([]interface{} /*not 0,*/, len(arr))
+		for i := range arr {
+			r, err := buildResObj(params, mapKeys, strconv.Itoa(i), schema.Value.Items)
+			if err != nil {
+				return nil, err
+			}
+			if r != nil {
+				resultArr[i] = r
+			}
+		}
+		return resultArr, nil
+	case schema.Value.Type == "object":
+		resultMap := make(map[string]interface{})
+		additPropsSchema := schema.Value.AdditionalProperties.Schema
+		pp, _ := deepGet(params, mapKeys...)
+		objectParams, ok := pp.(map[string]interface{})
+		if !ok {
+			// not the expected type, but return it either way and leave validation up to ValidateParameter
+			return pp, nil
+		}
+		for k, propSchema := range schema.Value.Properties {
+			r, err := buildResObj(params, mapKeys, k, propSchema)
+			if err != nil {
+				return nil, err
+			}
+			if r != nil {
+				resultMap[k] = r
+			}
+		}
+		if additPropsSchema != nil {
+			// dynamic creation of possibly nested objects
+			for k := range objectParams {
+				r, err := buildResObj(params, mapKeys, k, additPropsSchema)
+				if err != nil {
+					return nil, err
+				}
+				if r != nil {
+					resultMap[k] = r
+				}
+			}
+		}
+
+		return resultMap, nil
+	case len(schema.Value.AnyOf) > 0:
+		return buildFromSchemas(schema.Value.AnyOf, params, parentKeys, key)
+	case len(schema.Value.OneOf) > 0:
+		return buildFromSchemas(schema.Value.OneOf, params, parentKeys, key)
+	case len(schema.Value.AllOf) > 0:
+		return buildFromSchemas(schema.Value.AllOf, params, parentKeys, key)
+	default:
+		val, ok := deepGet(params, mapKeys...)
+		if !ok {
+			// leave validation up to ValidateParameter. here there really is not parameter set
+			return nil, nil
+		}
+		v, ok := val.(string)
+		if !ok {
+			return nil, &ParseError{path: pathFromKeys(mapKeys), Kind: KindInvalidFormat, Value: val, Reason: "path is not convertible to primitive"}
+		}
+		prim, err := parsePrimitive(v, schema)
+		if err != nil {
+			return nil, handlePropParseError(mapKeys, err)
+		}
+
+		return prim, nil
+	}
+}
+
+// buildFromSchemas decodes params with anyOf, oneOf, allOf schemas.
+func buildFromSchemas(schemas openapi3.SchemaRefs, params map[string]interface{}, mapKeys []string, key string) (interface{}, error) {
+	resultMap := make(map[string]interface{})
+	for _, s := range schemas {
+		val, err := buildResObj(params, mapKeys, key, s)
+		if err == nil && val != nil {
+
+			if m, ok := val.(map[string]interface{}); ok {
+				for k, v := range m {
+					resultMap[k] = v
+				}
+				continue
+			}
+
+			if a, ok := val.([]interface{}); ok {
+				if len(a) > 0 {
+					return a, nil
+				}
+				continue
+			}
+
+			// if its a primitive and not nil just return that and let it be validated
+			return val, nil
+		}
+	}
+
+	if len(resultMap) > 0 {
+		return resultMap, nil
+	}
+
+	return nil, nil
+}
+
+func handlePropParseError(path []string, err error) error {
+	if v, ok := err.(*ParseError); ok {
+		return &ParseError{path: pathFromKeys(path), Cause: v}
+	}
+	return fmt.Errorf("property %q: %w", strings.Join(path, "."), err)
+}
+
+func pathFromKeys(kk []string) []interface{} {
+	path := make([]interface{}, 0, len(kk))
+	for _, v := range kk {
+		path = append(path, v)
+	}
+	return path
 }
 
 // parseArray returns an array that contains items from a raw array.

@@ -39,7 +39,7 @@ func TestValidateRequest(t *testing.T) {
 openapi: 3.0.0
 info:
   title: 'Validator'
-  version: 0.0.1
+  version: 0.0.2
 paths:
   /category:
     post:
@@ -63,6 +63,14 @@ paths:
                 category:
                   type: string
                   default: Sweets
+                subCategoryInt:
+                  type: integer
+                  minimum: 100
+                  maximum: 1000
+                categoryFloat:
+                  type: number
+                  minimum: 123.10
+                  maximum: 123.20
       responses:
         '201':
           description: Created
@@ -98,8 +106,10 @@ components:
 	}
 
 	type testRequestBody struct {
-		SubCategory string `json:"subCategory"`
-		Category    string `json:"category,omitempty"`
+		SubCategory    string  `json:"subCategory"`
+		Category       string  `json:"category,omitempty"`
+		SubCategoryInt int     `json:"subCategoryInt,omitempty"`
+		CategoryFloat  float32 `json:"categoryFloat,omitempty"`
 	}
 	type args struct {
 		requestBody *testRequestBody
@@ -115,7 +125,7 @@ components:
 		{
 			name: "Valid request with all fields set",
 			args: args{
-				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: "Food"},
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: "Food", SubCategoryInt: 123, CategoryFloat: 123.12},
 				url:         "/category?category=cookies",
 				apiKey:      "SomeKey",
 			},
@@ -171,6 +181,26 @@ components:
 			},
 			expectedModification: false,
 			expectedErr:          &openapi3filter.SecurityRequirementsError{},
+		},
+		{
+			name: "Invalid SubCategoryInt value",
+			args: args{
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: "Food", SubCategoryInt: 1, CategoryFloat: 123.12},
+				url:         "/category?category=cookies",
+				apiKey:      "SomeKey",
+			},
+			expectedModification: false,
+			expectedErr:          &openapi3filter.RequestError{},
+		},
+		{
+			name: "Invalid CategoryFloat value",
+			args: args{
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: "Food", SubCategoryInt: 123, CategoryFloat: 123.21},
+				url:         "/category?category=cookies",
+				apiKey:      "SomeKey",
+			},
+			expectedModification: false,
+			expectedErr:          &openapi3filter.RequestError{},
 		},
 	}
 	for _, tc := range tests {

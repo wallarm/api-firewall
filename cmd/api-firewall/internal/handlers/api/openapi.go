@@ -143,10 +143,11 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 
 	// Validate request
 	requestValidationInput := &openapi3filter.RequestValidationInput{
-		Request:    &req,
-		PathParams: pathParams,
-		Route:      s.CustomRoute.Route,
-		Options:    apiModeSecurityRequirementsOptions,
+		Request:     &req,
+		PathParams:  pathParams,
+		Route:       s.CustomRoute.Route,
+		QueryParams: req.URL.Query(),
+		Options:     apiModeSecurityRequirementsOptions,
 	}
 
 	var wg sync.WaitGroup

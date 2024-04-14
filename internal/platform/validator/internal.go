@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 
@@ -54,12 +55,7 @@ func convertToMap(v *fastjson.Value) interface{} {
 		}
 		return a
 	case fastjson.TypeNumber:
-		valueInt := v.GetInt64()
-		valueFloat := v.GetFloat64()
-		if valueFloat == float64(int(valueFloat)) {
-			return valueInt
-		}
-		return valueFloat
+		return json.Number(v.String())
 	case fastjson.TypeString:
 		return string(v.GetStringBytes())
 	case fastjson.TypeTrue, fastjson.TypeFalse:

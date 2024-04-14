@@ -45,10 +45,10 @@ func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidat
 
 	// Find input for the current status
 	responses := route.Operation.Responses
-	if len(responses) == 0 {
+	if responses.Len() == 0 {
 		return nil
 	}
-	responseRef := responses.Get(status) // Response
+	responseRef := responses.Status(status) // Response
 	if responseRef == nil {
 		responseRef = responses.Default() // Default input
 	}

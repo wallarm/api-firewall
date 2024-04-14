@@ -182,9 +182,10 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
 	// Validate request
 	requestValidationInput := &openapi3filter.RequestValidationInput{
-		Request:    &req,
-		PathParams: pathParams,
-		Route:      s.customRoute.Route,
+		Request:     &req,
+		PathParams:  pathParams,
+		Route:       s.customRoute.Route,
+		QueryParams: req.URL.Query(),
 		Options: &openapi3filter.Options{
 			AuthenticationFunc: func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
 				switch input.SecurityScheme.Type {
