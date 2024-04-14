@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"github.com/clbanning/mxj/v2"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	utils "github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fastjson"
 )
 
@@ -193,7 +195,7 @@ func defaultContentParameterDecoder(param *openapi3.Parameter, values []string) 
 
 	unmarshal := func(encoded string, paramSchema *openapi3.SchemaRef) (decoded interface{}, err error) {
 		if err = json.Unmarshal([]byte(encoded), &decoded); err != nil {
-			if paramSchema != nil && paramSchema.Value.Type != "object" {
+			if paramSchema != nil && !paramSchema.Value.Type.Is("object") {
 				decoded, err = encoded, nil
 			}
 		}
@@ -243,10 +245,11 @@ func decodeStyledParameter(param *openapi3.Parameter, input *openapi3filter.Requ
 		}
 		dec = &pathParamDecoder{pathParams: input.PathParams}
 	case openapi3.ParameterInQuery:
-		if len(input.GetQueryParams()) == 0 {
+		queryParams := input.GetQueryParams()
+		if len(queryParams) == 0 {
 			return nil, false, nil
 		}
-		dec = &urlValuesDecoder{values: input.GetQueryParams()}
+		dec = &urlValuesDecoder{values: queryParams}
 	case openapi3.ParameterInHeader:
 		dec = &headerParamDecoder{header: input.Request.Header}
 	case openapi3.ParameterInCookie:
@@ -314,14 +317,14 @@ func decodeValue(dec valueDecoder, param string, sm *openapi3.SerializationMetho
 		return nil, found, errors.New("not implemented: decoding 'not'")
 	}
 
-	if schema.Value.Type != "" {
+	if schema.Value.Type != nil {
 		var decodeFn func(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error)
-		switch schema.Value.Type {
-		case "array":
+		switch {
+		case schema.Value.Type.Is("array"):
 			decodeFn = func(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error) {
 				return dec.DecodeArray(param, sm, schema)
 			}
-		case "object":
+		case schema.Value.Type.Is("object"):
 			decodeFn = func(param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef) (interface{}, bool, error) {
 				return dec.DecodeObject(param, sm, schema)
 			}
@@ -504,7 +507,7 @@ func (d *urlValuesDecoder) DecodePrimitive(param string, sm *openapi3.Serializat
 		return nil, ok, nil
 	}
 
-	if schema.Value.Type == "" && schema.Value.Pattern != "" {
+	if schema.Value.Type == nil && schema.Value.Pattern != "" {
 		return values[0], ok, nil
 	}
 	val, err := parsePrimitive(values[0], schema)
@@ -649,12 +652,18 @@ func (d *urlValuesDecoder) DecodeObject(param string, sm *openapi3.Serialization
 		propsFn = func(params url.Values) (map[string]string, error) {
 			props := make(map[string]string)
 			for key, values := range params {
-				groups := regexp.MustCompile(fmt.Sprintf("%s\\[(.+?)\\]", param)).FindAllStringSubmatch(key, -1)
-				if len(groups) == 0 {
+				matches := regexp.MustCompile(`\[(.*?)\]`).FindAllStringSubmatch(key, -1)
+				switch l := len(matches); {
+				case l == 0:
 					// A query parameter's name does not match the required format, so skip it.
 					continue
+				case l >= 1:
+					kk := []string{}
+					for _, m := range matches {
+						kk = append(kk, m[1])
+					}
+					props[strings.Join(kk, urlDecoderDelimiter)] = strings.Join(values, urlDecoderDelimiter)
 				}
-				props[groups[0][1]] = values[0]
 			}
 			if len(props) == 0 {
 				// HTTP request does not contain query parameters encoded by rules of style "deepObject".
@@ -687,7 +696,7 @@ func (d *urlValuesDecoder) DecodeObject(param string, sm *openapi3.Serialization
 			break
 		}
 
-		if schema.Value.Type == "array" || schema.Value.Type == "object" {
+		if schema.Value.Type.Permits("array") || schema.Value.Type.Permits("object") {
 			for k := range props {
 				path := strings.Split(k, urlDecoderDelimiter)
 				if _, ok := deepGet(val, path...); ok {
@@ -698,7 +707,7 @@ func (d *urlValuesDecoder) DecodeObject(param string, sm *openapi3.Serialization
 		}
 	}
 
-	return val, found, err
+	return val, found, nil
 }
 
 // headerParamDecoder decodes values of header parameters.
@@ -830,7 +839,7 @@ func propsFromString(src, propDelim, valueDelim string) (map[string]string, erro
 	pairs := strings.Split(src, propDelim)
 
 	// When propDelim and valueDelim is equal the source string follow the next rule:
-	// every even item of pairs is a properies's name, and the subsequent odd item is a property's value.
+	// every even item of pairs is a properties's name, and the subsequent odd item is a property's value.
 	if propDelim == valueDelim {
 		// Taking into account the rule above, a valid source string must be splitted by propDelim
 		// to an array with an even number of items.
@@ -887,43 +896,25 @@ func deepSet(m map[string]interface{}, keys []string, value interface{}) {
 	m[keys[len(keys)-1]] = value
 }
 
-//func findNestedSchema(parentSchema *openapi3.SchemaRef, keys []string) (*openapi3.SchemaRef, error) {
-//	currentSchema := parentSchema
-//	for _, key := range keys {
-//		if currentSchema.Value.Type.Includes(openapi3.TypeArray) {
-//			currentSchema = currentSchema.Value.Items
-//		} else {
-//			propertySchema, ok := currentSchema.Value.Properties[key]
-//			if !ok {
-//				if currentSchema.Value.AdditionalProperties.Schema == nil {
-//					return nil, fmt.Errorf("nested schema for key %q not found", key)
-//				}
-//				currentSchema = currentSchema.Value.AdditionalProperties.Schema
-//				continue
-//			}
-//			currentSchema = propertySchema
-//		}
-//	}
-//	return currentSchema, nil
-//}
-
-// makeObject returns an object that contains properties from props.
-// A value of every property is parsed as a primitive value.
-// The function returns an error when an error happened while parse object's properties.
-//func makeObject(props map[string]string, schema *openapi3.SchemaRef) (map[string]interface{}, error) {
-//	obj := make(map[string]interface{})
-//	for propName, propSchema := range schema.Value.Properties {
-//		value, err := parsePrimitive(props[propName], propSchema)
-//		if err != nil {
-//			if v, ok := err.(*ParseError); ok {
-//				return nil, &ParseError{path: []interface{}{propName}, Cause: v}
-//			}
-//			return nil, fmt.Errorf("property %q: %w", propName, err)
-//		}
-//		obj[propName] = value
-//	}
-//	return obj, nil
-//}
+func findNestedSchema(parentSchema *openapi3.SchemaRef, keys []string) (*openapi3.SchemaRef, error) {
+	currentSchema := parentSchema
+	for _, key := range keys {
+		if currentSchema.Value.Type.Includes(openapi3.TypeArray) {
+			currentSchema = currentSchema.Value.Items
+		} else {
+			propertySchema, ok := currentSchema.Value.Properties[key]
+			if !ok {
+				if currentSchema.Value.AdditionalProperties.Schema == nil {
+					return nil, fmt.Errorf("nested schema for key %q not found", key)
+				}
+				currentSchema = currentSchema.Value.AdditionalProperties.Schema
+				continue
+			}
+			currentSchema = propertySchema
+		}
+	}
+	return currentSchema, nil
+}
 
 // makeObject returns an object that contains properties from props.
 func makeObject(props map[string]string, schema *openapi3.SchemaRef) (map[string]interface{}, error) {
@@ -987,7 +978,7 @@ func buildResObj(params map[string]interface{}, parentKeys []string, key string,
 	}
 
 	switch {
-	case schema.Value.Type == "array":
+	case schema.Value.Type.Is("array"):
 		paramArr, ok := deepGet(params, mapKeys...)
 		if !ok {
 			return nil, nil
@@ -1012,7 +1003,7 @@ func buildResObj(params map[string]interface{}, parentKeys []string, key string,
 			}
 		}
 		return resultArr, nil
-	case schema.Value.Type == "object":
+	case schema.Value.Type.Is("object"):
 		resultMap := make(map[string]interface{})
 		additPropsSchema := schema.Value.AdditionalProperties.Schema
 		pp, _ := deepGet(params, mapKeys...)
@@ -1144,49 +1135,49 @@ func parseArray(raw []string, schemaRef *openapi3.SchemaRef) ([]interface{}, err
 // parsePrimitive returns a value that is created by parsing a source string to a primitive type
 // that is specified by a schema. The function returns nil when the source string is empty.
 // The function panics when a schema has a non-primitive type.
-func parsePrimitive(raw string, schema *openapi3.SchemaRef) (interface{}, error) {
+func parsePrimitive(raw string, schema *openapi3.SchemaRef) (v interface{}, err error) {
 	if raw == "" {
 		return nil, nil
 	}
-
-	switch schema.Value.Type {
-	case "integer":
-		if len(schema.Value.Enum) > 0 {
-			// parse int as float because of the comparison with float enum values
-			v, err := strconv.ParseFloat(raw, 64)
-			if err != nil {
-				return nil, &ParseError{Kind: KindInvalidFormat, ValueStr: raw, ExpectedType: schema.Value.Type, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
-			}
-			return v, nil
+	for _, typ := range schema.Value.Type.Slice() {
+		if v, err = parsePrimitiveCase(raw, schema, typ); err == nil {
+			return
 		}
+	}
+	return
+}
+
+func parsePrimitiveCase(raw string, schema *openapi3.SchemaRef, typ string) (interface{}, error) {
+	switch typ {
+	case "integer":
 		if schema.Value.Format == "int32" {
 			v, err := strconv.ParseInt(raw, 0, 32)
 			if err != nil {
-				return nil, &ParseError{Kind: KindInvalidFormat, ValueStr: raw, ExpectedType: schema.Value.Type, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+				return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + typ, Cause: err.(*strconv.NumError).Err}
 			}
 			return int32(v), nil
 		}
 		v, err := strconv.ParseInt(raw, 0, 64)
 		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, ValueStr: raw, ExpectedType: schema.Value.Type, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + typ, Cause: err.(*strconv.NumError).Err}
 		}
 		return v, nil
 	case "number":
 		v, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, ValueStr: raw, ExpectedType: schema.Value.Type, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + typ, Cause: err.(*strconv.NumError).Err}
 		}
 		return v, nil
 	case "boolean":
 		v, err := strconv.ParseBool(raw)
 		if err != nil {
-			return nil, &ParseError{Kind: KindInvalidFormat, ValueStr: raw, ExpectedType: schema.Value.Type, Value: raw, Reason: "an invalid " + schema.Value.Type, Cause: err.(*strconv.NumError).Err}
+			return nil, &ParseError{Kind: KindInvalidFormat, Value: raw, Reason: "an invalid " + typ, Cause: err.(*strconv.NumError).Err}
 		}
 		return v, nil
 	case "string":
 		return raw, nil
 	default:
-		return nil, &ParseError{Kind: KindOther, Value: raw, Reason: "schema has non primitive type " + schema.Value.Type}
+		return nil, &ParseError{Kind: KindOther, Value: raw, Reason: "schema has non primitive type " + typ}
 	}
 }
 
@@ -1293,7 +1284,6 @@ func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, 
 			return mediaType, value, nil
 		}
 	}
-
 	mediaType, suffix := parseMediaType(contentType)
 	decoder, err := getBodyDecoder(mediaType, suffix)
 	if err != nil {
@@ -1343,16 +1333,16 @@ func multipartPartBodyDecoder(body io.Reader, header http.Header, schema *openap
 		return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
 	}
 
-	dataStr := string(data)
+	dataStr := utils.B2S(data)
 
-	switch schema.Value.Type {
-	case "integer", "number":
+	switch {
+	case schema.Value.Type.Is("integer") || schema.Value.Type.Is("number"):
 		floatValue, err := strconv.ParseFloat(dataStr, 64)
 		if err != nil {
 			return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
 		}
 		return floatValue, nil
-	case "boolean":
+	case schema.Value.Type.Is("boolean"):
 		boolValue, err := strconv.ParseBool(dataStr)
 		if err != nil {
 			return nil, &ParseError{Kind: KindInvalidFormat, Cause: err}
@@ -1407,13 +1397,20 @@ func yamlBodyDecoder(body io.Reader, header http.Header, schema *openapi3.Schema
 
 func urlencodedBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
 
+	// Validate schema of request body.
+	// By the OpenAPI 3 specification request body's schema must have type "object".
+	// Properties of the schema describes individual parts of request body.
+	if !schema.Value.Type.Is("object") {
+		return nil, errors.New("unsupported schema of request body")
+	}
 	for propName, propSchema := range schema.Value.Properties {
-		switch propSchema.Value.Type {
-		case "object":
+		propType := propSchema.Value.Type
+		switch {
+		case propType.Is("object"):
 			return nil, fmt.Errorf("unsupported schema of request body's property %q", propName)
-		case "array":
+		case propType.Is("array"):
 			items := propSchema.Value.Items.Value
-			if items.Type != "string" && items.Type != "integer" && items.Type != "number" && items.Type != "boolean" {
+			if !(items.Type.Is("string") || items.Type.Is("integer") || items.Type.Is("number") || items.Type.Is("boolean")) {
 				return nil, fmt.Errorf("unsupported schema of request body's property %q", propName)
 			}
 		}
@@ -1432,29 +1429,61 @@ func urlencodedBodyDecoder(body io.Reader, header http.Header, schema *openapi3.
 	// Make an object value from form values.
 	obj := make(map[string]interface{})
 	dec := &urlValuesDecoder{values: values}
-	for name, prop := range schema.Value.Properties {
-		var (
-			value interface{}
-			enc   *openapi3.Encoding
-		)
-		if encFn != nil {
-			enc = encFn(name)
-		}
-		sm := enc.SerializationMethod()
+	// Decode schema constructs (allOf, anyOf, oneOf)
+	if err := decodeSchemaConstructs(dec, schema.Value.AllOf, obj, encFn); err != nil {
+		return nil, err
+	}
+	if err := decodeSchemaConstructs(dec, schema.Value.AnyOf, obj, encFn); err != nil {
+		return nil, err
+	}
+	if err := decodeSchemaConstructs(dec, schema.Value.OneOf, obj, encFn); err != nil {
+		return nil, err
+	}
 
-		found := false
-		if value, found, err = decodeValue(dec, name, sm, prop, false); err != nil {
-			return nil, err
-		}
-		if found {
-			obj[name] = value
-		}
+	// Decode properties from the main schema
+	if err := decodeSchemaConstructs(dec, []*openapi3.SchemaRef{schema}, obj, encFn); err != nil {
+		return nil, err
 	}
 
 	return obj, nil
 }
 
+// decodeSchemaConstructs tries to decode properties based on provided schemas.
+// This function is for decoding purposes only and not for validation.
+func decodeSchemaConstructs(dec *urlValuesDecoder, schemas []*openapi3.SchemaRef, obj map[string]interface{}, encFn EncodingFn) error {
+	for _, schemaRef := range schemas {
+		for name, prop := range schemaRef.Value.Properties {
+			value, _, err := decodeProperty(dec, name, prop, encFn)
+			if err != nil {
+				continue
+			}
+			if existingValue, exists := obj[name]; exists && !isEqual(existingValue, value) {
+				return fmt.Errorf("conflicting values for property %q", name)
+			}
+			obj[name] = value
+		}
+	}
+
+	return nil
+}
+
+func isEqual(value1, value2 interface{}) bool {
+	return reflect.DeepEqual(value1, value2)
+}
+
+func decodeProperty(dec valueDecoder, name string, prop *openapi3.SchemaRef, encFn EncodingFn) (interface{}, bool, error) {
+	var enc *openapi3.Encoding
+	if encFn != nil {
+		enc = encFn(name)
+	}
+	sm := enc.SerializationMethod()
+	return decodeValue(dec, name, sm, prop, false)
+}
+
 func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.SchemaRef, encFn EncodingFn, jsonParser *fastjson.Parser) (interface{}, error) {
+	if !schema.Value.Type.Is("object") {
+		return nil, errors.New("unsupported schema of request body")
+	}
 
 	// Parse form.
 	values := make(map[string][]interface{})
@@ -1515,7 +1544,7 @@ func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.S
 					return nil, &ParseError{Kind: KindOther, Cause: fmt.Errorf("part %s: undefined", name)}
 				}
 			}
-			if valueSchema.Value.Type == "array" {
+			if valueSchema.Value.Type.Is("array") {
 				valueSchema = valueSchema.Value.Items
 			}
 		}
@@ -1560,7 +1589,7 @@ func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.S
 		if len(vv) == 0 {
 			continue
 		}
-		if prop.Value.Type == "array" {
+		if prop.Value.Type.Is("array") {
 			obj[name] = vv
 		} else {
 			obj[name] = vv[0]

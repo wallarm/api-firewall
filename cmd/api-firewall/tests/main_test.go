@@ -2521,7 +2521,7 @@ func (s *ServiceTests) unknownParamPostBody(t *testing.T) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
 	req.Header.SetMethod("POST")
-	req.SetBodyString("firstname=test&lastname=testjob=test&email=test@wallarm.com&url=http://wallarm.com")
+	req.SetBodyString("firstname=test&lastname=test&job=test&email=test@wallarm.com&url=http://wallarm.com")
 	req.Header.SetContentType("application/x-www-form-urlencoded")
 
 	resp := fasthttp.AcquireResponse()
@@ -2544,7 +2544,7 @@ func (s *ServiceTests) unknownParamPostBody(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	req.SetBodyString("firstname=test&lastname=testjob=test&email=test@wallarm.com&url=http://wallarm.com&test=hello")
+	req.SetBodyString("firstname=test&lastname=test&email=test@wallarm.com&url=http://wallarm.com&test=hello")
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -2659,7 +2659,7 @@ func (s *ServiceTests) unknownParamUnsupportedMimeType(t *testing.T) {
 	req.SetRequestURI("/test/signup")
 	req.Header.SetMethod("POST")
 	req.Header.SetContentType("application/x-www-form-urlencoded")
-	req.SetBodyString("firstname=test&lastname=testjob=test&email=test@wallarm.com&url=http://wallarm.com")
+	req.SetBodyString("firstname=test&lastname=test&job=test&email=test@wallarm.com&url=http://wallarm.com")
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
