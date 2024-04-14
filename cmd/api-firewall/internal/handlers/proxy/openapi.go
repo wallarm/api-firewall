@@ -261,7 +261,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				ctx.SetUserValue(web.RequestBlocked, true)
 
 				s.logger.WithFields(logrus.Fields{
-					"error":      err,
+					"error":      strings.ReplaceAll(err.Error(), "\n", " "),
 					"host":       strconv.B2S(ctx.Request.Header.Host()),
 					"path":       strconv.B2S(ctx.Path()),
 					"method":     strconv.B2S(ctx.Request.Header.Method()),
@@ -311,7 +311,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	case web.ValidationLog:
 		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
-				"error":      err,
+				"error":      strings.ReplaceAll(err.Error(), "\n", " "),
 				"host":       strconv.B2S(ctx.Request.Header.Host()),
 				"path":       strconv.B2S(ctx.Path()),
 				"method":     strconv.B2S(ctx.Request.Header.Method()),
