@@ -1,0 +1,34 @@
+version: "3.8"
+services:
+  api-firewall:
+    container_name: api-firewall
+    image: wallarm/api-firewall:v0.7.1
+    restart: on-failure
+    environment:
+      APIFW_URL: "http://0.0.0.0:8080"
+      APIFW_API_SPECS: "/opt/resources/httpbin.json"
+      APIFW_SERVER_URL: "http://backend:80"
+      APIFW_SERVER_MAX_CONNS_PER_HOST: "512"
+      APIFW_SERVER_READ_TIMEOUT: "5s"
+      APIFW_SERVER_WRITE_TIMEOUT: "5s"
+      APIFW_SERVER_DIAL_TIMEOUT: "200ms"
+      APIFW_REQUEST_VALIDATION: "BLOCK"
+      APIFW_RESPONSE_VALIDATION: "BLOCK"
+      APIFW_MODSEC_CONF_FILES: "/opt/resources/coraza.conf;/opt/resources/crs/crs-setup.conf.example"
+      APIFW_MODSEC_RULES_DIR: "/opt/resources/crs/rules/"
+    volumes:
+      - ./crs:/opt/resources/crs:ro
+      - ./coraza.conf-recommended:/opt/resources/coraza.conf:ro
+      - ./httpbin.json:/opt/resources/httpbin.json:ro
+    ports:
+      - "8080:8080"
+    stop_grace_period: 1s
+  backend:
+    container_name: api-firewall-backend
+    image: kennethreitz/httpbin
+    restart: on-failure
+    ports:
+      - 8090:80
+    expose:
+      - 80
+    stop_grace_period: 1s
