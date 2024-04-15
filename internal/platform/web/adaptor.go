@@ -6,6 +6,7 @@ import (
 
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 )
 
 // NewFastHTTPHandler wraps net/http handler to fasthttp request handler,
@@ -24,7 +25,7 @@ import (
 // So it is advisable using this function only for quick net/http -> fasthttp
 // switching. Then manually convert net/http handlers to fasthttp handlers
 // according to https://github.com/valyala/fasthttp#switching-from-nethttp-to-fasthttp .
-func NewFastHTTPHandler(h http.Handler, isPlayground bool) Handler {
+func NewFastHTTPHandler(h http.Handler, isPlayground bool) router.Handler {
 	return func(ctx *fasthttp.RequestCtx) error {
 		var r http.Request
 		if err := fasthttpadaptor.ConvertRequest(ctx, &r, true); err != nil {

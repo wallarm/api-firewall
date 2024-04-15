@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -21,53 +22,272 @@ import (
 	"github.com/valyala/fastjson"
 )
 
+var (
+	explode   = openapi3.BoolPtr(true)
+	noExplode = openapi3.BoolPtr(false)
+	arrayOf   = func(items *openapi3.SchemaRef) *openapi3.SchemaRef {
+		return &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"array"}, Items: items}}
+	}
+	objectOf = func(args ...interface{}) *openapi3.SchemaRef {
+		s := &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"object"}, Properties: make(map[string]*openapi3.SchemaRef)}}
+		if len(args)%2 != 0 {
+			panic("invalid arguments. must be an even number of arguments")
+		}
+		for i := 0; i < len(args)/2; i++ {
+			propName := args[i*2].(string)
+			propSchema := args[i*2+1].(*openapi3.SchemaRef)
+			s.Value.Properties[propName] = propSchema
+		}
+		return s
+	}
+
+	additionalPropertiesObjectOf = func(schema *openapi3.SchemaRef) *openapi3.SchemaRef {
+		return &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"object"}, AdditionalProperties: openapi3.AdditionalProperties{Schema: schema}}}
+	}
+
+	integerSchema                          = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"integer"}}}
+	numberSchema                           = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"number"}}}
+	booleanSchema                          = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"boolean"}}}
+	stringSchema                           = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}}
+	additionalPropertiesObjectStringSchema = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"object"}, AdditionalProperties: openapi3.AdditionalProperties{Schema: stringSchema}}}
+	additionalPropertiesObjectBoolSchema   = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"object"}, AdditionalProperties: openapi3.AdditionalProperties{Schema: booleanSchema}}}
+	allofSchema                            = &openapi3.SchemaRef{
+		Value: &openapi3.Schema{
+			AllOf: []*openapi3.SchemaRef{
+				integerSchema,
+				numberSchema,
+			},
+		},
+	}
+	anyofSchema = &openapi3.SchemaRef{
+		Value: &openapi3.Schema{
+			AnyOf: []*openapi3.SchemaRef{
+				integerSchema,
+				stringSchema,
+			},
+		},
+	}
+	oneofSchema = &openapi3.SchemaRef{
+		Value: &openapi3.Schema{
+			OneOf: []*openapi3.SchemaRef{
+				booleanSchema,
+				integerSchema,
+			},
+		},
+	}
+	oneofSchemaObject = &openapi3.SchemaRef{
+		Value: &openapi3.Schema{
+			OneOf: []*openapi3.SchemaRef{
+				objectOneRSchema,
+				objectTwoRSchema,
+			},
+		},
+	}
+	anyofSchemaObject = &openapi3.SchemaRef{
+		Value: &openapi3.Schema{
+			AnyOf: []*openapi3.SchemaRef{
+				objectOneRSchema,
+				objectTwoRSchema,
+			},
+		},
+	}
+	stringArraySchema  = arrayOf(stringSchema)
+	integerArraySchema = arrayOf(integerSchema)
+	objectSchema       = objectOf("id", stringSchema, "name", stringSchema)
+	objectTwoRSchema   = func() *openapi3.SchemaRef {
+		s := objectOf("id2", stringSchema, "name2", stringSchema)
+		s.Value.Required = []string{"id2"}
+
+		return s
+	}()
+
+	objectOneRSchema = func() *openapi3.SchemaRef {
+		s := objectOf("id", stringSchema, "name", stringSchema)
+		s.Value.Required = []string{"id"}
+
+		return s
+	}()
+
+	oneofSchemaArrayObject = &openapi3.SchemaRef{
+		Value: &openapi3.Schema{
+			AnyOf: []*openapi3.SchemaRef{
+				stringArraySchema,
+				objectTwoRSchema,
+			},
+		},
+	}
+)
+
+func TestDeepGet(t *testing.T) {
+	iarray := map[string]interface{}{
+		"0": map[string]interface{}{
+			"foo": 111,
+		},
+		"1": map[string]interface{}{
+			"bar": 222,
+		},
+	}
+
+	tests := []struct {
+		name       string
+		m          map[string]interface{}
+		keys       []string
+		expected   interface{}
+		shouldFind bool
+	}{
+		{
+			name: "Simple map - key exists",
+			m: map[string]interface{}{
+				"foo": "bar",
+			},
+			keys:       []string{"foo"},
+			expected:   "bar",
+			shouldFind: true,
+		},
+		{
+			name: "Nested map - key exists",
+			m: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "baz",
+				},
+			},
+			keys:       []string{"foo", "bar"},
+			expected:   "baz",
+			shouldFind: true,
+		},
+		{
+			name: "Nested map - key does not exist",
+			m: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "baz",
+				},
+			},
+			keys:       []string{"foo", "baz"},
+			expected:   nil,
+			shouldFind: false,
+		},
+		{
+			name: "Array - element exists",
+			m: map[string]interface{}{
+				"array": map[string]interface{}{"0": "a", "1": "b", "2": "c"},
+			},
+			keys:       []string{"array", "1"},
+			expected:   "b",
+			shouldFind: true,
+		},
+		{
+			name: "Array - element does not exist - invalid index",
+			m: map[string]interface{}{
+				"array": map[string]interface{}{"0": "a", "1": "b", "2": "c"},
+			},
+			keys:       []string{"array", "3"},
+			expected:   nil,
+			shouldFind: false,
+		},
+		{
+			name: "Array - element does not exist - invalid keys",
+			m: map[string]interface{}{
+				"array": map[string]interface{}{"0": "a", "1": "b", "2": "c"},
+			},
+			keys:       []string{"array", "a", "999"},
+			expected:   nil,
+			shouldFind: false,
+		},
+		{
+			name: "Array of objects - element exists 1",
+			m: map[string]interface{}{
+				"array": iarray,
+			},
+			keys:       []string{"array", "1", "bar"},
+			expected:   222,
+			shouldFind: true,
+		},
+		{
+			name: "Array of objects - element exists 2",
+			m: map[string]interface{}{
+				"array": iarray,
+			},
+			keys: []string{"array", "0"},
+			expected: map[string]interface{}{
+				"foo": 111,
+			},
+			shouldFind: true,
+		},
+		{
+			name: "Array of objects - element exists 3",
+			m: map[string]interface{}{
+				"array": iarray,
+			},
+			keys:       []string{"array"},
+			expected:   iarray,
+			shouldFind: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tc := tc
+
+			result, found := deepGet(tc.m, tc.keys...)
+			require.Equal(t, tc.shouldFind, found, "shouldFind mismatch")
+			require.Equal(t, tc.expected, result, "result mismatch")
+		})
+	}
+}
+
+func TestDeepSet(t *testing.T) {
+	tests := []struct {
+		name     string
+		inputMap map[string]interface{}
+		keys     []string
+		value    interface{}
+		expected map[string]interface{}
+	}{
+		{
+			name:     "simple set",
+			inputMap: map[string]interface{}{},
+			keys:     []string{"key"},
+			value:    "value",
+			expected: map[string]interface{}{"key": "value"},
+		},
+		{
+			name:     "intermediate array of objects",
+			inputMap: map[string]interface{}{},
+			keys:     []string{"nested", "0", "key"},
+			value:    true,
+			expected: map[string]interface{}{
+				"nested": map[string]interface{}{
+					"0": map[string]interface{}{
+						"key": true,
+					},
+				},
+			},
+		},
+		{
+			name:     "existing nested array of objects",
+			inputMap: map[string]interface{}{"nested": map[string]interface{}{"0": map[string]interface{}{"existingKey": "existingValue"}}},
+			keys:     []string{"nested", "0", "newKey"},
+			value:    "newValue",
+			expected: map[string]interface{}{
+				"nested": map[string]interface{}{
+					"0": map[string]interface{}{
+						"existingKey": "existingValue",
+						"newKey":      "newValue",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			deepSet(tc.inputMap, tc.keys, tc.value)
+			require.EqualValues(t, tc.expected, tc.inputMap)
+		})
+	}
+}
+
 func TestDecodeParameter(t *testing.T) {
-	var (
-		boolPtr   = func(b bool) *bool { return &b }
-		explode   = boolPtr(true)
-		noExplode = boolPtr(false)
-		arrayOf   = func(items *openapi3.SchemaRef) *openapi3.SchemaRef {
-			return &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "array", Items: items}}
-		}
-		objectOf = func(args ...interface{}) *openapi3.SchemaRef {
-			s := &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "object", Properties: make(map[string]*openapi3.SchemaRef)}}
-			if len(args)%2 != 0 {
-				panic("invalid arguments. must be an even number of arguments")
-			}
-			for i := 0; i < len(args)/2; i++ {
-				propName := args[i*2].(string)
-				propSchema := args[i*2+1].(*openapi3.SchemaRef)
-				s.Value.Properties[propName] = propSchema
-			}
-			return s
-		}
-
-		integerSchema = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "integer"}}
-		numberSchema  = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "number"}}
-		booleanSchema = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "boolean"}}
-		stringSchema  = &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "string"}}
-		allofSchema   = &openapi3.SchemaRef{
-			Value: &openapi3.Schema{
-				AllOf: []*openapi3.SchemaRef{
-					integerSchema,
-					numberSchema,
-				}}}
-		anyofSchema = &openapi3.SchemaRef{
-			Value: &openapi3.Schema{
-				AnyOf: []*openapi3.SchemaRef{
-					integerSchema,
-					stringSchema,
-				}}}
-		oneofSchema = &openapi3.SchemaRef{
-			Value: &openapi3.Schema{
-				OneOf: []*openapi3.SchemaRef{
-					booleanSchema,
-					integerSchema,
-				}}}
-		arraySchema  = arrayOf(stringSchema)
-		objectSchema = objectOf("id", stringSchema, "name", stringSchema)
-	)
-
 	type testCase struct {
 		name   string
 		param  *openapi3.Parameter
@@ -220,77 +440,77 @@ func TestDecodeParameter(t *testing.T) {
 			testCases: []testCase{
 				{
 					name:  "simple",
-					param: &openapi3.Parameter{Name: "param", In: "path", Style: "simple", Explode: noExplode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Style: "simple", Explode: noExplode, Schema: stringArraySchema},
 					path:  "/foo,bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "simple explode",
-					param: &openapi3.Parameter{Name: "param", In: "path", Style: "simple", Explode: explode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Style: "simple", Explode: explode, Schema: stringArraySchema},
 					path:  "/foo,bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "label",
-					param: &openapi3.Parameter{Name: "param", In: "path", Style: "label", Explode: noExplode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Style: "label", Explode: noExplode, Schema: stringArraySchema},
 					path:  "/.foo,bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "label invalid",
-					param: &openapi3.Parameter{Name: "param", In: "path", Style: "label", Explode: noExplode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Style: "label", Explode: noExplode, Schema: stringArraySchema},
 					path:  "/foo,bar",
 					found: true,
 					err:   &ParseError{Kind: KindInvalidFormat, Value: "foo,bar"},
 				},
 				{
 					name:  "label explode",
-					param: &openapi3.Parameter{Name: "param", In: "path", Style: "label", Explode: explode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Style: "label", Explode: explode, Schema: stringArraySchema},
 					path:  "/.foo.bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "label explode invalid",
-					param: &openapi3.Parameter{Name: "param", In: "path", Style: "label", Explode: explode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Style: "label", Explode: explode, Schema: stringArraySchema},
 					path:  "/foo.bar",
 					found: true,
 					err:   &ParseError{Kind: KindInvalidFormat, Value: "foo.bar"},
 				},
 				{
 					name:  "matrix",
-					param: &openapi3.Parameter{Name: "param", In: "path", Style: "matrix", Explode: noExplode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Style: "matrix", Explode: noExplode, Schema: stringArraySchema},
 					path:  "/;param=foo,bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "matrix invalid",
-					param: &openapi3.Parameter{Name: "param", In: "path", Style: "matrix", Explode: noExplode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Style: "matrix", Explode: noExplode, Schema: stringArraySchema},
 					path:  "/foo,bar",
 					found: true,
 					err:   &ParseError{Kind: KindInvalidFormat, Value: "foo,bar"},
 				},
 				{
 					name:  "matrix explode",
-					param: &openapi3.Parameter{Name: "param", In: "path", Style: "matrix", Explode: explode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Style: "matrix", Explode: explode, Schema: stringArraySchema},
 					path:  "/;param=foo;param=bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "matrix explode invalid",
-					param: &openapi3.Parameter{Name: "param", In: "path", Style: "matrix", Explode: explode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Style: "matrix", Explode: explode, Schema: stringArraySchema},
 					path:  "/foo,bar",
 					found: true,
 					err:   &ParseError{Kind: KindInvalidFormat, Value: "foo,bar"},
 				},
 				{
 					name:  "default",
-					param: &openapi3.Parameter{Name: "param", In: "path", Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "path", Schema: stringArraySchema},
 					path:  "/foo,bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
@@ -565,49 +785,49 @@ func TestDecodeParameter(t *testing.T) {
 			testCases: []testCase{
 				{
 					name:  "form",
-					param: &openapi3.Parameter{Name: "param", In: "query", Style: "form", Explode: noExplode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "query", Style: "form", Explode: noExplode, Schema: stringArraySchema},
 					query: "param=foo,bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "form explode",
-					param: &openapi3.Parameter{Name: "param", In: "query", Style: "form", Explode: explode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "query", Style: "form", Explode: explode, Schema: stringArraySchema},
 					query: "param=foo&param=bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "spaceDelimited",
-					param: &openapi3.Parameter{Name: "param", In: "query", Style: "spaceDelimited", Explode: noExplode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "query", Style: "spaceDelimited", Explode: noExplode, Schema: stringArraySchema},
 					query: "param=foo bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "spaceDelimited explode",
-					param: &openapi3.Parameter{Name: "param", In: "query", Style: "spaceDelimited", Explode: explode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "query", Style: "spaceDelimited", Explode: explode, Schema: stringArraySchema},
 					query: "param=foo&param=bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "pipeDelimited",
-					param: &openapi3.Parameter{Name: "param", In: "query", Style: "pipeDelimited", Explode: noExplode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "query", Style: "pipeDelimited", Explode: noExplode, Schema: stringArraySchema},
 					query: "param=foo|bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "pipeDelimited explode",
-					param: &openapi3.Parameter{Name: "param", In: "query", Style: "pipeDelimited", Explode: explode, Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "query", Style: "pipeDelimited", Explode: explode, Schema: stringArraySchema},
 					query: "param=foo&param=bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
 				},
 				{
 					name:  "default",
-					param: &openapi3.Parameter{Name: "param", In: "query", Schema: arraySchema},
+					param: &openapi3.Parameter{Name: "param", In: "query", Schema: stringArraySchema},
 					query: "param=foo&param=bar",
 					want:  []interface{}{"foo", "bar"},
 					found: true,
@@ -658,6 +878,275 @@ func TestDecodeParameter(t *testing.T) {
 					query: "param[id]=foo&param[name]=bar",
 					want:  map[string]interface{}{"id": "foo", "name": "bar"},
 					found: true,
+				},
+				{
+					name: "deepObject explode additionalProperties with object properties - missing index on nested array",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", additionalPropertiesObjectOf(objectOf("item1", integerSchema, "item2", stringArraySchema)),
+							"objIgnored", objectOf("items", stringArraySchema),
+						),
+					},
+					query: "param[obj][prop2][item2]=def",
+					err:   &ParseError{path: []interface{}{"obj", "prop2", "item2"}, Kind: KindInvalidFormat, Reason: "array items must be set with indexes"},
+				},
+				{
+					name:  "deepObject explode array - missing indexes",
+					param: &openapi3.Parameter{Name: "param", In: "query", Style: "deepObject", Explode: explode, Schema: objectOf("items", stringArraySchema)},
+					query: "param[items]=f%26oo&param[items]=bar",
+					found: true,
+					err:   &ParseError{path: []interface{}{"items"}, Kind: KindInvalidFormat, Reason: "array items must be set with indexes"},
+				},
+				{
+					name:  "deepObject explode array",
+					param: &openapi3.Parameter{Name: "param", In: "query", Style: "deepObject", Explode: explode, Schema: objectOf("items", integerArraySchema)},
+					query: "param[items][1]=456&param[items][0]=123",
+					want:  map[string]interface{}{"items": []interface{}{int64(123), int64(456)}},
+					found: true,
+				},
+				{
+					name: "deepObject explode nested object additionalProperties",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", additionalPropertiesObjectStringSchema,
+							"objTwo", stringSchema,
+							"objIgnored", objectOf("items", stringArraySchema),
+						),
+					},
+					query: "param[obj][prop1]=bar&param[obj][prop2]=foo&param[objTwo]=string",
+					want: map[string]interface{}{
+						"obj":    map[string]interface{}{"prop1": "bar", "prop2": "foo"},
+						"objTwo": "string",
+					},
+					found: true,
+				},
+				{
+					name: "deepObject explode additionalProperties with object properties - sharing property",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", additionalPropertiesObjectOf(objectOf("item1", integerSchema, "item2", stringSchema)),
+							"objIgnored", objectOf("items", stringArraySchema),
+						),
+					},
+					query: "param[obj][prop1][item1]=1&param[obj][prop1][item2]=abc",
+					want: map[string]interface{}{
+						"obj": map[string]interface{}{"prop1": map[string]interface{}{
+							"item1": int64(1),
+							"item2": "abc",
+						}},
+					},
+					found: true,
+				},
+				{
+					name: "deepObject explode nested object additionalProperties - bad value",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", additionalPropertiesObjectBoolSchema,
+							"objTwo", stringSchema,
+							"objIgnored", objectOf("items", stringArraySchema),
+						),
+					},
+					query: "param[obj][prop1]=notbool&param[objTwo]=string",
+					err:   &ParseError{path: []interface{}{"obj", "prop1"}, Cause: &ParseError{Kind: KindInvalidFormat, Value: "notbool"}},
+				},
+				{
+					name: "deepObject explode nested object additionalProperties - bad index inside additionalProperties",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", additionalPropertiesObjectStringSchema,
+							"objTwo", stringSchema,
+							"objIgnored", objectOf("items", stringArraySchema),
+						),
+					},
+					query: "param[obj][prop1]=bar&param[obj][prop2][badindex]=bad&param[objTwo]=string",
+					err: &ParseError{
+						path:   []interface{}{"obj", "prop2"},
+						Reason: `path is not convertible to primitive`,
+						Kind:   KindInvalidFormat,
+						Value:  map[string]interface{}{"badindex": "bad"},
+					},
+				},
+				{
+					name: "deepObject explode nested object",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", objectOf("nestedObjOne", stringSchema, "nestedObjTwo", stringSchema),
+							"objTwo", stringSchema,
+							"objIgnored", objectOf("items", stringArraySchema),
+						),
+					},
+					query: "param[obj][nestedObjOne]=bar&param[obj][nestedObjTwo]=foo&param[objTwo]=string",
+					want: map[string]interface{}{
+						"obj":    map[string]interface{}{"nestedObjOne": "bar", "nestedObjTwo": "foo"},
+						"objTwo": "string",
+					},
+					found: true,
+				},
+				{
+					name: "deepObject explode nested object - extraneous param ignored",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", objectOf("nestedObjOne", stringSchema, "nestedObjTwo", stringSchema),
+						),
+					},
+					query: "anotherparam=bar",
+					want:  map[string]interface{}(nil),
+				},
+				{
+					name: "deepObject explode nested object - bad array item type",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"objTwo", integerArraySchema,
+						),
+					},
+					query: "param[objTwo][0]=badint",
+					err:   &ParseError{path: []interface{}{"objTwo", "0"}, Cause: &ParseError{Kind: KindInvalidFormat, Value: "badint"}},
+				},
+				{
+					name: "deepObject explode deeply nested object - bad array item type",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", objectOf("nestedObjOne", integerArraySchema),
+						),
+					},
+					query: "param[obj][nestedObjOne][0]=badint",
+					err:   &ParseError{path: []interface{}{"obj", "nestedObjOne", "0"}, Cause: &ParseError{Kind: KindInvalidFormat, Value: "badint"}},
+				},
+				{
+					name: "deepObject explode deeply nested object - array index not an int",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", objectOf("nestedObjOne", integerArraySchema),
+						),
+					},
+					query: "param[obj][nestedObjOne][badindex]=badint",
+					err:   &ParseError{path: []interface{}{"obj", "nestedObjOne"}, Kind: KindInvalidFormat, Reason: "could not convert value map to array: array indexes must be integers: strconv.Atoi: parsing \"badindex\": invalid syntax"},
+				},
+				{
+					name: "deepObject explode nested object with array",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", objectOf("nestedObjOne", stringSchema, "nestedObjTwo", stringSchema),
+							"objTwo", stringArraySchema,
+							"objIgnored", objectOf("items", stringArraySchema),
+						),
+					},
+					query: "param[obj][nestedObjOne]=bar&param[obj][nestedObjTwo]=foo&param[objTwo][0]=f%26oo&param[objTwo][1]=bar",
+					want: map[string]interface{}{
+						"obj":    map[string]interface{}{"nestedObjOne": "bar", "nestedObjTwo": "foo"},
+						"objTwo": []interface{}{"f%26oo", "bar"},
+					},
+					found: true,
+				},
+				{
+					name: "deepObject explode nested object with array - bad value",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", objectOf("nestedObjOne", stringSchema, "nestedObjTwo", booleanSchema),
+							"objTwo", stringArraySchema,
+							"objIgnored", objectOf("items", stringArraySchema),
+						),
+					},
+					query: "param[obj][nestedObjOne]=bar&param[obj][nestedObjTwo]=bad&param[objTwo][0]=f%26oo&param[objTwo][1]=bar",
+					err:   &ParseError{path: []interface{}{"obj", "nestedObjTwo"}, Cause: &ParseError{Kind: KindInvalidFormat, Value: "bad"}},
+				},
+				{
+					name: "deepObject explode nested object with nested array",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", objectOf("nestedObjOne", stringSchema, "nestedObjTwo", stringSchema),
+							"objTwo", objectOf("items", stringArraySchema),
+							"objIgnored", objectOf("items", stringArraySchema),
+						),
+					},
+					query: "param[obj][nestedObjOne]=bar&param[obj][nestedObjTwo]=foo&param[objTwo][items][0]=f%26oo&param[objTwo][items][1]=bar",
+					want: map[string]interface{}{
+						"obj":    map[string]interface{}{"nestedObjOne": "bar", "nestedObjTwo": "foo"},
+						"objTwo": map[string]interface{}{"items": []interface{}{"f%26oo", "bar"}},
+					},
+					found: true,
+				},
+				{
+					name: "deepObject explode nested object with nested array on different levels",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"obj", objectOf("nestedObjOne", objectOf("items", stringArraySchema)),
+							"objTwo", objectOf("items", stringArraySchema),
+						),
+					},
+					query: "param[obj][nestedObjOne][items][0]=baz&param[objTwo][items][0]=foo&param[objTwo][items][1]=bar",
+					want: map[string]interface{}{
+						"obj":    map[string]interface{}{"nestedObjOne": map[string]interface{}{"items": []interface{}{"baz"}}},
+						"objTwo": map[string]interface{}{"items": []interface{}{"foo", "bar"}},
+					},
+					found: true,
+				},
+				{
+					name: "deepObject explode array of arrays",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"arr", arrayOf(arrayOf(integerSchema)),
+						),
+					},
+					query: "param[arr][1][1]=123&param[arr][1][2]=456",
+					want: map[string]interface{}{
+						"arr": []interface{}{
+							nil,
+							[]interface{}{nil, int64(123), int64(456)},
+						},
+					},
+					found: true,
+				},
+				{
+					name: "deepObject explode nested array of objects - missing intermediate array index",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"arr", arrayOf(objectOf("key", booleanSchema)),
+						),
+					},
+					query: "param[arr][3][key]=true&param[arr][0][key]=false",
+					want: map[string]interface{}{
+						"arr": []interface{}{
+							map[string]interface{}{"key": false},
+							nil,
+							nil,
+							map[string]interface{}{"key": true},
+						},
+					},
+					found: true,
+				},
+				{
+					name: "deepObject explode nested array of objects",
+					param: &openapi3.Parameter{
+						Name: "param", In: "query", Style: "deepObject", Explode: explode,
+						Schema: objectOf(
+							"arr", arrayOf(objectOf("key", booleanSchema)),
+						),
+					},
+					query: "param[arr][0][key]=true&param[arr][1][key]=false",
+					found: true,
+					want: map[string]interface{}{
+						"arr": []interface{}{
+							map[string]interface{}{"key": true},
+							map[string]interface{}{"key": false},
+						},
+					},
 				},
 				{
 					name:  "default",
@@ -769,21 +1258,21 @@ func TestDecodeParameter(t *testing.T) {
 			testCases: []testCase{
 				{
 					name:   "simple",
-					param:  &openapi3.Parameter{Name: "X-Param", In: "header", Style: "simple", Explode: noExplode, Schema: arraySchema},
+					param:  &openapi3.Parameter{Name: "X-Param", In: "header", Style: "simple", Explode: noExplode, Schema: stringArraySchema},
 					header: "X-Param:foo,bar",
 					want:   []interface{}{"foo", "bar"},
 					found:  true,
 				},
 				{
 					name:   "simple explode",
-					param:  &openapi3.Parameter{Name: "X-Param", In: "header", Style: "simple", Explode: explode, Schema: arraySchema},
+					param:  &openapi3.Parameter{Name: "X-Param", In: "header", Style: "simple", Explode: explode, Schema: stringArraySchema},
 					header: "X-Param:foo,bar",
 					want:   []interface{}{"foo", "bar"},
 					found:  true,
 				},
 				{
 					name:   "default",
-					param:  &openapi3.Parameter{Name: "X-Param", In: "header", Schema: arraySchema},
+					param:  &openapi3.Parameter{Name: "X-Param", In: "header", Schema: stringArraySchema},
 					header: "X-Param:foo,bar",
 					want:   []interface{}{"foo", "bar"},
 					found:  true,
@@ -945,7 +1434,7 @@ func TestDecodeParameter(t *testing.T) {
 			testCases: []testCase{
 				{
 					name:   "form",
-					param:  &openapi3.Parameter{Name: "X-Param", In: "cookie", Style: "form", Explode: noExplode, Schema: arraySchema},
+					param:  &openapi3.Parameter{Name: "X-Param", In: "cookie", Style: "form", Explode: noExplode, Schema: stringArraySchema},
 					cookie: "X-Param:foo,bar",
 					want:   []interface{}{"foo", "bar"},
 					found:  true,
@@ -1044,16 +1533,16 @@ func TestDecodeParameter(t *testing.T) {
 						Title:   "MyAPI",
 						Version: "0.1",
 					}
-					spec := &openapi3.T{OpenAPI: "3.0.0", Info: info}
+					doc := &openapi3.T{OpenAPI: "3.0.0", Info: info, Paths: openapi3.NewPaths()}
 					op := &openapi3.Operation{
 						OperationID: "test",
 						Parameters:  []*openapi3.ParameterRef{{Value: tc.param}},
 						Responses:   openapi3.NewResponses(),
 					}
-					spec.AddOperation(path, http.MethodGet, op)
-					err = spec.Validate(context.Background())
+					doc.AddOperation(path, http.MethodGet, op)
+					err = doc.Validate(context.Background())
 					require.NoError(t, err)
-					router, err := legacyrouter.NewRouter(spec)
+					router, err := legacyrouter.NewRouter(doc)
 					require.NoError(t, err)
 
 					route, pathParams, err := router.FindRoute(req)
@@ -1062,16 +1551,17 @@ func TestDecodeParameter(t *testing.T) {
 					input := &openapi3filter.RequestValidationInput{Request: req, PathParams: pathParams, Route: route}
 					got, found, err := decodeStyledParameter(tc.param, input)
 
-					require.Truef(t, found == tc.found, "got found: %t, want found: %t", found, tc.found)
-
 					if tc.err != nil {
 						require.Error(t, err)
-						require.Truef(t, matchParseError(err, tc.err), "got error:\n%v\nwant error:\n%v", err, tc.err)
+						matchParseError(t, err, tc.err)
+
 						return
 					}
 
 					require.NoError(t, err)
-					require.Truef(t, reflect.DeepEqual(got, tc.want), "got %v, want %v", got, tc.want)
+					require.EqualValues(t, tc.want, got)
+
+					require.Truef(t, found == tc.found, "got found: %t, want found: %t", found, tc.found)
 				})
 			}
 		})
@@ -1079,8 +1569,6 @@ func TestDecodeParameter(t *testing.T) {
 }
 
 func TestDecodeBody(t *testing.T) {
-	boolPtr := func(b bool) *bool { return &b }
-
 	urlencodedForm := make(url.Values)
 	urlencodedForm.Set("a", "a1")
 	urlencodedForm.Set("b", "10")
@@ -1168,6 +1656,12 @@ func TestDecodeBody(t *testing.T) {
 			want: "foo",
 		},
 		{
+			name: "json-suffix",
+			mime: "application/test.content-type+json",
+			body: strings.NewReader("\"foo\""),
+			want: "foo",
+		},
+		{
 			name: "x-yaml",
 			mime: "application/x-yaml",
 			body: strings.NewReader("foo"),
@@ -1176,6 +1670,12 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "yaml",
 			mime: "application/yaml",
+			body: strings.NewReader("foo"),
+			want: "foo",
+		},
+		{
+			name: "yaml-suffix",
+			mime: "application/test.content-type+yaml",
 			body: strings.NewReader("foo"),
 			want: "foo",
 		},
@@ -1198,7 +1698,7 @@ func TestDecodeBody(t *testing.T) {
 				WithProperty("b", openapi3.NewIntegerSchema()).
 				WithProperty("c", openapi3.NewArraySchema().WithItems(openapi3.NewStringSchema())),
 			encoding: map[string]*openapi3.Encoding{
-				"c": {Style: openapi3.SerializationSpaceDelimited, Explode: boolPtr(false)},
+				"c": {Style: openapi3.SerializationSpaceDelimited, Explode: openapi3.BoolPtr(false)},
 			},
 			want: map[string]interface{}{"a": "a1", "b": int64(10), "c": []interface{}{"c1", "c2"}},
 		},
@@ -1211,7 +1711,7 @@ func TestDecodeBody(t *testing.T) {
 				WithProperty("b", openapi3.NewIntegerSchema()).
 				WithProperty("c", openapi3.NewArraySchema().WithItems(openapi3.NewStringSchema())),
 			encoding: map[string]*openapi3.Encoding{
-				"c": {Style: openapi3.SerializationPipeDelimited, Explode: boolPtr(false)},
+				"c": {Style: openapi3.SerializationPipeDelimited, Explode: openapi3.BoolPtr(false)},
 			},
 			want: map[string]interface{}{"a": "a1", "b": int64(10), "c": []interface{}{"c1", "c2"}},
 		},
@@ -1226,7 +1726,7 @@ func TestDecodeBody(t *testing.T) {
 				WithProperty("d", openapi3.NewObjectSchema().WithProperty("d1", openapi3.NewStringSchema())).
 				WithProperty("f", openapi3.NewStringSchema().WithFormat("binary")).
 				WithProperty("g", openapi3.NewStringSchema()),
-			want: map[string]interface{}{"a": "a1", "b": int64(10), "c": []interface{}{"c1", "c2"}, "d": map[string]interface{}{"d1": "d1"}, "f": "foo", "g": "g1"},
+			want: map[string]interface{}{"a": "a1", "b": json.Number("10"), "c": []interface{}{"c1", "c2"}, "d": map[string]interface{}{"d1": "d1"}, "f": "foo", "g": "g1"},
 		},
 		{
 			name: "multipartExtraPart",
@@ -1292,7 +1792,7 @@ func TestDecodeBody(t *testing.T) {
 
 			if tc.wantErr != nil {
 				require.Error(t, err)
-				require.Truef(t, matchParseError(err, tc.wantErr), "got error:\n%v\nwant error:\n%v", err, tc.wantErr)
+				matchParseError(t, err, tc.wantErr)
 				return
 			}
 
@@ -1375,26 +1875,27 @@ func TestRegisterAndUnregisterBodyDecoder(t *testing.T) {
 	}, err)
 }
 
-func matchParseError(got, want error) bool {
+func matchParseError(t *testing.T, got, want error) {
+	t.Helper()
+
 	wErr, ok := want.(*ParseError)
 	if !ok {
-		return false
+		t.Errorf("want error is not a ParseError")
+		return
 	}
 	gErr, ok := got.(*ParseError)
 	if !ok {
-		return false
+		t.Errorf("got error is not a ParseError")
+		return
 	}
-	if wErr.Kind != gErr.Kind {
-		return false
-	}
-	if !reflect.DeepEqual(wErr.Value, gErr.Value) {
-		return false
-	}
-	if !reflect.DeepEqual(wErr.Path(), gErr.Path()) {
-		return false
+	assert.Equalf(t, wErr.Kind, gErr.Kind, "ParseError Kind differs")
+	assert.Equalf(t, wErr.Value, gErr.Value, "ParseError Value differs")
+	assert.Equalf(t, wErr.Path(), gErr.Path(), "ParseError Path differs")
+
+	if wErr.Reason != "" {
+		assert.Equalf(t, wErr.Reason, gErr.Reason, "ParseError Reason differs")
 	}
 	if wErr.Cause != nil {
-		return matchParseError(gErr.Cause, wErr.Cause)
+		matchParseError(t, gErr.Cause, wErr.Cause)
 	}
-	return true
 }

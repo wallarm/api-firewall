@@ -13,6 +13,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 )
 
 const currentSQLSchemaVersionV1 = 1
@@ -107,17 +108,9 @@ func (s *SQLLiteV1) Load(dbStoragePath string) error {
 
 	for schemaID, spec := range s.RawSpecs {
 
-		// parse specification
-		loader := openapi3.NewLoader()
-		parsedSpec, err := loader.LoadFromData(getSpecBytes(spec.SchemaContent))
+		parsedSpec, err := loader.ParseOAS(getSpecBytes(spec.SchemaContent), spec.SchemaVersion, schemaID)
 		if err != nil {
-			s.Log.Errorf("error: parsing of the OpenAPI specification %s (schema ID %d): %v", spec.SchemaVersion, schemaID, err)
-			delete(s.RawSpecs, schemaID)
-			continue
-		}
-
-		if err := parsedSpec.Validate(loader.Context); err != nil {
-			s.Log.Errorf("error: validation of the OpenAPI specification %s (schema ID %d): %v", spec.SchemaVersion, schemaID, err)
+			s.Log.Errorf("error: %v", err)
 			delete(s.RawSpecs, schemaID)
 			continue
 		}

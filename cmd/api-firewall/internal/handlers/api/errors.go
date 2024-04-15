@@ -71,18 +71,22 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 			response.Code = ErrCodeRequiredQueryParameterMissed
 		case "cookie":
 			response.Code = ErrCodeRequiredCookieParameterMissed
+		case "path":
+			response.Code = ErrCodeRequiredPathParameterMissed
 		case "header":
 			response.Code = ErrCodeRequiredHeaderMissed
 		}
 		response.Fields = schemaError.JSONPointer()
 		response.Message = ErrMissedRequiredParameters.Error()
 
-		details := web.FieldTypeError{
-			Name:         reqErr.Parameter.Name,
-			ExpectedType: schemaError.Schema.Type,
-		}
+		for _, t := range schemaError.Schema.Type.Slice() {
+			details := web.FieldTypeError{
+				Name:         reqErr.Parameter.Name,
+				ExpectedType: t,
+			}
 
-		response.FieldsDetails = append(response.FieldsDetails, details)
+			response.FieldsDetails = append(response.FieldsDetails, details)
+		}
 
 		return &response
 	default:
@@ -91,6 +95,8 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 			response.Code = ErrCodeRequiredQueryParameterInvalidValue
 		case "cookie":
 			response.Code = ErrCodeRequiredCookieParameterInvalidValue
+		case "path":
+			response.Code = ErrCodeRequiredPathParameterInvalidValue
 		case "header":
 			response.Code = ErrCodeRequiredHeaderInvalidValue
 		}
@@ -103,23 +109,25 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 			return &response
 		}
 
-		details := web.FieldTypeError{
-			Name:         reqErr.Parameter.Name,
-			ExpectedType: schemaError.Schema.Type,
-			CurrentValue: fmt.Sprintf("%v", schemaError.Value),
-		}
+		for _, t := range schemaError.Schema.Type.Slice() {
+			details := web.FieldTypeError{
+				Name:         reqErr.Parameter.Name,
+				ExpectedType: t,
+				CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+			}
 
-		// handle max, min and pattern cases
-		switch schemaError.SchemaField {
-		case "maximum":
-			details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
-		case "minimum":
-			details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
-		case "pattern":
-			details.Pattern = schemaError.Schema.Pattern
-		}
+			// handle max, min and pattern cases
+			switch schemaError.SchemaField {
+			case "maximum":
+				details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
+			case "minimum":
+				details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
+			case "pattern":
+				details.Pattern = schemaError.Schema.Pattern
+			}
 
-		response.FieldsDetails = append(response.FieldsDetails, details)
+			response.FieldsDetails = append(response.FieldsDetails, details)
+		}
 	}
 	return &response
 }
@@ -148,11 +156,13 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 				response.Message = err.Error()
 				response.Fields = []string{err.Parameter.Name}
 
-				details := web.FieldTypeError{
-					Name:         err.Parameter.Name,
-					ExpectedType: err.Parameter.Schema.Value.Type,
+				for _, t := range err.Parameter.Schema.Value.Type.Slice() {
+					details := web.FieldTypeError{
+						Name:         err.Parameter.Name,
+						ExpectedType: t,
+					}
+					response.FieldsDetails = append(response.FieldsDetails, details)
 				}
-				response.FieldsDetails = append(response.FieldsDetails, details)
 
 				responseErrors = append(responseErrors, &response)
 			}
@@ -179,12 +189,14 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 				schemaError, ok := err.Err.(*openapi3.SchemaError)
 				if ok {
 					if schemaError.SchemaField == "pattern" {
-						response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-							Name:         err.Parameter.Name,
-							ExpectedType: schemaError.Schema.Type,
-							Pattern:      schemaError.Schema.Pattern,
-							CurrentValue: fmt.Sprintf("%v", schemaError.Value),
-						})
+						for _, t := range schemaError.Schema.Type.Slice() {
+							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
+								Name:         err.Parameter.Name,
+								ExpectedType: t,
+								Pattern:      schemaError.Schema.Pattern,
+								CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+							})
+						}
 					}
 				}
 
@@ -230,11 +242,13 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 
 						for _, f := range response.Fields {
 							if p, lookupErr := schemaError.Schema.Properties.JSONLookup(f); lookupErr == nil {
-								details := web.FieldTypeError{
-									Name:         f,
-									ExpectedType: p.(*openapi3.Schema).Type,
+								for _, t := range p.(*openapi3.Schema).Type.Slice() {
+									details := web.FieldTypeError{
+										Name:         f,
+										ExpectedType: t,
+									}
+									response.FieldsDetails = append(response.FieldsDetails, details)
 								}
-								response.FieldsDetails = append(response.FieldsDetails, details)
 							}
 						}
 
@@ -253,21 +267,23 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 									CurrentValue: parseErr.ValueStr,
 								})
 							} else {
-								details := web.FieldTypeError{
-									Name:         response.Fields[0],
-									ExpectedType: schemaError.Schema.Type,
-									CurrentValue: fmt.Sprintf("%v", schemaError.Value),
-								}
-								switch schemaError.SchemaField {
-								case "pattern":
-									details.Pattern = schemaError.Schema.Pattern
-								case "maximum":
-									details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
-								case "minimum":
-									details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
-								}
+								for _, t := range schemaError.Schema.Type.Slice() {
+									details := web.FieldTypeError{
+										Name:         response.Fields[0],
+										ExpectedType: t,
+										CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+									}
+									switch schemaError.SchemaField {
+									case "pattern":
+										details.Pattern = schemaError.Schema.Pattern
+									case "maximum":
+										details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
+									case "minimum":
+										details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
+									}
 
-								response.FieldsDetails = append(response.FieldsDetails, details)
+									response.FieldsDetails = append(response.FieldsDetails, details)
+								}
 							}
 							responseErrors = append(responseErrors, &response)
 						}
@@ -286,11 +302,13 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 
 					for _, f := range response.Fields {
 						if p, lookupErr := schemaError.Schema.Properties.JSONLookup(f); lookupErr == nil {
-							details := web.FieldTypeError{
-								Name:         f,
-								ExpectedType: p.(*openapi3.Schema).Type,
+							for _, t := range p.(*openapi3.Schema).Type.Slice() {
+								details := web.FieldTypeError{
+									Name:         f,
+									ExpectedType: t,
+								}
+								response.FieldsDetails = append(response.FieldsDetails, details)
 							}
-							response.FieldsDetails = append(response.FieldsDetails, details)
 						}
 					}
 
@@ -309,21 +327,25 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 								CurrentValue: parseErr.ValueStr,
 							})
 						} else {
-							details := web.FieldTypeError{
-								Name:         response.Fields[0],
-								ExpectedType: schemaError.Schema.Type,
-								CurrentValue: fmt.Sprintf("%v", schemaError.Value),
-							}
-							switch schemaError.SchemaField {
-							case "pattern":
-								details.Pattern = schemaError.Schema.Pattern
-							case "maximum":
-								details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
-							case "minimum":
-								details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
+
+							for _, t := range schemaError.Schema.Type.Slice() {
+								details := web.FieldTypeError{
+									Name:         response.Fields[0],
+									ExpectedType: t,
+									CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+								}
+								switch schemaError.SchemaField {
+								case "pattern":
+									details.Pattern = schemaError.Schema.Pattern
+								case "maximum":
+									details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
+								case "minimum":
+									details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
+								}
+
+								response.FieldsDetails = append(response.FieldsDetails, details)
 							}
 
-							response.FieldsDetails = append(response.FieldsDetails, details)
 						}
 						responseErrors = append(responseErrors, &response)
 					}

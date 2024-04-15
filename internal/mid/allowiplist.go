@@ -10,6 +10,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -23,11 +24,11 @@ type IPAllowListOptions struct {
 
 var errAccessDeniedIP = errors.New("access denied to this IP")
 
-// This function checks if an IP is allowed else gives error
+// The IPAllowlist function checks if an IP is allowed else gives error
 func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 
 	// This is the actual middleware function to be executed.
-	m := func(before web.Handler) web.Handler {
+	m := func(before router.Handler) router.Handler {
 
 		// Create the handler that will be attached in the middleware chain.
 		h := func(ctx *fasthttp.RequestCtx) error {

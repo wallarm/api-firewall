@@ -143,6 +143,7 @@ paths:
         content:
           multipart/form-data:
             schema:
+              type: object 
               required:
                 - url
               properties:
@@ -368,6 +369,58 @@ paths:
         200:
           description: Ok
           content: { }
+  /path/{test}:
+    get:
+      parameters:
+        - name: test
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - testValue1
+              - testValue1
+      summary: Get Test Info
+      responses:
+        200:
+          description: Ok
+          content: { }
+  /path/{test}.php:
+    get:
+      parameters:
+        - name: test
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - value1
+              - value2
+      summary: Get Test Info
+      responses:
+        200:
+          description: Ok
+          content: { }
+  /query/paramsObject:
+    get:
+      parameters:
+        - name: f.0
+          required: true
+          in: query
+          style: deepObject
+          schema:
+            type: object
+            properties:
+              f:
+                type: object
+                properties:
+                  '0':
+                    type: string
+      summary: Get Test Info
+      responses:
+        200:
+          description: Ok
+          content: { }
   /test/body/request:
     post:
       summary: Post Request to test Request Body presence
@@ -469,12 +522,12 @@ func TestAPIModeBasic(t *testing.T) {
 
 	swagger, err := openapi3.NewLoader().LoadFromData([]byte(apiModeOpenAPISpecAPIModeTest))
 	if err != nil {
-		t.Fatalf("loading swagwaf file: %s", err.Error())
+		t.Fatalf("loading OpenAPI specification file: %s", err.Error())
 	}
 
 	secondSwagger, err := openapi3.NewLoader().LoadFromData([]byte(secondApiModeOpenAPISpecAPIModeTest))
 	if err != nil {
-		t.Fatalf("loading swagwaf file: %s", err.Error())
+		t.Fatalf("loading OpenAPI specification file: %s", err.Error())
 	}
 
 	dbSpec.EXPECT().SchemaIDs().Return([]int{DefaultSchemaID, DefaultCopySchemaID, SecondSchemaID}).AnyTimes()
@@ -552,6 +605,9 @@ func TestAPIModeBasic(t *testing.T) {
 	// check all supported methods: GET POST PUT PATCH DELETE TRACE OPTIONS HEAD
 	t.Run("testAPIModeAllMethods", apifwTests.testAPIModeAllMethods)
 
+	// check conflicts in the Path
+	t.Run("testConflictsInThePath", apifwTests.testConflictsInThePath)
+	t.Run("testObjectInQuery", apifwTests.testObjectInQuery)
 }
 
 func createForm(form map[string]string) (string, io.Reader, error) {
@@ -2646,9 +2702,9 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequest(t *testing.T) {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
 				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
-		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusInternalServerError {
+		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusForbidden {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
-				fasthttp.StatusInternalServerError, *apifwResponse.Summary[0].StatusCode)
+				fasthttp.StatusForbidden, *apifwResponse.Summary[0].StatusCode)
 		}
 	}
 }
@@ -2703,9 +2759,9 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequestInMultipleSchemas(
 				t.Errorf("Incorrect error code. Expected: %d or %d and got %d",
 					DefaultSchemaID, DefaultCopySchemaID, *apifwResponse.Summary[0].SchemaID)
 			}
-			if *apifwResponse.Summary[i].StatusCode != fasthttp.StatusInternalServerError {
+			if *apifwResponse.Summary[i].StatusCode != fasthttp.StatusForbidden {
 				t.Errorf("Incorrect result status. Expected: %d and got %d",
-					fasthttp.StatusInternalServerError, *apifwResponse.Summary[0].StatusCode)
+					fasthttp.StatusForbidden, *apifwResponse.Summary[0].StatusCode)
 			}
 		}
 	}
@@ -2751,4 +2807,88 @@ func (s *APIModeServiceTests) testAPIModeAllMethods(t *testing.T) {
 
 	// check response status code and response body
 	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeMethodAndPathNotFound})
+}
+
+func (s *APIModeServiceTests) testConflictsInThePath(t *testing.T) {
+
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
+
+	// check all related paths
+	for _, path := range []string{"/path/testValue1", "/path/value1.php"} {
+		req := fasthttp.AcquireRequest()
+		req.SetRequestURI(path)
+		req.Header.SetMethod("GET")
+		req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+		reqCtx := fasthttp.RequestCtx{
+			Request: *req,
+		}
+
+		handler(&reqCtx)
+
+		t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+		t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+		// check response status code and response body
+		checkResponseOkStatusCode(t, &reqCtx, DefaultSchemaID)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/path/valueNotExist.php")
+	req.Header.SetMethod("GET")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	// check response status code and response body
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredPathParameterInvalidValue})
+}
+
+func (s *APIModeServiceTests) testObjectInQuery(t *testing.T) {
+
+	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
+
+	for _, path := range []string{"/query/paramsObject?f.0%5Bf%5D%5B0%5D=test"} {
+
+		req := fasthttp.AcquireRequest()
+		req.SetRequestURI(path)
+		req.Header.SetMethod("GET")
+		req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+		reqCtx := fasthttp.RequestCtx{
+			Request: *req,
+		}
+
+		handler(&reqCtx)
+
+		t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+		t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+		// check response status code and response body
+		checkResponseOkStatusCode(t, &reqCtx, DefaultSchemaID)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/query/paramsObject")
+	req.Header.SetMethod("GET")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	// check response status code and response body
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredQueryParameterMissed})
 }

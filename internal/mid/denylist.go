@@ -8,6 +8,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -25,7 +26,7 @@ var errAccessDenied = errors.New("access denied")
 func Denylist(options *DenylistOptions) web.Middleware {
 
 	// This is the actual middleware function to be executed.
-	m := func(before web.Handler) web.Handler {
+	m := func(before router.Handler) router.Handler {
 
 		// Create the handler that will be attached in the middleware chain.
 		h := func(ctx *fasthttp.RequestCtx) error {

@@ -8,16 +8,15 @@ require (
 	github.com/clbanning/mxj/v2 v2.7.0
 	github.com/corazawaf/coraza/v3 v3.1.0
 	github.com/dgraph-io/ristretto v0.1.1
-	github.com/fasthttp/router v1.5.0
 	github.com/fasthttp/websocket v1.5.8
 	github.com/gabriel-vasile/mimetype v1.4.3
-	github.com/getkin/kin-openapi v0.118.0
+	github.com/getkin/kin-openapi v0.124.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/karlseguin/ccache/v2 v2.0.8
-	github.com/klauspost/compress v1.17.7
+	github.com/klauspost/compress v1.17.8
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/pkg/errors v0.9.1
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511
@@ -27,7 +26,7 @@ require (
 	github.com/valyala/fastjson v1.6.4
 	github.com/wundergraph/graphql-go-tools v1.67.2
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
-	golang.org/x/sync v0.6.0
+	golang.org/x/sync v0.7.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -71,7 +70,6 @@ require (
 	github.com/petar-dambovaliev/aho-corasick v0.0.0-20230725210150-fb29fc3c913e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/r3labs/sse/v2 v2.8.1 // indirect
-	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.0 // indirect
 	github.com/tidwall/gjson v1.17.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

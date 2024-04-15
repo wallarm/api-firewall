@@ -1,18 +1,32 @@
 package validator
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 
 	"github.com/valyala/fastjson"
 )
 
-func parseMediaType(contentType string) string {
-	i := strings.IndexByte(contentType, ';')
-	if i < 0 {
-		return contentType
+// parseMediaType func parses content type and returns media type and suffix
+func parseMediaType(contentType string) (string, string) {
+
+	var mtSubtype, suffix string
+	mediaType := contentType
+
+	if i := strings.IndexByte(mediaType, ';'); i >= 0 {
+		mediaType = strings.TrimSpace(mediaType[:i])
 	}
-	return contentType[:i]
+
+	if i := strings.IndexByte(mediaType, '/'); i >= 0 {
+		mtSubtype = mediaType[i+1:]
+	}
+
+	if i := strings.LastIndexByte(mtSubtype, '+'); i >= 0 {
+		suffix = mtSubtype[i:]
+	}
+
+	return mediaType, suffix
 }
 
 func isNilValue(value any) bool {
@@ -41,12 +55,7 @@ func convertToMap(v *fastjson.Value) interface{} {
 		}
 		return a
 	case fastjson.TypeNumber:
-		valueInt := v.GetInt64()
-		valueFloat := v.GetFloat64()
-		if valueFloat == float64(int(valueFloat)) {
-			return valueInt
-		}
-		return valueFloat
+		return json.Number(v.String())
 	case fastjson.TypeString:
 		return string(v.GetStringBytes())
 	case fastjson.TypeTrue, fastjson.TypeFalse:

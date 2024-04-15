@@ -15,8 +15,8 @@ import (
 	"github.com/valyala/fasthttp"
 	proxyHandler "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 )
 
 const openAPIJSONSpecTest = `
@@ -102,12 +102,12 @@ func TestJSONBasic(t *testing.T) {
 
 	swagger, err := openapi3.NewLoader().LoadFromData([]byte(openAPIJSONSpecTest))
 	if err != nil {
-		t.Fatalf("loading swagwaf file: %s", err.Error())
+		t.Fatalf("loading OpenAPI specification file: %s", err.Error())
 	}
 
-	swagRouter, err := router.NewRouter(swagger)
+	swagRouter, err := loader.NewRouter(swagger, true)
 	if err != nil {
-		t.Fatalf("parsing swagwaf file: %s", err.Error())
+		t.Fatalf("parsing OpenAPI specification file: %s", err.Error())
 	}
 
 	shutdown := make(chan os.Signal, 1)

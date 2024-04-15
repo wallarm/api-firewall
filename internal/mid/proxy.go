@@ -9,6 +9,7 @@ import (
 
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -45,7 +46,7 @@ type ProxyOptions struct {
 func Proxy(options *ProxyOptions) web.Middleware {
 
 	// This is the actual middleware function to be executed.
-	m := func(before web.Handler) web.Handler {
+	m := func(before router.Handler) router.Handler {
 
 		// Create the handler that will be attached in the middleware chain.
 		h := func(ctx *fasthttp.RequestCtx) error {

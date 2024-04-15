@@ -16,6 +16,7 @@ import (
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
@@ -24,7 +25,7 @@ import (
 )
 
 type openapiWaf struct {
-	customRoute    *router.CustomRoute
+	customRoute    *loader.CustomRoute
 	proxyPool      proxy.Pool
 	logger         *logrus.Logger
 	cfg            *config.ProxyMode
@@ -97,8 +98,15 @@ func getValidationHeader(ctx *fasthttp.RequestCtx, err error) *string {
 
 func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
+	// Pass OPTIONS if the feature is enabled
+	var isOptionsReq, ok bool
+	if isOptionsReq, ok = ctx.UserValue(web.PassRequestOPTIONS).(bool); !ok {
+		isOptionsReq = false
+	}
+
 	// Proxy request if APIFW is disabled
-	if strings.EqualFold(s.cfg.RequestValidation, web.ValidationDisable) && strings.EqualFold(s.cfg.ResponseValidation, web.ValidationDisable) {
+	if isOptionsReq == true ||
+		strings.EqualFold(s.cfg.RequestValidation, web.ValidationDisable) && strings.EqualFold(s.cfg.ResponseValidation, web.ValidationDisable) {
 		if err := proxy.Perform(ctx, s.proxyPool); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
@@ -139,12 +147,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	var pathParams map[string]string
 
 	if s.customRoute.ParametersNumberInPath > 0 {
-		pathParams = make(map[string]string)
-
-		ctx.VisitUserValues(func(key []byte, value interface{}) {
-			keyStr := strconv.B2S(key)
-			pathParams[keyStr] = value.(string)
-		})
+		pathParams = router.AllURLParams(ctx)
 	}
 
 	// Convert fasthttp request to net/http request
@@ -179,9 +182,10 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
 	// Validate request
 	requestValidationInput := &openapi3filter.RequestValidationInput{
-		Request:    &req,
-		PathParams: pathParams,
-		Route:      s.customRoute.Route,
+		Request:     &req,
+		PathParams:  pathParams,
+		Route:       s.customRoute.Route,
+		QueryParams: req.URL.Query(),
 		Options: &openapi3filter.Options{
 			AuthenticationFunc: func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
 				switch input.SecurityScheme.Type {
@@ -257,7 +261,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 				ctx.SetUserValue(web.RequestBlocked, true)
 
 				s.logger.WithFields(logrus.Fields{
-					"error":      err,
+					"error":      strings.ReplaceAll(err.Error(), "\n", " "),
 					"host":       strconv.B2S(ctx.Request.Header.Host()),
 					"path":       strconv.B2S(ctx.Path()),
 					"method":     strconv.B2S(ctx.Request.Header.Method()),
@@ -307,7 +311,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	case web.ValidationLog:
 		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
 			s.logger.WithFields(logrus.Fields{
-				"error":      err,
+				"error":      strings.ReplaceAll(err.Error(), "\n", " "),
 				"host":       strconv.B2S(ctx.Request.Header.Host()),
 				"path":       strconv.B2S(ctx.Path()),
 				"method":     strconv.B2S(ctx.Request.Header.Method()),

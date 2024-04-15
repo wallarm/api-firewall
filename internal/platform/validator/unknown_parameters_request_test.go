@@ -3,10 +3,8 @@ package validator
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -23,7 +21,7 @@ func TestUnknownParametersRequest(t *testing.T) {
 openapi: 3.0.0
 info:
   title: 'Validator'
-  version: 0.0.1
+  version: 0.0.2
 paths:
   /category:
     post:
@@ -67,9 +65,21 @@ paths:
         required: true
         content:
           application/json:
-            schema: {}
+            schema:
+              type: object
+              required:
+                - subCategory
+              properties:
+                subCategory:
+                  type: string
           application/x-www-form-urlencoded:
-            schema: {}
+            schema:
+              type: object
+              required:
+                - subCategory
+              properties:
+                subCategory:
+                  type: string
       responses:
         '201':
           description: Created
@@ -221,9 +231,9 @@ paths:
 			expectedResp: nil,
 		},
 		{
-			name: "Valid POST unknown params",
+			name: "Valid POST unknown params 0",
 			args: args{
-				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood},
+				requestBody: &testRequestBody{SubCategory: "Chocolate", UnknownParameter: "unknownValue"},
 				url:         "/unknown",
 				ct:          "application/x-www-form-urlencoded",
 			},
@@ -231,7 +241,49 @@ paths:
 			expectedResp: []*RequestUnknownParameterError{
 				{
 					Parameters: []RequestParameterDetails{{
-						Name:        "subCategory",
+						Name:        "unknown",
+						Placeholder: "body",
+						Type:        "string",
+					}},
+					Message: ErrUnknownBodyParameter.Error(),
+				},
+			},
+		},
+		{
+			name: "Valid POST unknown params 1",
+			args: args{
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood, UnknownParameter: "unknownValue"},
+				url:         "/unknown",
+				ct:          "application/x-www-form-urlencoded",
+			},
+			expectedErr: nil,
+			expectedResp: []*RequestUnknownParameterError{
+				{
+					Parameters: []RequestParameterDetails{{
+						Name:        "unknown",
+						Placeholder: "body",
+						Type:        "string",
+					}, {
+						Name:        "category",
+						Placeholder: "body",
+						Type:        "string",
+					}},
+					Message: ErrUnknownBodyParameter.Error(),
+				},
+			},
+		},
+		{
+			name: "Valid JSON unknown params 2",
+			args: args{
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood, UnknownParameter: "unknownValue"},
+				url:         "/unknown",
+				ct:          "application/json",
+			},
+			expectedErr: nil,
+			expectedResp: []*RequestUnknownParameterError{
+				{
+					Parameters: []RequestParameterDetails{{
+						Name:        "unknown",
 						Placeholder: "body",
 						Type:        "string",
 					},
@@ -240,25 +292,6 @@ paths:
 							Placeholder: "body",
 							Type:        "string",
 						}},
-					Message: ErrUnknownBodyParameter.Error(),
-				},
-			},
-		},
-		{
-			name: "Valid JSON unknown params",
-			args: args{
-				requestBody: &testRequestBody{SubCategory: "Chocolate"},
-				url:         "/unknown",
-				ct:          "application/json",
-			},
-			expectedErr: nil,
-			expectedResp: []*RequestUnknownParameterError{
-				{
-					Parameters: []RequestParameterDetails{{
-						Name:        "subCategory",
-						Placeholder: "body",
-						Type:        "string",
-					}},
 					Message: ErrUnknownBodyParameter.Error(),
 				},
 			},
@@ -281,8 +314,10 @@ paths:
 					if tc.args.requestBody.SubCategory != "" {
 						req.PostArgs().Add("subCategory", tc.args.requestBody.SubCategory)
 					}
-					if *tc.args.requestBody.Category != "" {
-						req.PostArgs().Add("category", *tc.args.requestBody.Category)
+					if tc.args.requestBody.Category != nil {
+						if *tc.args.requestBody.Category != "" {
+							req.PostArgs().Add("category", *tc.args.requestBody.Category)
+						}
 					}
 					requestBody = strings.NewReader(req.PostArgs().String())
 				case "application/json":
@@ -316,13 +351,52 @@ paths:
 			if tc.expectedErr != nil {
 				return
 			}
-			if tc.expectedResp != nil || len(tc.expectedResp) > 0 {
+			if tc.expectedResp != nil && len(tc.expectedResp) > 0 {
 				assert.Equal(t, len(tc.expectedResp), len(upRes), "expect the number of unknown parameters: %t, got %t", len(tc.expectedResp), len(upRes))
-
-				if isEq := reflect.DeepEqual(tc.expectedResp, upRes); !isEq {
-					assert.Errorf(t, errors.New("got unexpected unknown parameters"), "expect unknown parameters: %v, got %v", tc.expectedResp, upRes)
-				}
+				assert.Equal(t, true, matchUnknownParamsResp(tc.expectedResp, upRes), "expect unknown parameters: %v, got %v", tc.expectedResp, upRes)
 			}
 		})
 	}
+}
+
+func matchUnknownParamsResp(expected []*RequestUnknownParameterError, actual []RequestUnknownParameterError) bool {
+	for _, expectedValue := range expected {
+		for _, expectedParam := range expectedValue.Parameters {
+			var found bool
+			// search for the same param in the actual resp
+			for _, actualValue := range actual {
+				for _, actualParam := range actualValue.Parameters {
+					if expectedParam.Name == actualParam.Name &&
+						expectedParam.Type == actualParam.Type &&
+						expectedParam.Placeholder == actualParam.Placeholder {
+						found = true
+					}
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+
+	for _, actualValue := range actual {
+		for _, actualParam := range actualValue.Parameters {
+			var found bool
+			// search for the same param in the actual resp
+			for _, expectedValue := range expected {
+				for _, expectedParam := range expectedValue.Parameters {
+					if expectedParam.Name == actualParam.Name &&
+						expectedParam.Type == actualParam.Type &&
+						expectedParam.Placeholder == actualParam.Placeholder {
+						found = true
+					}
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+
+	return true
 }

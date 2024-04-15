@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/fasthttp/websocket"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
@@ -17,7 +19,6 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
-	"golang.org/x/sync/errgroup"
 )
 
 type Handler struct {

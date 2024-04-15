@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	strconv2 "strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
@@ -74,17 +76,28 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 	},
 }
 
-type APIMode struct {
-	CustomRoute   *router.CustomRoute
-	OpenAPIRouter *router.Router
+type RequestValidator struct {
+	CustomRoute   *loader.CustomRoute
+	OpenAPIRouter *loader.Router
 	Log           *logrus.Logger
 	Cfg           *config.APIMode
 	ParserPool    *fastjson.ParserPool
 	SchemaID      int
 }
 
-// APIModeHandler validates request and respond with 200, 403 (with error) or 500 status code
-func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
+// Handler validates request and respond with 200, 403 (with error) or 500 status code
+func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
+
+	// handle panic
+	defer func() {
+		if r := recover(); r != nil {
+			s.Log.Errorf("panic: %v", r)
+
+			// Log the Go stack trace for this panic'd goroutine.
+			s.Log.Debugf("%s", debug.Stack())
+			return
+		}
+	}()
 
 	keyValidationErrors := strconv2.Itoa(s.SchemaID) + web.APIModePostfixValidationErrors
 	keyStatusCode := strconv2.Itoa(s.SchemaID) + web.APIModePostfixStatusCode
@@ -106,11 +119,7 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	var pathParams map[string]string
 
 	if s.CustomRoute.ParametersNumberInPath > 0 {
-		pathParams = make(map[string]string)
-
-		ctx.VisitUserValues(func(key []byte, value interface{}) {
-			pathParams[strconv.B2S(key)] = value.(string)
-		})
+		pathParams = router.AllURLParams(ctx)
 	}
 
 	// Convert fasthttp request to net/http request
@@ -146,10 +155,11 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 
 	// Validate request
 	requestValidationInput := &openapi3filter.RequestValidationInput{
-		Request:    &req,
-		PathParams: pathParams,
-		Route:      s.CustomRoute.Route,
-		Options:    apiModeSecurityRequirementsOptions,
+		Request:     &req,
+		PathParams:  pathParams,
+		Route:       s.CustomRoute.Route,
+		QueryParams: req.URL.Query(),
+		Options:     apiModeSecurityRequirementsOptions,
 	}
 
 	var wg sync.WaitGroup
@@ -159,6 +169,17 @@ func (s *APIMode) APIModeHandler(ctx *fasthttp.RequestCtx) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
+		// handle panic
+		defer func() {
+			if r := recover(); r != nil {
+				s.Log.Errorf("panic: %v", r)
+
+				// Log the Go stack trace for this panic'd goroutine.
+				s.Log.Debugf("%s", debug.Stack())
+				return
+			}
+		}()
 
 		// Get fastjson parser
 		jsonParser := s.ParserPool.Get()

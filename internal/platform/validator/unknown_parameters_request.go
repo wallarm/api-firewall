@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/routers"
@@ -97,7 +98,16 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 	unknownQueryParams := RequestUnknownParameterError{}
 	// compare list of all query params and list of params defined in the specification
 	ctx.Request.URI().QueryArgs().VisitAll(func(key, value []byte) {
-		if _, ok := specParams[utils.B2S(key)+openapi3.ParameterInQuery]; !ok {
+
+		keyStr := utils.B2S(key)
+
+		if i := strings.Index(keyStr, "["); i > 0 {
+			if _, ok := specParams[keyStr[:i]+openapi3.ParameterInQuery]; ok {
+				return
+			}
+		}
+
+		if _, ok := specParams[keyStr+openapi3.ParameterInQuery]; !ok {
 			unknownQueryParams.Message = ErrUnknownQueryParameter.Error()
 			unknownQueryParams.Parameters = append(unknownQueryParams.Parameters, RequestParameterDetails{
 				Name:        utils.B2S(key),

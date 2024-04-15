@@ -18,13 +18,13 @@ import (
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *router.Router, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
+func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *loader.Router, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -93,6 +93,15 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		}
 	}
 
+	// set handler for default behavior (404, 405)
+	defaultOpenAPIWaf := openapiWaf{
+		customRoute: nil,
+		proxyPool:   httpClientsPool,
+		logger:      logger,
+		cfg:         cfg,
+		parserPool:  &parserPool,
+	}
+
 	// Construct the web.App which holds all routes as well as common Middleware.
 	options := web.AppAdditionalOptions{
 		Mode:                  cfg.Mode,
@@ -101,6 +110,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		ResponseValidation:    cfg.ResponseValidation,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
 		OptionsHandler:        optionsHandler,
+		DefaultHandler:        defaultOpenAPIWaf.openapiWafHandler,
 	}
 
 	proxyOptions := mid.ProxyOptions{
@@ -166,18 +176,10 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 
 		s.logger.Debugf("handler: Loaded path %s - %s", swagRouter.Routes[i].Method, updRoutePath)
 
-		app.Handle(swagRouter.Routes[i].Method, updRoutePath, s.openapiWafHandler)
+		if err := app.Handle(swagRouter.Routes[i].Method, updRoutePath, s.openapiWafHandler); err != nil {
+			logger.WithFields(logrus.Fields{"error": err}).Errorf("The OAS endpoint registration failed: method %s, path %s", swagRouter.Routes[i].Method, updRoutePath)
+		}
 	}
 
-	// set handler for default behavior (404, 405)
-	s := openapiWaf{
-		customRoute: nil,
-		proxyPool:   httpClientsPool,
-		logger:      logger,
-		cfg:         cfg,
-		parserPool:  &parserPool,
-	}
-	app.SetDefaultBehavior(s.openapiWafHandler)
-
-	return app.Router.Handler
+	return app.MainHandler
 }

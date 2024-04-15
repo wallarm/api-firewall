@@ -5,10 +5,9 @@ import (
 	"os"
 	"sync"
 
+	"github.com/fasthttp/websocket"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/savsgio/gotils/strings"
-
-	"github.com/fasthttp/websocket"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
@@ -26,7 +25,7 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 
 	// Construct the web.App which holds all routes as well as common Middleware.
 	appOptions := web.AppAdditionalOptions{
-		Mode:        cfg.Mode,
+		Mode:        web.GraphQLMode,
 		PassOptions: false,
 	}
 
@@ -85,8 +84,12 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 		graphqlPath = "/"
 	}
 
-	app.Handle(fasthttp.MethodGet, graphqlPath, s.GraphQLHandle)
-	app.Handle(fasthttp.MethodPost, graphqlPath, s.GraphQLHandle)
+	if err := app.Handle(fasthttp.MethodGet, graphqlPath, s.GraphQLHandle); err != nil {
+		logger.WithFields(logrus.Fields{"error": err}).Error("GraphQL GET endpoint registration failed")
+	}
+	if err := app.Handle(fasthttp.MethodPost, graphqlPath, s.GraphQLHandle); err != nil {
+		logger.WithFields(logrus.Fields{"error": err}).Error("GraphQL POST endpoint registration failed")
+	}
 
 	// enable playground
 	if cfg.Graphql.Playground {
@@ -104,9 +107,11 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 		}
 
 		for i := range handlers {
-			app.Handle(fasthttp.MethodGet, handlers[i].Path, web.NewFastHTTPHandler(handlers[i].Handler, true))
+			if err := app.Handle(fasthttp.MethodGet, handlers[i].Path, web.NewFastHTTPHandler(handlers[i].Handler, true)); err != nil {
+				logger.WithFields(logrus.Fields{"error": err}).Error("GraphQL Playground endpoint registration failed")
+			}
 		}
 	}
 
-	return app.Router.Handler
+	return app.MainHandler
 }

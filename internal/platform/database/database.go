@@ -26,6 +26,7 @@ func getSpecBytes(spec string) []byte {
 	return bytes.NewBufferString(spec).Bytes()
 }
 
+// NewOpenAPIDB loads OAS specs from the database and returns the struct with the parsed specs
 func NewOpenAPIDB(log *logrus.Logger, dbStoragePath string, version int) (DBOpenAPILoader, error) {
 
 	switch version {

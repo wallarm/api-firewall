@@ -3,6 +3,7 @@ package api
 import (
 	"net/url"
 	"os"
+	"runtime/debug"
 	"sync"
 
 	"github.com/corazawaf/coraza/v3"
@@ -13,11 +14,23 @@ import (
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
-	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
 func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, logger *logrus.Logger, storedSpecs database.DBOpenAPILoader, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
+
+	// handle panic
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("panic: %v", r)
+
+			// Log the Go stack trace for this panic'd goroutine.
+			logger.Debugf("%s", debug.Stack())
+			return
+		}
+	}()
+
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
 	schemaIDs := storedSpecs.SchemaIDs()
@@ -37,7 +50,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 	}
 
 	// Construct the web.App which holds all routes as well as common Middleware.
-	apps := web.NewAPIModeApp(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.IPAllowlist(&ipAllowlistOptions), mid.WAFModSecurity(&modSecOptions), mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
+	apps := NewApp(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.IPAllowlist(&ipAllowlistOptions), mid.WAFModSecurity(&modSecOptions), mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
 
 	for _, schemaID := range schemaIDs {
 
@@ -57,14 +70,14 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		}
 
 		// get new router
-		newSwagRouter, err := router.NewRouterDBLoader(schemaID, storedSpecs)
+		newSwagRouter, err := loader.NewRouterDBLoader(storedSpecs.SpecificationVersion(schemaID), storedSpecs.Specification(schemaID))
 		if err != nil {
 			logger.WithFields(logrus.Fields{"error": err}).Error("New router creation failed")
 		}
 
 		for i := 0; i < len(newSwagRouter.Routes); i++ {
 
-			s := APIMode{
+			s := RequestValidator{
 				CustomRoute:   &newSwagRouter.Routes[i],
 				Log:           logger,
 				Cfg:           cfg,
@@ -86,20 +99,12 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 
 			s.Log.Debugf("handler: Schema ID %d: OpenAPI version %s: Loaded path %s - %s", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Method, updRoutePath)
 
-			apps.Handle(schemaID, newSwagRouter.Routes[i].Method, updRoutePath, s.APIModeHandler)
+			if err := apps.Handle(schemaID, newSwagRouter.Routes[i].Method, updRoutePath, s.Handler); err != nil {
+				logger.WithFields(logrus.Fields{"error": err, "schema_id": schemaID}).Errorf("The OAS endpoint registration failed: method %s, path %s", newSwagRouter.Routes[i].Method, updRoutePath)
+			}
 		}
 
-		//set handler for default behavior (404, 405)
-		s := APIMode{
-			CustomRoute:   nil,
-			Log:           logger,
-			Cfg:           cfg,
-			ParserPool:    &parserPool,
-			OpenAPIRouter: newSwagRouter,
-			SchemaID:      schemaID,
-		}
-		apps.SetDefaultBehavior(schemaID, s.APIModeHandler)
 	}
 
-	return apps.APIModeHandler
+	return apps.APIModeRouteHandler
 }
