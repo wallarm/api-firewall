@@ -751,18 +751,18 @@ func runProxyMode(logger *logrus.Logger) error {
 	case nil:
 		swagger, err = openapi3.NewLoader().LoadFromFile(cfg.APISpecs)
 		if err != nil {
-			return errors.Wrap(err, "loading swagwaf file")
+			return errors.Wrap(err, "loading OpenAPI specification from file")
 		}
 	default:
 		swagger, err = openapi3.NewLoader().LoadFromURI(apiSpecURL)
 		if err != nil {
-			return errors.Wrap(err, "loading swagwaf url")
+			return errors.Wrap(err, "loading OpenAPI specification from URL")
 		}
 	}
 
 	swagRouter, err := loader.NewRouter(swagger, true)
 	if err != nil {
-		return errors.Wrap(err, "parsing swagwaf file")
+		return errors.Wrap(err, "parsing OpenAPI specification")
 	}
 
 	// =========================================================================

@@ -522,12 +522,12 @@ func TestAPIModeBasic(t *testing.T) {
 
 	swagger, err := openapi3.NewLoader().LoadFromData([]byte(apiModeOpenAPISpecAPIModeTest))
 	if err != nil {
-		t.Fatalf("loading swagwaf file: %s", err.Error())
+		t.Fatalf("loading OpenAPI specification file: %s", err.Error())
 	}
 
 	secondSwagger, err := openapi3.NewLoader().LoadFromData([]byte(secondApiModeOpenAPISpecAPIModeTest))
 	if err != nil {
-		t.Fatalf("loading swagwaf file: %s", err.Error())
+		t.Fatalf("loading OpenAPI specification file: %s", err.Error())
 	}
 
 	dbSpec.EXPECT().SchemaIDs().Return([]int{DefaultSchemaID, DefaultCopySchemaID, SecondSchemaID}).AnyTimes()
