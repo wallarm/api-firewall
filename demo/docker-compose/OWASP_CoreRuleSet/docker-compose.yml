@@ -14,11 +14,12 @@ services:
       APIFW_SERVER_DIAL_TIMEOUT: "200ms"
       APIFW_REQUEST_VALIDATION: "BLOCK"
       APIFW_RESPONSE_VALIDATION: "BLOCK"
+      APIFW_SHADOW_API_UNKNOWN_PARAMETERS_DETECTION: "false"
       APIFW_MODSEC_CONF_FILES: "/opt/resources/coraza.conf;/opt/resources/crs/crs-setup.conf.example"
       APIFW_MODSEC_RULES_DIR: "/opt/resources/crs/rules/"
     volumes:
       - ./crs:/opt/resources/crs:ro
-      - ./coraza.conf-recommended:/opt/resources/coraza.conf:ro
+      - ./coraza.conf:/opt/resources/coraza.conf:ro
       - ./httpbin.json:/opt/resources/httpbin.json:ro
     ports:
       - "8080:8080"

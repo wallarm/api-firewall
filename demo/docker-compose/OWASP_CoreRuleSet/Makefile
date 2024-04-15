@@ -17,6 +17,7 @@ rm: clean
 
 up: prepare
 	docker-compose up -d --force-recreate
+	docker logs -f api-firewall
 start: up
 run: up
 
