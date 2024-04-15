@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 	"fmt"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 	"net/http"
+	"runtime/debug"
 	strconv2 "strconv"
 	"strings"
 	"sync"
@@ -18,6 +18,7 @@ import (
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
@@ -86,6 +87,17 @@ type RequestValidator struct {
 
 // Handler validates request and respond with 200, 403 (with error) or 500 status code
 func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
+
+	// handle panic
+	defer func() {
+		if r := recover(); r != nil {
+			s.Log.Errorf("panic: %v", r)
+
+			// Log the Go stack trace for this panic'd goroutine.
+			s.Log.Debugf("%s", debug.Stack())
+			return
+		}
+	}()
 
 	keyValidationErrors := strconv2.Itoa(s.SchemaID) + web.APIModePostfixValidationErrors
 	keyStatusCode := strconv2.Itoa(s.SchemaID) + web.APIModePostfixStatusCode
@@ -157,6 +169,17 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
+		// handle panic
+		defer func() {
+			if r := recover(); r != nil {
+				s.Log.Errorf("panic: %v", r)
+
+				// Log the Go stack trace for this panic'd goroutine.
+				s.Log.Debugf("%s", debug.Stack())
+				return
+			}
+		}()
 
 		// Get fastjson parser
 		jsonParser := s.ParserPool.Get()

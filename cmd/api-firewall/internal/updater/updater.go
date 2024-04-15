@@ -2,6 +2,7 @@ package updater
 
 import (
 	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -53,6 +54,18 @@ func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage dat
 
 // Run function performs update of the specification
 func (s *Specification) Run() {
+
+	// handle panic
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Errorf("panic: %v", r)
+
+			// Log the Go stack trace for this panic'd goroutine.
+			s.logger.Debugf("%s", debug.Stack())
+			return
+		}
+	}()
+
 	updateTicker := time.NewTicker(s.updateTime)
 	for {
 		select {
