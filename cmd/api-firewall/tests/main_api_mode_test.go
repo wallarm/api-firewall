@@ -693,6 +693,13 @@ func checkResponseForbiddenStatusCode(t *testing.T, reqCtx *fasthttp.RequestCtx,
 		}
 	}
 
+	// check amount of entries in the related_fields
+	for _, err := range apifwResponse.Errors {
+		if len(err.Fields) > 1 {
+			t.Error("The amount of related fields is more than 1")
+		}
+	}
+
 	if expectedErrCodes != nil {
 		if len(apifwResponse.Errors) > 0 {
 			for _, e := range apifwResponse.Errors {
@@ -2335,12 +2342,14 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyJSON(t *testing.T) 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
-		"firstname":    "test",
-		"lastname":     "test",
-		"job":          "test",
-		"unknownParam": "test",
-		"email":        "test@wallarm.com",
-		"url":          "http://wallarm.com",
+		"firstname":     "test",
+		"lastname":      "test",
+		"job":           "test",
+		"unknownParam":  "test",
+		"unknownParam2": "test",
+		"":              "test",
+		"email":         "test@wallarm.com",
+		"url":           "http://wallarm.com",
 	})
 
 	if err != nil {

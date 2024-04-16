@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"runtime/debug"
 	strconv2 "strconv"
@@ -15,7 +14,6 @@ import (
 	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
@@ -183,17 +181,6 @@ func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 		schemaID := sID
 		// Save schema IDs
 		ctx.SetUserValue(web.RequestSchemaID, strconv2.Itoa(schemaID))
-		var r http.Request
-		if err := fasthttpadaptor.ConvertRequest(ctx, &r, true); err != nil {
-			a.Log.WithFields(logrus.Fields{
-				"error":      err,
-				"host":       strconv.B2S(ctx.Request.Header.Host()),
-				"path":       strconv.B2S(ctx.Path()),
-				"method":     strconv.B2S(ctx.Request.Header.Method()),
-				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("error converting request")
-			return
-		}
 
 		// find the handler with the OAS information
 		rctx := router.NewRouteContext()

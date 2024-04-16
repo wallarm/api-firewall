@@ -62,10 +62,13 @@ func checkParseErr(reqErr *openapi3filter.RequestError) *web.FieldTypeError {
 	return nil
 }
 
-func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *openapi3.SchemaError) *web.ValidationError {
-	response := web.ValidationError{}
+func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *openapi3.SchemaError) []*web.ValidationError {
+	totalResponse := []*web.ValidationError{}
 	switch schemaError.SchemaField {
 	case "required":
+
+		response := web.ValidationError{}
+
 		switch reqErr.Parameter.In {
 		case "query":
 			response.Code = ErrCodeRequiredQueryParameterMissed
@@ -76,20 +79,29 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 		case "header":
 			response.Code = ErrCodeRequiredHeaderMissed
 		}
-		response.Fields = schemaError.JSONPointer()
-		response.Message = ErrMissedRequiredParameters.Error()
 
-		for _, t := range schemaError.Schema.Type.Slice() {
-			details := web.FieldTypeError{
-				Name:         reqErr.Parameter.Name,
-				ExpectedType: t,
+		for _, field := range schemaError.JSONPointer() {
+
+			response.Fields = []string{field}
+			response.Message = ErrMissedRequiredParameters.Error()
+
+			for _, t := range schemaError.Schema.Type.Slice() {
+				details := web.FieldTypeError{
+					Name:         reqErr.Parameter.Name,
+					ExpectedType: t,
+				}
+
+				response.FieldsDetails = append(response.FieldsDetails, details)
 			}
 
-			response.FieldsDetails = append(response.FieldsDetails, details)
+			totalResponse = append(totalResponse, &response)
 		}
 
-		return &response
+		return totalResponse
 	default:
+
+		response := web.ValidationError{}
+
 		switch reqErr.Parameter.In {
 		case "query":
 			response.Code = ErrCodeRequiredQueryParameterInvalidValue
@@ -106,7 +118,7 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 		// handle parse error case
 		if fieldTypeErr := checkParseErr(reqErr); fieldTypeErr != nil {
 			response.FieldsDetails = append(response.FieldsDetails, *fieldTypeErr)
-			return &response
+			return totalResponse
 		}
 
 		for _, t := range schemaError.Schema.Type.Slice() {
@@ -128,8 +140,10 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 
 			response.FieldsDetails = append(response.FieldsDetails, details)
 		}
+		totalResponse = append(totalResponse, &response)
 	}
-	return &response
+
+	return totalResponse
 }
 
 func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
@@ -210,14 +224,14 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 					schemaError, ok := multiErr.(*openapi3.SchemaError)
 					if ok {
 						response := checkRequiredFields(err, schemaError)
-						responseErrors = append(responseErrors, response)
+						responseErrors = append(responseErrors, response...)
 					}
 				}
 			default:
 				schemaError, ok := multiErrors.(*openapi3.SchemaError)
 				if ok {
 					response := checkRequiredFields(err, schemaError)
-					responseErrors = append(responseErrors, response)
+					responseErrors = append(responseErrors, response...)
 				}
 			}
 
@@ -237,7 +251,77 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 					switch schemaError.SchemaField {
 					case "required":
 						response.Code = ErrCodeRequiredBodyParameterMissed
-						response.Fields = schemaError.JSONPointer()
+
+						for _, field := range schemaError.JSONPointer() {
+
+							response.Fields = []string{field}
+							response.Message = schemaError.Error()
+
+							for _, f := range response.Fields {
+								if p, lookupErr := schemaError.Schema.Properties.JSONLookup(f); lookupErr == nil {
+									for _, t := range p.(*openapi3.Schema).Type.Slice() {
+										details := web.FieldTypeError{
+											Name:         f,
+											ExpectedType: t,
+										}
+										response.FieldsDetails = append(response.FieldsDetails, details)
+									}
+								}
+							}
+
+							responseErrors = append(responseErrors, &response)
+						}
+					default:
+						response.Code = ErrCodeRequiredBodyParameterInvalidValue
+						response.Message = schemaError.Error()
+
+						for _, field := range schemaError.JSONPointer() {
+
+							response.Fields = []string{field}
+
+							if len(response.Fields) > 0 {
+								parseErr, ok := err.Err.(*validator.ParseError)
+								if ok {
+									response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
+										Name:         response.Fields[0],
+										ExpectedType: parseErr.ExpectedType,
+										CurrentValue: parseErr.ValueStr,
+									})
+								} else {
+									for _, t := range schemaError.Schema.Type.Slice() {
+										details := web.FieldTypeError{
+											Name:         response.Fields[0],
+											ExpectedType: t,
+											CurrentValue: fmt.Sprintf("%v", schemaError.Value),
+										}
+										switch schemaError.SchemaField {
+										case "pattern":
+											details.Pattern = schemaError.Schema.Pattern
+										case "maximum":
+											details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
+										case "minimum":
+											details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
+										}
+
+										response.FieldsDetails = append(response.FieldsDetails, details)
+									}
+								}
+								responseErrors = append(responseErrors, &response)
+							}
+						}
+					}
+				}
+			}
+		default:
+			schemaError, ok := multiErrors.(*openapi3.SchemaError)
+			if ok {
+				response := web.ValidationError{}
+				switch schemaError.SchemaField {
+				case "required":
+					response.Code = ErrCodeRequiredBodyParameterMissed
+					for _, field := range schemaError.JSONPointer() {
+
+						response.Fields = []string{field}
 						response.Message = schemaError.Error()
 
 						for _, f := range response.Fields {
@@ -253,9 +337,12 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 						}
 
 						responseErrors = append(responseErrors, &response)
-					default:
-						response.Code = ErrCodeRequiredBodyParameterInvalidValue
-						response.Fields = schemaError.JSONPointer()
+					}
+				default:
+					response.Code = ErrCodeRequiredBodyParameterInvalidValue
+					for _, field := range schemaError.JSONPointer() {
+
+						response.Fields = []string{field}
 						response.Message = schemaError.Error()
 
 						if len(response.Fields) > 0 {
@@ -267,6 +354,7 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 									CurrentValue: parseErr.ValueStr,
 								})
 							} else {
+
 								for _, t := range schemaError.Schema.Type.Slice() {
 									details := web.FieldTypeError{
 										Name:         response.Fields[0],
@@ -284,70 +372,10 @@ func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
 
 									response.FieldsDetails = append(response.FieldsDetails, details)
 								}
+
 							}
 							responseErrors = append(responseErrors, &response)
 						}
-					}
-				}
-			}
-		default:
-			schemaError, ok := multiErrors.(*openapi3.SchemaError)
-			if ok {
-				response := web.ValidationError{}
-				switch schemaError.SchemaField {
-				case "required":
-					response.Code = ErrCodeRequiredBodyParameterMissed
-					response.Fields = schemaError.JSONPointer()
-					response.Message = schemaError.Error()
-
-					for _, f := range response.Fields {
-						if p, lookupErr := schemaError.Schema.Properties.JSONLookup(f); lookupErr == nil {
-							for _, t := range p.(*openapi3.Schema).Type.Slice() {
-								details := web.FieldTypeError{
-									Name:         f,
-									ExpectedType: t,
-								}
-								response.FieldsDetails = append(response.FieldsDetails, details)
-							}
-						}
-					}
-
-					responseErrors = append(responseErrors, &response)
-				default:
-					response.Code = ErrCodeRequiredBodyParameterInvalidValue
-					response.Fields = schemaError.JSONPointer()
-					response.Message = schemaError.Error()
-
-					if len(response.Fields) > 0 {
-						parseErr, ok := err.Err.(*validator.ParseError)
-						if ok {
-							response.FieldsDetails = append(response.FieldsDetails, web.FieldTypeError{
-								Name:         response.Fields[0],
-								ExpectedType: parseErr.ExpectedType,
-								CurrentValue: parseErr.ValueStr,
-							})
-						} else {
-
-							for _, t := range schemaError.Schema.Type.Slice() {
-								details := web.FieldTypeError{
-									Name:         response.Fields[0],
-									ExpectedType: t,
-									CurrentValue: fmt.Sprintf("%v", schemaError.Value),
-								}
-								switch schemaError.SchemaField {
-								case "pattern":
-									details.Pattern = schemaError.Schema.Pattern
-								case "maximum":
-									details.Pattern = fmt.Sprintf("<=%0.4f", *schemaError.Schema.Max)
-								case "minimum":
-									details.Pattern = fmt.Sprintf(">=%0.4f", *schemaError.Schema.Min)
-								}
-
-								response.FieldsDetails = append(response.FieldsDetails, details)
-							}
-
-						}
-						responseErrors = append(responseErrors, &response)
 					}
 				}
 			}
