@@ -237,7 +237,7 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 				"path":       strconv.B2S(ctx.Path()),
 				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("request validation error")
+			}).Debug("request validation error")
 		default:
 			// Parse validation error and build the response
 			parsedValErrs, unknownErr := getErrorResponse(valErr)
@@ -252,7 +252,7 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 					"path":       strconv.B2S(ctx.Path()),
 					"method":     strconv.B2S(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
-				}).Warning("request validation error")
+				}).Debug("request validation error")
 
 				// Set schema version for each validation
 				if len(parsedValErrs) > 0 {
@@ -289,7 +289,7 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 				"path":       strconv.B2S(ctx.Path()),
 				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("searching for undefined parameters")
+			}).Error("undefined parameters")
 
 			// If it is not a parsing error then return 500
 			// If it is a parsing error then it already handled by the request validator
@@ -303,23 +303,20 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 			for _, upResult := range upResults {
 				s.Log.WithFields(logrus.Fields{
 					"error":      upResult.Message,
-					"host":       string(ctx.Request.Header.Host()),
-					"path":       string(ctx.Path()),
-					"method":     string(ctx.Request.Header.Method()),
+					"host":       strconv.B2S(ctx.Request.Header.Host()),
+					"path":       strconv.B2S(ctx.Path()),
+					"method":     strconv.B2S(ctx.Request.Header.Method()),
 					"request_id": ctx.UserValue(web.RequestID),
-				}).Error("searching for undefined parameters")
+				}).Debug("undefined parameters found")
 
-				fields := make([]string, len(upResult.Parameters))
 				for _, f := range upResult.Parameters {
-					fields = append(fields, f.Name)
+					response := web.ValidationError{}
+					response.SchemaVersion = s.OpenAPIRouter.SchemaVersion
+					response.Message = upResult.Message
+					response.Code = ErrCodeUnknownParameterFound
+					response.Fields = []string{f.Name}
+					respErrors = append(respErrors, &response)
 				}
-
-				response := web.ValidationError{}
-				response.SchemaVersion = s.OpenAPIRouter.SchemaVersion
-				response.Message = upResult.Message
-				response.Code = ErrCodeUnknownParameterFound
-				response.Fields = fields
-				respErrors = append(respErrors, &response)
 			}
 		}
 	}
