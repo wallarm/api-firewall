@@ -2,7 +2,7 @@ version: "3.8"
 services:
   api-firewall:
     container_name: api-firewall
-    image: wallarm/api-firewall:v0.7.1
+    image: wallarm/api-firewall:v0.7.2
     restart: on-failure
     environment:
       APIFW_URL: "http://0.0.0.0:8080"
