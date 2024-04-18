@@ -45,7 +45,7 @@ You can start API Firewall on [OWASP ModSecurity Core Rule Set (CRS)](https://ow
     git clone https://github.com/coreruleset/coreruleset.git
     ```
 
-1. Start the APIFW v0.7.0 with the provided API specification and OWASP CRS:
+1. Start the APIFW v0.7.0 or above with the provided API specification and OWASP CRS:
 
     ```
     docker docker run --rm -it --network api-firewall-network --network-alias api-firewall \
@@ -59,5 +59,5 @@ You can start API Firewall on [OWASP ModSecurity Core Rule Set (CRS)](https://ow
         -e APIFW_RESPONSE_VALIDATION=BLOCK \
         -e APIFW_MODSEC_CONF_FILES=/opt/coraza.conf;/opt/coreruleset/crs-setup.conf.example \
         -e APIFW_MODSEC_RULES_DIR=/opt/coreruleset/rules/ \
-        -p 8088:8088 wallarm/api-firewall:v0.7.0
+        -p 8088:8088 wallarm/api-firewall:v0.7.2
     ```
