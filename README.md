@@ -52,9 +52,7 @@ During the processing of incoming requests, the API Firewall recognizes a range 
 
 * `application/json`
 * `application/xml`
-* `application/json-patch+json`
 * `application/octet-stream`
-* `application/problem+json`
 * `application/x-www-form-urlencoded`
 * `application/x-yaml`
 * `application/yaml`
