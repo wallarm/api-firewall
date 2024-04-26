@@ -14,7 +14,7 @@ COPY . .
 
 RUN go mod download -x                    && \
     go build                                 \
-        -ldflags="-X main.build=${APIFIREWALL_VERSION} -linkmode 'external' -extldflags '-static' -s -w" \
+        -ldflags="-X main.build=${APIFIREWALL_VERSION} -s -w" \
         -buildvcs=false                      \
         -o ./api-firewall                    \
         ./cmd/api-firewall
