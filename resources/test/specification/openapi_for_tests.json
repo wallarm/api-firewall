@@ -1,0 +1,639 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Swagger API-Firewall testing - OpenAPI 3.0",
+    "description": "This is a specific Swagger file for api-firewall Wallarm service testing. No real API is described by this speification.\n  \nIn the specification you can find endpoints witthe different types of the parameters.\n  \n**NOTE** for now this is just a compilation of 2 Swagger files, that were used during the testing",
+    "version": "1.0.11"
+  },
+  "externalDocs": {
+    "description": "Test plan for the API Firewall",
+    "url": "https://wallarm.atlassian.net/l/cp/HG1zP0UK"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "tags": [
+    {
+      "name": "No parameters",
+      "description": "Endpoints w/o any parameters"
+    },
+    {
+      "name": "Endpoint parameters",
+      "description": "Endpoints with parameters inside the URI string"
+    },
+    {
+      "name": "Query parameters",
+      "description": "Endpoints with query parameters"
+    },
+    {
+      "name": "Header parameters",
+      "description": "Endpoints with header parameters"
+    },
+    {
+      "name": "Request body parameters",
+      "description": "Endpoints with body parameters"
+    },
+    {
+      "name": "Cookie parameters",
+      "description": "Endpoints with cookie parameters"
+    },
+    {
+      "name": "Combinated parameters",
+      "description": "Endpoints with multiple types of parameters."
+    }
+  ],
+  "paths": {
+    "/image": {
+      "get": {
+        "tags": [
+          "No parameters"
+        ],
+        "summary": "The endpoint without any parameters",
+        "responses": {
+          "200": {
+            "description": "An image.",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/cookie_params": {
+      "get": {
+        "tags": [
+          "Cookie parameters"
+        ],
+        "summary": "The endpoint with cookie parameters only",
+        "parameters": [
+          {
+            "name": "cookie_mandatory",
+            "in": "cookie",
+            "description": "mandatory cookie parameter",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cookie_optional",
+            "in": "cookie",
+            "description": "optional cookie parameter",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "enum": [
+                0,
+                10,
+                100
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Set cookies.",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/cookies/set/{name}/{value}": {
+      "get": {
+        "tags": [
+          "Endpoint parameters"
+        ],
+        "summary": "The endpoint with URI parameters only",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "value",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Set cookies and redirects to cookie list.",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/redirect-to": {
+      "get": {
+        "tags": [
+          "Query parameters"
+        ],
+        "summary": "The endpoint with query parameters only",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status_code",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "A redirection.",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/cache": {
+      "get": {
+        "tags": [
+          "Header parameters"
+        ],
+        "summary": "The endpoint with header parameters only",
+        "parameters": [
+          {
+            "name": "If-Modified-Since",
+            "description": "mandatory header parameter",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "description": "optional header parameter",
+            "in": "header",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cached response",
+            "content": {}
+          },
+          "304": {
+            "description": "Modified",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/api/v3/pet": {
+      "post": {
+        "tags": [
+          "Request body parameters"
+        ],
+        "summary": "The endpoint with body parameters only",
+        "requestBody": {
+          "description": "Create a new pet in the store",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Pet"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Pet"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Pet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pet"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pet"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        },
+        "security": [
+          {
+            "petstore_auth": [
+              "write:pets",
+              "read:pets"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v3/pet/{petId}": {
+      "delete": {
+        "tags": [
+          "Header parameters"
+        ],
+        "summary": "Deletes a pet",
+        "description": "delete a pet",
+        "operationId": "deletePet",
+        "parameters": [
+          {
+            "name": "api_key",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "petId",
+            "in": "path",
+            "description": "Pet id to delete",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid pet value"
+          }
+        },
+        "security": [
+          {
+            "petstore_auth": [
+              "write:pets",
+              "read:pets"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v3/user": {
+      "post": {
+        "tags": [
+          "Request body parameters"
+        ],
+        "summary": "The endpoint with body parameters only",
+        "operationId": "createUser",
+        "requestBody": {
+          "description": "Created user object",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/all_params/{uri_param1}/{uri_param2}": {
+      "put": {
+        "tags": [
+          "Combinated parameters"
+        ],
+        "summary": "The endpoint with all possible types of parameters",
+        "operationId": "updateUser",
+        "parameters": [
+          {
+            "name": "uri_param1",
+            "in": "path",
+            "description": "mandatory endpoint parameter",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "uri_param2",
+            "in": "path",
+            "description": "mandatory endpoint parameter",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "query_mandatory",
+            "in": "query",
+            "description": "mandatory query parameter",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query_optional",
+            "in": "query",
+            "description": "optional query parameter",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "header_mandatory",
+            "in": "header",
+            "description": "mandatory header parameter",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "header_optional",
+            "in": "header",
+            "description": "optional header parameter",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "cookie_mandatory",
+            "in": "cookie",
+            "description": "optional header parameter",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cookie_optional",
+            "in": "cookie",
+            "description": "optional header parameter",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Update an existent user in the store",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "successful operation"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Dogs"
+          }
+        },
+        "xml": {
+          "name": "category"
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 10
+          },
+          "username": {
+            "type": "string",
+            "example": "theUser"
+          },
+          "firstName": {
+            "type": "string",
+            "example": "John"
+          },
+          "lastName": {
+            "type": "string",
+            "example": "James"
+          },
+          "email": {
+            "type": "string",
+            "example": "john@email.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "12345"
+          },
+          "phone": {
+            "type": "string",
+            "example": "12345"
+          },
+          "userStatus": {
+            "type": "integer",
+            "description": "TODO reimplement with Enum",
+            "format": "int32",
+            "example": 1
+          }
+        },
+        "xml": {
+          "name": "user"
+        }
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "xml": {
+          "name": "tag"
+        }
+      },
+      "Pet": {
+        "required": [
+          "name",
+          "photoUrls"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 10
+          },
+          "name": {
+            "type": "string",
+            "example": "doggie"
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "photoUrls": {
+            "type": "array",
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "photoUrl"
+              }
+            }
+          },
+          "tags": {
+            "type": "array",
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "pet status in the store",
+            "enum": [
+              "available",
+              "pending",
+              "sold"
+            ]
+          }
+        },
+        "xml": {
+          "name": "pet"
+        }
+      }
+    },
+    "requestBodies": {
+      "Pet": {
+        "description": "Pet object that needs to be added to the store",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Pet"
+            }
+          },
+          "application/x-www-form-urlencoded": {
+            "schema": {
+              "$ref": "#/components/schemas/Pet"
+            }
+          }
+        }
+      },
+      "UserArray": {
+        "description": "List of user object",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "petstore_auth": {
+        "type": "oauth2",
+        "flows": {
+          "implicit": {
+            "authorizationUrl": "https://petstore3.swagger.io/oauth/authorize",
+            "scopes": {
+              "write:pets": "modify pets in your account",
+              "read:pets": "read your pets"
+            }
+          }
+        }
+      }
+    }
+  }
+}
