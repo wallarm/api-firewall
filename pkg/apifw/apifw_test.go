@@ -15,8 +15,9 @@ func TestAPIFWBasic(t *testing.T) {
 
 	apifw, err := NewAPIFirewall(
 		WithPathToDB("./wallarm_apifw_test.db"),
+		DisableUnknownParameters(),
+		DisablePassOptionsRequests(),
 	)
-
 	if err != nil {
 		t.Fatal(err)
 	}

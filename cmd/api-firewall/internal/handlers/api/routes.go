@@ -70,6 +70,10 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 			logger.Errorf("parsing server URL from OpenAPI specification: %v", err)
 		}
 
+		if serverURL.Path == "" {
+			serverURL.Path = "/"
+		}
+
 		// get new router
 		newSwagRouter, err := loader.NewRouterDBLoader(storedSpecs.SpecificationVersion(schemaID), storedSpecs.Specification(schemaID))
 		if err != nil {

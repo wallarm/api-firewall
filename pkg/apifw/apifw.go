@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"net/url"
 	strconv2 "strconv"
 	"sync"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/platform/APImode"
 	"github.com/wallarm/api-firewall/internal/platform/database"
-	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
@@ -22,11 +20,18 @@ var (
 	StatusOK                  int = fasthttp.StatusOK
 	StatusForbidden           int = fasthttp.StatusForbidden
 	StatusInternalServerError int = fasthttp.StatusInternalServerError
+
+	ErrSchemaNotFound = fmt.Errorf("schema not found")
+	ErrRequestParsing = fmt.Errorf("request parsing error")
+	ErrSpecParsing    = fmt.Errorf("OpenAPI specification parsing error")
+	ErrSpecValidation = fmt.Errorf("OpenAPI specification validation error")
+	ErrSpecLoading    = fmt.Errorf("OpenAPI specifications reading from database error")
+	ErrHandlersInit   = fmt.Errorf("handlers initialization error")
 )
 
 type APIFirewall interface {
 	ValidateRequest(schemaID int, r *bufio.Reader) (*web.APIModeResponse, error)
-	UpdateSpecsStorage() (bool, error)
+	UpdateSpecsStorage() ([]int, bool, error)
 }
 
 type APIMode struct {
@@ -76,7 +81,7 @@ func DisablePassOptionsRequests() Option {
 
 func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 
-	// DB Usage Lock
+	// db usage lock
 	var dbLock sync.RWMutex
 
 	// define FastJSON parsers pool
@@ -93,7 +98,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 		},
 	}
 
-	// Apply all the functional options
+	// apply all the functional options
 	for _, opt := range options {
 		opt(apiMode.options)
 	}
@@ -103,7 +108,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 	// load spec from the database
 	specsStorage, errLoadDB := database.NewOpenAPIDB(apiMode.options.PathToSpecDB, apiMode.options.DBVersion)
 	if errLoadDB != nil {
-		err = errors.Join(err, errLoadDB)
+		err = errors.Join(err, wrapOASpecErrs(errLoadDB))
 	}
 
 	apiMode.specsStorage = specsStorage
@@ -111,7 +116,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 	// init routers
 	routers, errRouters := getRouters(apiMode.specsStorage, &parserPool)
 	if err != nil {
-		err = errors.Join(err, errRouters)
+		err = errors.Join(err, fmt.Errorf("%w: %w", ErrHandlersInit, errRouters))
 	}
 
 	apiMode.routers = routers
@@ -119,74 +124,20 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 	return &apiMode, err
 }
 
-func getRouters(specStorage database.DBOpenAPILoader, parserPool *fastjson.ParserPool) (map[int]*router.Mux, error) {
-
-	// Init routers
-	routers := make(map[int]*router.Mux)
-	for _, schemaID := range specStorage.SchemaIDs() {
-		routers[schemaID] = router.NewRouter()
-
-		serverURLStr := "/"
-		spec := specStorage.Specification(schemaID)
-		servers := spec.Servers
-		if servers != nil {
-			var err error
-			if serverURLStr, err = servers.BasePath(); err != nil {
-				return nil, fmt.Errorf("getting server URL from OpenAPI specification with ID %d: %w", schemaID, err)
-			}
-		}
-
-		serverURL, err := url.Parse(serverURLStr)
-		if err != nil {
-			return nil, fmt.Errorf("parsing server URL from OpenAPI specification with ID %d: %w", schemaID, err)
-		}
-
-		// get new router
-		newSwagRouter, err := loader.NewRouterDBLoader(specStorage.SpecificationVersion(schemaID), specStorage.Specification(schemaID))
-		if err != nil {
-			return nil, fmt.Errorf("new router creation failed for specification with ID %d: %w", schemaID, err)
-		}
-
-		for i := 0; i < len(newSwagRouter.Routes); i++ {
-
-			s := RequestValidator{
-				CustomRoute:   &newSwagRouter.Routes[i],
-				ParserPool:    parserPool,
-				OpenAPIRouter: newSwagRouter,
-				SchemaID:      schemaID,
-			}
-			updRoutePathEsc, err := url.JoinPath(serverURL.Path, newSwagRouter.Routes[i].Path)
-			if err != nil {
-				return nil, fmt.Errorf("join path error for route %s in specification with ID %d: %w", newSwagRouter.Routes[i].Path, schemaID, err)
-			}
-
-			updRoutePath, err := url.PathUnescape(updRoutePathEsc)
-			if err != nil {
-				return nil, fmt.Errorf("path unescape error for route %s in specification with ID %d: %w", newSwagRouter.Routes[i].Path, schemaID, err)
-			}
-
-			if err := routers[schemaID].AddEndpoint(newSwagRouter.Routes[i].Method, updRoutePath, s.APIModeHandler); err != nil {
-				return nil, fmt.Errorf("the OAS endpoint registration failed: method %s, path %s: %w", newSwagRouter.Routes[i].Method, updRoutePath, err)
-			}
-		}
-	}
-
-	return routers, nil
-}
-
-func (a *APIMode) UpdateSpecsStorage() (bool, error) {
+// UpdateSpecsStorage method reloads data from SQLite DB with specs
+func (a *APIMode) UpdateSpecsStorage() ([]int, bool, error) {
 
 	var isUpdated bool
 
 	// load new schemes
 	newSpecDB, err := database.NewOpenAPIDB(a.options.PathToSpecDB, a.options.DBVersion)
 	if err != nil {
-		return isUpdated, fmt.Errorf("loading specifications: %w", err)
+		return a.specsStorage.SchemaIDs(), isUpdated, wrapOASpecErrs(err)
 	}
 
 	// do not downgrade the db version
 	if a.specsStorage.Version() > newSpecDB.Version() {
-		return isUpdated, fmt.Errorf("version of the new DB structure is lower then current one (V2)")
+		return a.specsStorage.SchemaIDs(), isUpdated, fmt.Errorf("%w: version of the new DB structure is lower then current one (V2)", ErrSpecLoading)
 	}
 
 	if a.specsStorage.ShouldUpdate(newSpecDB) {
@@ -195,7 +146,7 @@ func (a *APIMode) UpdateSpecsStorage() (bool, error) {
 
 		routers, err := getRouters(newSpecDB, a.parserPool)
 		if err != nil {
-			return isUpdated, err
+			return a.specsStorage.SchemaIDs(), isUpdated, fmt.Errorf("%w: %w", ErrHandlersInit, err)
 		}
 
 		a.routers = routers
@@ -204,13 +155,14 @@ func (a *APIMode) UpdateSpecsStorage() (bool, error) {
 		isUpdated = true
 
 		if err := a.specsStorage.AfterLoad(a.options.PathToSpecDB); err != nil {
-			return isUpdated, fmt.Errorf("error in after specification loading function: %w", err)
+			return a.specsStorage.SchemaIDs(), isUpdated, wrapOASpecErrs(err)
 		}
 	}
 
-	return isUpdated, nil
+	return a.specsStorage.SchemaIDs(), isUpdated, nil
 }
 
+// ValidateRequest method validates request against the spec with provided schema ID
 func (a *APIMode) ValidateRequest(schemaID int, r *bufio.Reader) (response *web.APIModeResponse, err error) {
 
 	// handle panic
@@ -221,7 +173,7 @@ func (a *APIMode) ValidateRequest(schemaID int, r *bufio.Reader) (response *web.
 			case error:
 				err = e
 			default:
-				err = fmt.Errorf("panic: %v", r)
+				err = fmt.Errorf("%w: panic: %v", ErrRequestParsing, r)
 			}
 
 			response = &web.APIModeResponse{
@@ -247,12 +199,12 @@ func (a *APIMode) ValidateRequest(schemaID int, r *bufio.Reader) (response *web.
 					StatusCode: &StatusInternalServerError,
 				},
 			},
-		}, err
+		}, fmt.Errorf("%w: %w", ErrRequestParsing, err)
 	}
 
 	// find handler
 	rctx := router.NewRouteContext()
-	handler, err := a.Find(rctx, schemaID, strconv.B2S(ctx.Method()), strconv.B2S(ctx.Request.URI().Path()))
+	handler, err := a.find(rctx, schemaID, strconv.B2S(ctx.Method()), strconv.B2S(ctx.Request.URI().Path()))
 	if err != nil {
 		return &web.APIModeResponse{
 			Summary: []*web.APIModeResponseSummary{
@@ -261,10 +213,10 @@ func (a *APIMode) ValidateRequest(schemaID int, r *bufio.Reader) (response *web.
 					StatusCode: &StatusInternalServerError,
 				},
 			},
-		}, err
+		}, fmt.Errorf("%w: %w", ErrSchemaNotFound, err)
 	}
 
-	// handler not found in the OAS
+	// handler not found in the existing OAS
 	if handler == nil {
 		// OPTIONS methods are passed if the passOPTIONS is set to true
 		if a.options.PassOptionsRequests == true && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
@@ -278,7 +230,7 @@ func (a *APIMode) ValidateRequest(schemaID int, r *bufio.Reader) (response *web.
 			}, nil
 		}
 
-		// Method or Path were not found
+		// method or path were not found
 		return &web.APIModeResponse{
 			Summary: []*web.APIModeResponseSummary{
 				{
@@ -301,7 +253,7 @@ func (a *APIMode) ValidateRequest(schemaID int, r *bufio.Reader) (response *web.
 					StatusCode: &StatusInternalServerError,
 				},
 			},
-		}, err
+		}, fmt.Errorf("%w: %w", ErrRequestParsing, err)
 	}
 
 	responseSummary := make([]*web.APIModeResponseSummary, 0, 1)
@@ -318,7 +270,7 @@ func (a *APIMode) ValidateRequest(schemaID int, r *bufio.Reader) (response *web.
 					StatusCode: &StatusInternalServerError,
 				},
 			},
-		}, nil
+		}, fmt.Errorf("%w: unknown error while request processing", ErrRequestParsing)
 	}
 
 	responseSummary = append(responseSummary, &web.APIModeResponseSummary{
@@ -334,7 +286,7 @@ func (a *APIMode) ValidateRequest(schemaID int, r *bufio.Reader) (response *web.
 }
 
 // Find function searches for the handler by path and method
-func (a *APIMode) Find(rctx *router.Context, schemaID int, method, path string) (router.Handler, error) {
+func (a *APIMode) find(rctx *router.Context, schemaID int, method, path string) (router.Handler, error) {
 
 	a.lock.RLock()
 	defer a.lock.RUnlock()
@@ -342,7 +294,7 @@ func (a *APIMode) Find(rctx *router.Context, schemaID int, method, path string) 
 	// Find the handler with the OAS information
 	schemaRouter, ok := a.routers[schemaID]
 	if !ok {
-		return nil, fmt.Errorf("router not found: provided schema ID %d, list of loaded schema IDs %v ", schemaID, a.specsStorage.SchemaIDs())
+		return nil, fmt.Errorf("provided schema ID %d, list of loaded schema IDs %v ", schemaID, a.specsStorage.SchemaIDs())
 	}
 
 	return schemaRouter.Find(rctx, method, path), nil

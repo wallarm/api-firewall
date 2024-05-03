@@ -105,7 +105,7 @@ func (s *SQLLiteV1) Load(dbStoragePath string) (bool, error) {
 
 		parsedSpec, err := loader.ParseOAS(getSpecBytes(spec.SchemaContent), spec.SchemaVersion, schemaID)
 		if err != nil {
-			parsingErrs = errors.Join(parsingErrs, fmt.Errorf("parsing error of the OpenAPI specification parsing with schema ID %d: %w", schemaID, err))
+			parsingErrs = errors.Join(parsingErrs, err)
 			delete(s.RawSpecs, schemaID)
 			continue
 		}
