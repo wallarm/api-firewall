@@ -1,4 +1,4 @@
-package updater
+package api
 
 import (
 	"os"
@@ -10,21 +10,16 @@ import (
 	"github.com/corazawaf/coraza/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
+	"github.com/wallarm/api-firewall/internal/platform/database/updater"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 )
 
 const (
 	logPrefix = "Regular OpenAPI specification updater"
 )
-
-type Updater interface {
-	Start() error
-	Shutdown() error
-	Load() (database.DBOpenAPILoader, error)
-}
 
 type Specification struct {
 	logger         *logrus.Logger
@@ -35,13 +30,13 @@ type Specification struct {
 	cfg            *config.APIMode
 	api            *fasthttp.Server
 	shutdown       chan os.Signal
-	health         *handlersAPI.Health
+	health         *Health
 	lock           *sync.RWMutex
 	allowedIPCache *allowiplist.AllowedIPsType
 }
 
-// NewController function defines configuration updater controller
-func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) Updater {
+// NewHandlerUpdater function defines configuration updater controller
+func NewHandlerUpdater(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *Health, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
 	return &Specification{
 		logger:         logger,
 		waf:            waf,
@@ -103,7 +98,7 @@ func (s *Specification) Run() {
 
 				s.lock.Lock()
 				s.sqlLiteStorage = newSpecDB
-				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache, s.waf)
+				s.api.Handler = Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache, s.waf)
 				s.health.OpenAPIDB = s.sqlLiteStorage
 				if err := s.sqlLiteStorage.AfterLoad(s.cfg.PathToSpecDB); err != nil {
 					s.logger.WithFields(logrus.Fields{"error": err}).Errorf("%s: error in after specification loading function", logPrefix)
@@ -145,5 +140,10 @@ func (s *Specification) Shutdown() error {
 func (s *Specification) Load() (database.DBOpenAPILoader, error) {
 
 	// Load specification
-	return database.NewOpenAPIDB(s.logger, s.cfg.PathToSpecDB, s.cfg.DBVersion)
+	return database.NewOpenAPIDB(s.cfg.PathToSpecDB, s.cfg.DBVersion)
+}
+
+// Find function searches for the handler by path and method
+func (s *Specification) Find(rctx *router.Context, schemaID int, method, path string) (router.Handler, error) {
+	return nil, nil
 }

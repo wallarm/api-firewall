@@ -21,7 +21,6 @@ import (
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	handlersGQL "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
 	handlersProxy "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
-	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/updater"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
@@ -165,9 +164,13 @@ func runAPIMode(logger *logrus.Logger) error {
 	serverErrors := make(chan error, 1)
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, cfg.PathToSpecDB, cfg.DBVersion)
+	specStorage, err := database.NewOpenAPIDB(cfg.PathToSpecDB, cfg.DBVersion)
 	if err != nil {
 		logger.Errorf("%s: trying to load API Spec value from SQLLite Database : %v\n", logPrefix, err.Error())
+	}
+
+	if specStorage != nil {
+		logger.Debugf("OpenAPI specifications with the following IDs were found in the DB: %v", specStorage.SchemaIDs())
 	}
 
 	// =========================================================================
@@ -274,7 +277,7 @@ func runAPIMode(logger *logrus.Logger) error {
 
 	updSpecErrors := make(chan error, 1)
 
-	updOpenAPISpec := updater.NewController(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache, waf)
+	updOpenAPISpec := handlersAPI.NewHandlerUpdater(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache, waf)
 
 	// disable updater if SpecificationUpdatePeriod == 0
 	if cfg.SpecificationUpdatePeriod.Seconds() > 0 {

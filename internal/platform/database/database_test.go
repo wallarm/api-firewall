@@ -85,7 +85,7 @@ func TestBasicDBSpecsLoading(t *testing.T) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
-	dbSpec, err := NewOpenAPIDB(logger, "../../../resources/test/database/wallarm_api.db", dbVersion)
+	dbSpec, err := NewOpenAPIDB("../../../resources/test/database/wallarm_api.db", dbVersion)
 	if err != nil {
 		t.Fatal(err)
 	}

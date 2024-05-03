@@ -1,4 +1,4 @@
-package api
+package APImode
 
 import (
 	"errors"
@@ -96,7 +96,7 @@ func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPI
 	}
 
 	// Get Wallarm Schema ID
-	xWallarmSchemaIDsStr := string(ctx.Request.Header.Peek(web.XWallarmSchemaIDHeader))
+	xWallarmSchemaIDsStr := strconv.B2S(ctx.Request.Header.Peek(web.XWallarmSchemaIDHeader))
 	if xWallarmSchemaIDsStr == "" {
 		return nil, nil, errors.New("required X-WALLARM-SCHEMA-ID header is missing")
 	}
@@ -128,8 +128,8 @@ func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPI
 	return
 }
 
-// APIModeRouteHandler routes request to the appropriate handler according to the OpenAPI specification schema ID
-func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
+// APIModeMainHandler routes request to the appropriate handler according to the OpenAPI specification schema ID
+func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 
 	// handle panic
 	defer func() {
@@ -151,18 +151,18 @@ func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 
 		a.Log.WithFields(logrus.Fields{
 			"error":      err,
-			"host":       string(ctx.Request.Header.Host()),
-			"path":       string(ctx.Path()),
-			"method":     string(ctx.Request.Header.Method()),
+			"host":       strconv.B2S(ctx.Request.Header.Host()),
+			"path":       strconv.B2S(ctx.Path()),
+			"method":     strconv.B2S(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("error while getting schema ID")
 
 		if err := web.RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
 			a.Log.WithFields(logrus.Fields{
 				"error":      err,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("error while sending response")
 		}
@@ -286,9 +286,9 @@ func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 	if err := web.Respond(ctx, web.APIModeResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
 		a.Log.WithFields(logrus.Fields{
 			"request_id": ctx.UserValue(web.RequestID),
-			"host":       string(ctx.Request.Header.Host()),
-			"path":       string(ctx.Path()),
-			"method":     string(ctx.Request.Header.Method()),
+			"host":       strconv.B2S(ctx.Request.Header.Host()),
+			"path":       strconv.B2S(ctx.Path()),
+			"method":     strconv.B2S(ctx.Request.Header.Method()),
 			"error":      err,
 		}).Error("respond error")
 	}

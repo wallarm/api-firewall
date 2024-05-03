@@ -1,4 +1,4 @@
-package api
+package APImode
 
 import (
 	"fmt"
@@ -146,7 +146,7 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 	return totalResponse
 }
 
-func getErrorResponse(validationError error) ([]*web.ValidationError, error) {
+func GetErrorResponse(validationError error) ([]*web.ValidationError, error) {
 	var responseErrors []*web.ValidationError
 
 	switch err := validationError.(type) {
