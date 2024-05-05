@@ -114,7 +114,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 	apiMode.specsStorage = specsStorage
 
 	// init routers
-	routers, errRouters := getRouters(apiMode.specsStorage, &parserPool)
+	routers, errRouters := getRouters(apiMode.specsStorage, &parserPool, apiMode.options)
 	if err != nil {
 		err = errors.Join(err, fmt.Errorf("%w: %w", ErrHandlersInit, errRouters))
 	}
@@ -144,7 +144,7 @@ func (a *APIMode) UpdateSpecsStorage() ([]int, bool, error) {
 		a.lock.Lock()
 		defer a.lock.Unlock()
 
-		routers, err := getRouters(newSpecDB, a.parserPool)
+		routers, err := getRouters(newSpecDB, a.parserPool, a.options)
 		if err != nil {
 			return a.specsStorage.SchemaIDs(), isUpdated, fmt.Errorf("%w: %w", ErrHandlersInit, err)
 		}

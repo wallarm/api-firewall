@@ -12,11 +12,11 @@ import (
 )
 
 type RequestValidator struct {
-	CustomRoute                *loader.CustomRoute
-	OpenAPIRouter              *loader.Router
-	ParserPool                 *fastjson.ParserPool
-	SchemaID                   int
-	UnknownParametersDetection bool
+	CustomRoute   *loader.CustomRoute
+	OpenAPIRouter *loader.Router
+	ParserPool    *fastjson.ParserPool
+	SchemaID      int
+	Options       *Configuration
 }
 
 // APIModeHandler finds route in the OpenAPI spec and validates request
@@ -47,7 +47,7 @@ func (rv *RequestValidator) APIModeHandler(ctx *fasthttp.RequestCtx) (err error)
 		return nil
 	}
 
-	validationErrors, err := APImode.ValidateRequest(ctx, rv.ParserPool, rv.CustomRoute, rv.UnknownParametersDetection)
+	validationErrors, err := APImode.ValidateRequest(ctx, rv.ParserPool, rv.CustomRoute, rv.Options.UnknownParametersDetection)
 	if err != nil {
 		return err
 	}

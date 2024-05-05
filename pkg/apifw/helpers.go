@@ -25,7 +25,7 @@ func wrapOASpecErrs(err error) error {
 }
 
 // getRouters function prepared router.Mux with the routes from OpenAPI specs
-func getRouters(specStorage database.DBOpenAPILoader, parserPool *fastjson.ParserPool) (map[int]*router.Mux, error) {
+func getRouters(specStorage database.DBOpenAPILoader, parserPool *fastjson.ParserPool, options *Configuration) (map[int]*router.Mux, error) {
 
 	// Init routers
 	routers := make(map[int]*router.Mux)
@@ -64,6 +64,7 @@ func getRouters(specStorage database.DBOpenAPILoader, parserPool *fastjson.Parse
 				ParserPool:    parserPool,
 				OpenAPIRouter: newSwagRouter,
 				SchemaID:      schemaID,
+				Options:       options,
 			}
 			updRoutePathEsc, err := url.JoinPath(serverURL.Path, newSwagRouter.Routes[i].Path)
 			if err != nil {
