@@ -1,0 +1,46 @@
+version: '3.8'
+services:
+  graphql-api:
+    container_name: graphql-api
+    image: dvga:latest
+    restart: on-failure
+    environment:
+      WEB_HOST: 0.0.0.0
+    ports:
+      - "5013:5013"
+  api-firewall:
+    container_name: api-firewall
+    image: api-firewall:latest
+    restart: on-failure
+    tty: true
+    environment:
+      # Mode and schema
+      APIFW_MODE: "graphql"
+      APIFW_GRAPHQL_SCHEMA: "/opt/resources/schema.graphql"
+      
+      # API Security features
+      APIFW_GRAPHQL_INTROSPECTION: false
+      APIFW_GRAPHQL_MAX_QUERY_DEPTH: 5
+      APIFW_GRAPHQL_BATCH_QUERY_LIMIT: 1
+      APIFW_GRAPHQL_MAX_ALIASES_NUM: 1
+      APIFW_GRAPHQL_DISABLE_FIELD_DUPLICATION: true
+      APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY: 0
+      APIFW_GRAPHQL_NODE_COUNT_LIMIT: 0
+
+      # Enforcement mode
+      # Possible values: DISABLE LOG_ONLY BLOCK
+      APIFW_GRAPHQL_REQUEST_VALIDATION: "block"
+
+      # Log level, listentnig host, port and other parameters
+      APIFW_SERVER_URL: "http://graphql-api:5013/graphql"
+      APIFW_URL: "http://0.0.0.0:8080"
+      APIFW_HEALTH_HOST: "0.0.0.0:9667"
+      APIFW_LOG_LEVEL: "debug"
+    volumes:
+      - ./schema.graphql:/opt/resources/schema.graphql:ro
+    ports:
+      - "8080:8080"
+      - "9667:9667"
+    stop_grace_period: 1s
+
+

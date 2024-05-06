@@ -1,0 +1,116 @@
+schema {
+  query: Query
+  mutation: Mutations
+  subscription: Subscription
+}
+
+"""Displays the network associated with an IP Address (CIDR or Net)."""
+directive @show_network(style: String!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type AuditObject {
+  id: ID!
+  gqloperation: String
+  gqlquery: String
+  timestamp: DateTime
+}
+
+type CreatePaste {
+  paste: PasteObject
+}
+
+type CreateUser {
+  user: UserObject
+}
+
+"""
+The `DateTime` scalar type represents a DateTime
+value as specified by
+[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
+"""
+scalar DateTime
+
+type DeletePaste {
+  result: Boolean
+}
+
+type EditPaste {
+  paste: PasteObject
+}
+
+type ImportPaste {
+  result: String
+}
+
+type Login {
+  accessToken: String
+  refreshToken: String
+}
+
+type Mutations {
+  createPaste(burn: Boolean = false, content: String, public: Boolean = true, title: String): CreatePaste
+  editPaste(content: String, id: Int, title: String): EditPaste
+  deletePaste(id: Int): DeletePaste
+  uploadPaste(content: String!, filename: String!): UploadPaste
+  importPaste(host: String!, path: String!, port: Int, scheme: String!): ImportPaste
+  createUser(userData: UserInput!): CreateUser
+  login(password: String, username: String): Login
+}
+
+type OwnerObject {
+  id: ID!
+  name: String
+  paste: [PasteObject]
+  pastes: [PasteObject]
+}
+
+type PasteObject {
+  id: ID!
+  title: String
+  content: String
+  public: Boolean
+  userAgent: String
+  ipAddr: String
+  ownerId: Int
+  burn: Boolean
+  owner: OwnerObject
+}
+
+type Query {
+  pastes(public: Boolean, limit: Int, filter: String): [PasteObject]
+  paste(id: Int, title: String): PasteObject
+  systemUpdate: String
+  systemDiagnostics(username: String, password: String, cmd: String): String
+  systemDebug(arg: String): String
+  systemHealth: String
+  users(id: Int): [UserObject]
+  readAndBurn(id: Int): PasteObject
+  search(keyword: String): [SearchResult]
+  audits: [AuditObject]
+  deleteAllPastes: Boolean
+  me(token: String): UserObject
+}
+
+union SearchResult = PasteObject | UserObject
+
+type Subscription {
+  paste(id: Int, title: String): PasteObject
+}
+
+type UploadPaste {
+  content: String
+  filename: String
+  result: String
+}
+
+input UserInput {
+  username: String!
+  email: String!
+  password: String!
+}
+
+type UserObject {
+  id: ID!
+  username(capitalize: Boolean): String
+  password: String!
+}
+

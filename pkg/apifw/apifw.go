@@ -115,7 +115,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 
 	// init routers
 	routers, errRouters := getRouters(apiMode.specsStorage, &parserPool, apiMode.options)
-	if err != nil {
+	if errRouters != nil {
 		err = errors.Join(err, fmt.Errorf("%w: %w", ErrHandlersInit, errRouters))
 	}
 

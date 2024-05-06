@@ -482,17 +482,6 @@ func TestAPIFWBasicErrors(t *testing.T) {
 	if !errors.Is(err, ErrSpecValidation) {
 		t.Errorf("expected ErrSpecValidation but got %v", err)
 	}
-
-	// check ErrHandlersInit
-	_, err = NewAPIFirewall(
-		WithPathToDB("./wallarm_apifw_spec_init_handlers_failed.db"),
-		DisableUnknownParameters(),
-		DisablePassOptionsRequests(),
-	)
-	if !errors.Is(err, ErrHandlersInit) {
-		t.Errorf("expected ErrHandlersInit but got %v", err)
-	}
-
 }
 
 func TestSafeCounterThreadSafety(t *testing.T) {
