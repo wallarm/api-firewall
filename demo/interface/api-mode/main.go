@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	strconv2 "github.com/savsgio/gotils/strconv"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -58,7 +60,16 @@ func main() {
 			logger.Error(err)
 		}
 
-		result, err := apiFirewall.ValidateRequest(schemaID, bufio.NewReader(w))
+		headers := http.Header{}
+
+		ctx.Request.Header.VisitAll(func(k, v []byte) {
+			sk := strconv2.B2S(k)
+			sv := strconv2.B2S(v)
+
+			headers.Set(sk, sv)
+		})
+
+		result, err := apiFirewall.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), headers)
 		if err != nil {
 			logger.Error(err)
 		}

@@ -30,7 +30,8 @@ var (
 )
 
 type APIFirewall interface {
-	ValidateRequest(schemaID int, r *bufio.Reader) (*web.APIModeResponse, error)
+	ValidateRequestFromReader(schemaID int, r *bufio.Reader) (*web.APIModeResponse, error)
+	ValidateRequest(schemaID int, uri, host, method, body []byte, headers map[string][]string) (*web.APIModeResponse, error)
 	UpdateSpecsStorage() ([]int, bool, error)
 }
 
@@ -163,7 +164,45 @@ func (a *APIMode) UpdateSpecsStorage() ([]int, bool, error) {
 }
 
 // ValidateRequest method validates request against the spec with provided schema ID
-func (a *APIMode) ValidateRequest(schemaID int, r *bufio.Reader) (response *web.APIModeResponse, err error) {
+func (a *APIMode) ValidateRequest(schemaID int, uri, host, method, body []byte, headers map[string][]string) (*web.APIModeResponse, error) {
+
+	// build fasthttp RequestCTX
+	ctx := new(fasthttp.RequestCtx)
+
+	ctx.Request.Header.SetRequestURIBytes(uri)
+	ctx.Request.Header.SetHostBytes(host)
+	ctx.Request.Header.SetMethodBytes(method)
+	ctx.Request.SetBody(body)
+
+	for hName, hValues := range headers {
+		for _, hValue := range hValues {
+			ctx.Request.Header.Add(hName, hValue)
+		}
+	}
+
+	return a.processRequest(schemaID, ctx)
+}
+
+// ValidateRequestFromReader method validates request against the spec with provided schema ID
+func (a *APIMode) ValidateRequestFromReader(schemaID int, r *bufio.Reader) (response *web.APIModeResponse, err error) {
+
+	// build fasthttp RequestCTX
+	ctx := new(fasthttp.RequestCtx)
+	if err := ctx.Request.Read(r); err != nil {
+		return &web.APIModeResponse{
+			Summary: []*web.APIModeResponseSummary{
+				{
+					SchemaID:   &schemaID,
+					StatusCode: &StatusInternalServerError,
+				},
+			},
+		}, fmt.Errorf("%w: %w", ErrRequestParsing, err)
+	}
+
+	return a.processRequest(schemaID, ctx)
+}
+
+func (a *APIMode) processRequest(schemaID int, ctx *fasthttp.RequestCtx) (response *web.APIModeResponse, err error) {
 
 	// handle panic
 	defer func() {
@@ -188,19 +227,6 @@ func (a *APIMode) ValidateRequest(schemaID int, r *bufio.Reader) (response *web.
 			return
 		}
 	}()
-
-	// build fasthttp RequestCTX
-	ctx := new(fasthttp.RequestCtx)
-	if err := ctx.Request.Read(r); err != nil {
-		return &web.APIModeResponse{
-			Summary: []*web.APIModeResponseSummary{
-				{
-					SchemaID:   &schemaID,
-					StatusCode: &StatusInternalServerError,
-				},
-			},
-		}, fmt.Errorf("%w: %w", ErrRequestParsing, err)
-	}
 
 	// find handler
 	rctx := router.NewRouteContext()

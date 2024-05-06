@@ -9,11 +9,13 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"sync"
 	"testing"
 	"time"
 
+	strconv2 "github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 )
@@ -81,16 +83,7 @@ func validate200req(t *testing.T, apifw APIFirewall, schemaID int) {
 	ctx.Request.Header.SetMethod("GET")
 	ctx.Request.Header.SetHost("localhost")
 
-	w := new(bytes.Buffer)
-	bw := bufio.NewWriter(w)
-
-	if err := ctx.Request.Write(bw); err != nil {
-		t.Fatal(err)
-	}
-	bw.Flush()
-
-	r := bufio.NewReader(w)
-	res, err := apifw.ValidateRequest(schemaID, r)
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -118,16 +111,7 @@ func validate403WrongMethodReq(t *testing.T, apifw APIFirewall, schemaID int) {
 	ctx.Request.Header.SetMethod("PUT")
 	ctx.Request.Header.SetHost("localhost")
 
-	w := new(bytes.Buffer)
-	bw := bufio.NewWriter(w)
-
-	if err := ctx.Request.Write(bw); err != nil {
-		t.Fatal(err)
-	}
-	bw.Flush()
-
-	r := bufio.NewReader(w)
-	res, err := apifw.ValidateRequest(schemaID, r)
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -155,16 +139,7 @@ func validate403UnknownParamReq(t *testing.T, apifw APIFirewall, schemaID int) {
 	ctx.Request.Header.SetMethod("GET")
 	ctx.Request.Header.SetHost("localhost")
 
-	w := new(bytes.Buffer)
-	bw := bufio.NewWriter(w)
-
-	if err := ctx.Request.Write(bw); err != nil {
-		t.Fatal(err)
-	}
-	bw.Flush()
-
-	r := bufio.NewReader(w)
-	res, err := apifw.ValidateRequest(schemaID, r)
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -192,16 +167,7 @@ func validate403RequiredParamMissedReq(t *testing.T, apifw APIFirewall, schemaID
 	ctx.Request.Header.SetMethod("GET")
 	ctx.Request.Header.SetHost("localhost")
 
-	w := new(bytes.Buffer)
-	bw := bufio.NewWriter(w)
-
-	if err := ctx.Request.Write(bw); err != nil {
-		t.Fatal(err)
-	}
-	bw.Flush()
-
-	r := bufio.NewReader(w)
-	res, err := apifw.ValidateRequest(schemaID, r)
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -231,16 +197,15 @@ func validate500UnknownCTReq(t *testing.T, apifw APIFirewall, schemaID int) {
 	ctx.Request.SetBody([]byte("test"))
 	ctx.Request.Header.SetHost("localhost")
 
-	w := new(bytes.Buffer)
-	bw := bufio.NewWriter(w)
+	headers := http.Header{}
+	ctx.Request.Header.VisitAll(func(k, v []byte) {
+		sk := strconv2.B2S(k)
+		sv := strconv2.B2S(v)
 
-	if err := ctx.Request.Write(bw); err != nil {
-		t.Fatal(err)
-	}
-	bw.Flush()
+		headers.Set(sk, sv)
+	})
 
-	r := bufio.NewReader(w)
-	res, err := apifw.ValidateRequest(schemaID, r)
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), headers)
 	if !errors.Is(err, ErrRequestParsing) {
 		t.Error(err)
 	}
@@ -268,16 +233,7 @@ func validate200OptionsReq(t *testing.T, apifw APIFirewall, schemaID int) {
 	ctx.Request.Header.SetMethod("OPTIONS")
 	ctx.Request.Header.SetHost("localhost")
 
-	w := new(bytes.Buffer)
-	bw := bufio.NewWriter(w)
-
-	if err := ctx.Request.Write(bw); err != nil {
-		t.Fatal(err)
-	}
-	bw.Flush()
-
-	r := bufio.NewReader(w)
-	res, err := apifw.ValidateRequest(schemaID, r)
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -457,7 +413,7 @@ func TestAPIFWBasicErrors(t *testing.T) {
 	bw.Write([]byte("GET \\ HTTP/1.1.1"))
 	r := bufio.NewReader(w)
 
-	_, err = apifw.ValidateRequest(defaultIntSchemaID, r)
+	_, err = apifw.ValidateRequestFromReader(defaultIntSchemaID, r)
 	if !errors.Is(err, ErrRequestParsing) {
 		t.Errorf("expected ErrRequestParsing but got %v", err)
 	}
@@ -468,7 +424,7 @@ func TestAPIFWBasicErrors(t *testing.T) {
 	bw.Flush()
 
 	// check ErrSchemaNotFound
-	_, err = apifw.ValidateRequest(wrongIntSchemaID, r)
+	_, err = apifw.ValidateRequestFromReader(wrongIntSchemaID, r)
 	if !errors.Is(err, ErrSchemaNotFound) {
 		t.Errorf("expected ErrSchemaNotFound but got %v", err)
 	}
