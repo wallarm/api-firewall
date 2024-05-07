@@ -1,5 +1,5 @@
 
-CRS_URL := https://github.com/coreruleset/coreruleset/archive/refs/tags/v4.1.0.tar.gz
+CRS_URL := https://github.com/coreruleset/coreruleset/archive/refs/tags/v4.2.0.tar.gz
 CRS_FILE := v4.1.0.tar.gz
 CRS_DIR := ./crs
 

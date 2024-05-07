@@ -20,9 +20,24 @@ The following resources are used in this demo:
 
 ## Demo code description
 
+In this demo scenario the OWASP CoreRuleSet collection is used in the API-Firewall to protect the API. 
+There are 3 basic steps in the scenario:
+1. Download the OWASP CRS (v4.x.x) from the https://github.com/coreruleset/coreruleset/releases repo. 
+
+Note: the Makefile (in the root of this demo app) automates this step
+
+2. Configure the ModSecurity engine. The `resources/coraza.conf-recommended` is the configuration which is recommended to use. 
+
+Please note that the `SecRuleEngine` in the configuration is set to `DetectionOnly`. If the malicious requests should be blocked (not log only) then the value should be `On` and the Request/Response blocking mode of the API-Firewall should be also set to `BLOCK`.  
+The directives description could be found on the https://coraza.io/docs/seclang/directives/. 
+3. Unpack the OWASP CRS collection and mount it to the API-Firewall docker container.
+The OWASP CRS contain the `crs/crs-setup.conf.example` which could be used to configure the collection and could be loaded together with the recommended configuration.
+To load both configurations the absolute paths for each of them should be provided to the `APIFW_MODSEC_CONF_FILES` env var using the `;` delimiter.    
+4. Run the API-Firewall.
+
 The [demo code](https://github.com/wallarm/api-firewall/tree/main/demo/docker-compose/OWASP_CoreRuleSet) contains the following configuration files:
 
-* The demo uses the following files:
+* The demo uses the following files: 
     * `httpbin.json` is the [**httpbin** OpenAPI 2.0 specification](https://httpbin.org/spec.json) converted to the OpenAPI 3.0 specification format.
   * ModSecurity related configuration files:
     * `coraza.conf` is the configuration file that contains recommended Coraza ModSecurity rules and parameters
@@ -35,6 +50,8 @@ The [demo code](https://github.com/wallarm/api-firewall/tree/main/demo/docker-co
   Both these files will be used to test the demo deployment.
   * `Makefile` is the configuration file defining Docker routines.
   * `docker-compose.yml` is the file defining the API Firewall demo configuration.
+
+To run the demo follow the steps below.
 
 ## Step 1: Running the demo code
 
