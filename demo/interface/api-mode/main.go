@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	strconv2 "github.com/savsgio/gotils/strconv"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	strconv2 "github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/demo/interface/api-mode/internal/updater"
@@ -69,7 +69,7 @@ func main() {
 			headers.Set(sk, sv)
 		})
 
-		result, err := apiFirewall.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), headers)
+		result, err := apiFirewall.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Method(), ctx.Request.Body(), headers)
 		if err != nil {
 			logger.Error(err)
 		}

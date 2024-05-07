@@ -83,7 +83,7 @@ func validate200req(t *testing.T, apifw APIFirewall, schemaID int) {
 	ctx.Request.Header.SetMethod("GET")
 	ctx.Request.Header.SetHost("localhost")
 
-	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -111,7 +111,7 @@ func validate403WrongMethodReq(t *testing.T, apifw APIFirewall, schemaID int) {
 	ctx.Request.Header.SetMethod("PUT")
 	ctx.Request.Header.SetHost("localhost")
 
-	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -139,7 +139,7 @@ func validate403UnknownParamReq(t *testing.T, apifw APIFirewall, schemaID int) {
 	ctx.Request.Header.SetMethod("GET")
 	ctx.Request.Header.SetHost("localhost")
 
-	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -167,7 +167,7 @@ func validate403RequiredParamMissedReq(t *testing.T, apifw APIFirewall, schemaID
 	ctx.Request.Header.SetMethod("GET")
 	ctx.Request.Header.SetHost("localhost")
 
-	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -205,7 +205,7 @@ func validate500UnknownCTReq(t *testing.T, apifw APIFirewall, schemaID int) {
 		headers.Set(sk, sv)
 	})
 
-	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), headers)
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Method(), ctx.Request.Body(), headers)
 	if !errors.Is(err, ErrRequestParsing) {
 		t.Error(err)
 	}
@@ -233,7 +233,7 @@ func validate200OptionsReq(t *testing.T, apifw APIFirewall, schemaID int) {
 	ctx.Request.Header.SetMethod("OPTIONS")
 	ctx.Request.Header.SetHost("localhost")
 
-	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Host(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
+	res, err := apifw.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Method(), ctx.Request.Body(), http.Header{})
 	if err != nil {
 		t.Error(err)
 	}

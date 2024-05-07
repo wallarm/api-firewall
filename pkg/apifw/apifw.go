@@ -31,7 +31,7 @@ var (
 
 type APIFirewall interface {
 	ValidateRequestFromReader(schemaID int, r *bufio.Reader) (*web.APIModeResponse, error)
-	ValidateRequest(schemaID int, uri, host, method, body []byte, headers map[string][]string) (*web.APIModeResponse, error)
+	ValidateRequest(schemaID int, uri, method, body []byte, headers map[string][]string) (*web.APIModeResponse, error)
 	UpdateSpecsStorage() ([]int, bool, error)
 }
 
@@ -164,13 +164,12 @@ func (a *APIMode) UpdateSpecsStorage() ([]int, bool, error) {
 }
 
 // ValidateRequest method validates request against the spec with provided schema ID
-func (a *APIMode) ValidateRequest(schemaID int, uri, host, method, body []byte, headers map[string][]string) (*web.APIModeResponse, error) {
+func (a *APIMode) ValidateRequest(schemaID int, uri, method, body []byte, headers map[string][]string) (*web.APIModeResponse, error) {
 
 	// build fasthttp RequestCTX
 	ctx := new(fasthttp.RequestCtx)
 
 	ctx.Request.Header.SetRequestURIBytes(uri)
-	ctx.Request.Header.SetHostBytes(host)
 	ctx.Request.Header.SetMethodBytes(method)
 	ctx.Request.SetBody(body)
 
