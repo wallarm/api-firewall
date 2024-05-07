@@ -28,19 +28,20 @@ Note: the Makefile (in the root of this demo app) automates this step
 
 2. Configure the ModSecurity engine. The `resources/coraza.conf-recommended` is the configuration which is recommended to use. 
 
-Please note that the `SecRuleEngine` in the configuration is set to `DetectionOnly`. If the malicious requests should be blocked (not log only) then the value should be `On` and the Request/Response blocking mode of the API-Firewall should be also set to `BLOCK`.  
+Please note that by default the `SecRuleEngine` directive in the configuration is set to `DetectionOnly`. If the malicious requests should be blocked (not log only) then the value should be `On` and the Request/Response blocking mode of the API-Firewall should be also set to `BLOCK`.  
 The directives description could be found on the https://coraza.io/docs/seclang/directives/. 
 3. Unpack the OWASP CRS collection and mount it to the API-Firewall docker container.
 The OWASP CRS contain the `crs/crs-setup.conf.example` which could be used to configure the collection and could be loaded together with the recommended configuration.
 To load both configurations the absolute paths for each of them should be provided to the `APIFW_MODSEC_CONF_FILES` env var using the `;` delimiter.    
-4. Run the API-Firewall.
+4. Run the API-Firewall. After the successful configuration and rules loading the log message `The ModSecurity configuration has been loaded successfully` should appear.
 
 The [demo code](https://github.com/wallarm/api-firewall/tree/main/demo/docker-compose/OWASP_CoreRuleSet) contains the following configuration files:
 
 * The demo uses the following files: 
     * `httpbin.json` is the [**httpbin** OpenAPI 2.0 specification](https://httpbin.org/spec.json) converted to the OpenAPI 3.0 specification format.
   * ModSecurity related configuration files:
-    * `coraza.conf` is the configuration file that contains recommended Coraza ModSecurity rules and parameters
+    * `coraza.conf` is the configuration file that contains recommended Coraza ModSecurity rules and parameters. 
+    The only difference with the `resources/coraza.conf-recommended` file is in the `SecRuleEngine` directive which is set to `On` in this file.
     * `crs/rules/` is the directory with the OWASP CRS rules files (`*.conf`)
     * `crs/crs-setup.conf.example` is the OWASP CRS configuration file example
 
