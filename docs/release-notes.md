@@ -2,6 +2,23 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.7.3 (TBD)
+
+* Dependency upgrade
+* Supported new interface for the `api` mode usage, only for internal use
+
+## v0.7.2 (2024-04-16)
+
+* Added the [demo for running the API Firewall with OWASP CoreRuleSet v4.1.0](demos/owasp-coreruleset.md).
+* Fixed multiple entries in `related_fields` in the `api` mode.
+* Moved logging of errors caused by requests not matching the uploaded specification from the `ERROR` level to the `DEBUG` level. Now, `ERROR` level logs only include issues directly related to API Firewall operations. This change applies exclusively to `api` mode.
+
+## v0.7.1 (2024-04-15)
+
+* Bug fixes in the `api` mode
+* Updated router
+* Supported parsing of `Content-Type` headers with the `+json`, `+xml`, `+yaml`, `+csv` structured syntax suffixes
+
 ## v0.7.0 (2024-04-03)
 
 * Added [ModSecurity rules support](migrating/modseс-to-apif.md) (based on the [Coraza](https://github.com/corazawaf/coraza) project)

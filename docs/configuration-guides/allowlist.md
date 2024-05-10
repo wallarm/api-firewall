@@ -33,7 +33,7 @@ docker run --rm -it --network api-firewall-network --network-alias api-firewall 
     -e APIFW_URL=<API_FIREWALL_URL> -e APIFW_SERVER_URL=<PROTECTED_APP_URL> \
     -e APIFW_REQUEST_VALIDATION=<REQUEST_VALIDATION_MODE> -e APIFW_RESPONSE_VALIDATION=<RESPONSE_VALIDATION_MODE> \
     -e APIFW_ALLOW_IP_FILE=/opt/ip-allowlist.txt -e APIFW_ALLOW_IP_HEADER_NAME="X-Real-IP" \
-    -p 8088:8088 wallarm/api-firewall:v0.7.0
+    -p 8088:8088 wallarm/api-firewall:v0.7.3
 ```
 
 | Environment variable | Description |
