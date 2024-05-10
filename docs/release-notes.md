@@ -2,6 +2,11 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.7.3 (TBD)
+
+* Dependency upgrade
+* Supported new interface for the `api` mode usage, only for internal use
+
 ## v0.7.2 (2024-04-16)
 
 * Added the [demo for running the API Firewall with OWASP CoreRuleSet v4.1.0](demos/owasp-coreruleset.md).
