@@ -97,8 +97,7 @@ Pass API Firewall configuration in **docker-compose.yml** → `services.api-fire
 | `APIFW_PASS_OPTIONS` | When set to `true`, the API Firewall allows `OPTIONS` requests to endpoints in the specification, even if the `OPTIONS` method is not described. The default value is `false`. | No |
 | `APIFW_SHADOW_API_UNKNOWN_PARAMETERS_DETECTION` | This specifies whether requests are identified as non-matching the specification if their parameters do not align with those defined in the OpenAPI specification. The default value is `true`.<br><br>If running API Firewall in the [`API` mode](api-mode.md), this variable takes on a different name `APIFW_API_MODE_UNKNOWN_PARAMETERS_DETECTION`. | No |
 | `APIFW_MODSEC_CONF_FILES` | Allows to set the list of [ModSecurity](../migrating/modseс-to-apif.md) configuration files. The delimiter is ;. The default value is [] (empty). Example: `APIFW_MODSEC_CONF_FILES=modsec.conf;crs-setup.conf.example`. | No |
-| `APIFW_MODSEC_RULES_DIR` | Allows to set the [ModSecurity](../migrating/modseс-to-apif.md) directory with the rules that should be loaded. The files with the following wildcard *.conf will be loaded from the dir. The default value is “”. | No |
-
+| `APIFW_MODSEC_RULES_DIR` | Allows to set the [ModSecurity](../migrating/modseс-to-apif.md) directory with the rules that should be loaded. The files with the `*.conf` wildcard will be loaded from the directory. The default value is `""`. | No |
 
 **With `services.api-firewall.ports` and `services.api-firewall.networks`**, set the API Firewall container port and connect the container to the created network. The provided **docker-compose.yml** instructs Docker to start API Firewall connected to the `api-firewall-network` [network](https://docs.docker.com/network/) on the port 8088.
 
