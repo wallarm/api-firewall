@@ -98,4 +98,4 @@ nav:
   - Demos:
     - Docker Compose: demos/docker-compose.md
     - Kubernetes: demos/kubernetes-cluster.md
-    - OWASP CoreRuleSet v4.1.0: demos/owasp-coreruleset.md
+    - OWASP CoreRuleSet v4.x.x: demos/owasp-coreruleset.md

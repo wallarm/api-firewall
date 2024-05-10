@@ -23,4 +23,4 @@ GraphQL API is currently not supported.
 
 ## Running API Firewall on ModSecurity rules
 
-[Check the demo on running API Firewall with OWASP CoreRuleSet v4.1.0](../demos/owasp-coreruleset.md)
+[Check the demo on running API Firewall with OWASP CoreRuleSet v4.x.x](../demos/owasp-coreruleset.md)
