@@ -2,7 +2,6 @@ package validator
 
 import (
 	"bytes"
-	"encoding/csv"
 	"io"
 	"net/http"
 	"strconv"
@@ -152,19 +151,26 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 	}
 
 	unknownBodyParams := RequestUnknownParameterError{}
+	mType, suffix := parseMediaType(mediaType)
+	parserFound := false
 
-	switch mediaType {
-	case "text/plain":
-		return nil, nil
-	case "text/csv":
-		r := csv.NewReader(io.NopCloser(bytes.NewReader(ctx.Request.Body())))
+	if mType == "text/plain" || suffix == "+plain" {
+		parserFound = true
+		return foundUnknownParams, nil
+	}
 
-		record, err := r.Read()
-		if err != nil {
-			return foundUnknownParams, err
+	if mType == "text/csv" || suffix == "+csv" {
+		parserFound = true
+
+		paramStr, ok := value.(string)
+		if !ok {
+			return foundUnknownParams, ErrDecodingFailed
 		}
 
-		for _, rName := range record {
+		rows := strings.Split(paramStr, "\n")
+		titleRecord := strings.Split(rows[0], ",")
+
+		for _, rName := range titleRecord {
 			if _, found := contentType.Schema.Value.Properties[rName]; !found {
 				unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
 				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
@@ -173,9 +179,12 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 					Type:        identifyData(value),
 				})
 			}
-
 		}
-	case "application/x-www-form-urlencoded":
+	}
+
+	if mType == "application/x-www-form-urlencoded" {
+		parserFound = true
+
 		// required params in paramList
 		paramList, ok := value.(map[string]interface{})
 		if !ok {
@@ -191,7 +200,12 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 				})
 			}
 		})
-	case "application/json", "application/xml", "multipart/form-data":
+	}
+
+	if mType == "application/json" || mType == "application/xml" || mType == "multipart/form-data" ||
+		suffix == "+json" || suffix == "+xml" {
+		parserFound = true
+
 		paramList, ok := value.(map[string]interface{})
 		if !ok {
 			return foundUnknownParams, ErrDecodingFailed
@@ -206,7 +220,10 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 				})
 			}
 		}
-	default:
+	}
+
+	// the parser for body is not supported by the unknown parameter detector
+	if !parserFound {
 		return foundUnknownParams, ErrDecodingFailed
 	}
 

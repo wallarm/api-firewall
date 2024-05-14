@@ -352,7 +352,7 @@ paths:
 				return
 			}
 			if tc.expectedResp != nil && len(tc.expectedResp) > 0 {
-				assert.Equal(t, len(tc.expectedResp), len(upRes), "expect the number of unknown parameters: %t, got %t", len(tc.expectedResp), len(upRes))
+				assert.Equal(t, len(tc.expectedResp), len(upRes), "expect the number of unknown parameters: %d, got %d", len(tc.expectedResp), len(upRes))
 				assert.Equal(t, true, matchUnknownParamsResp(tc.expectedResp, upRes), "expect unknown parameters: %v, got %v", tc.expectedResp, upRes)
 			}
 		})
