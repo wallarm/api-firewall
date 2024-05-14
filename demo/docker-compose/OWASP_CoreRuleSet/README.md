@@ -1,6 +1,6 @@
-# Wallarm API Firewall demo with OWASP CoreRuleSet v4.1.0
+# API Firewall demo with OWASP Core Rule Set v4.x.x
 
-This demo deploys the application [**httpbin**](https://httpbin.org/) and Wallarm API Firewall as a proxy protecting **httpbin** API from general attacks using the OWASP CoreRuleSet v4.1.0. Both applications are running in the Docker containers connected using Docker Compose.
+This demo deploys [**httpbin**](https://httpbin.org/) and Wallarm API Firewall as a proxy protecting **httpbin** API from general attacks using the OWASP ModSecurity Core Rule Set (CRS) v4.x.x. Both applications are running in the Docker containers connected using Docker Compose.
 
 ## System requirements
 
@@ -9,6 +9,7 @@ Before running this demo, please ensure your system meets the following requirem
 * Docker Engine 20.x or later installed for [Mac](https://docs.docker.com/docker-for-mac/install/), [Windows](https://docs.docker.com/docker-for-windows/install/), or [Linix](https://docs.docker.com/engine/install/#server)
 * [Docker Compose](https://docs.docker.com/compose/install/) installed
 * **make** installed for [Mac](https://formulae.brew.sh/formula/make), [Windows](https://sourceforge.net/projects/ezwinports/files/make-4.3-without-guile-w32-bin.zip/download), or Linux (using suitable package-management utilities)
+* [**wget**](https://www.gnu.org/software/wget/) installed
 
 ## Used resources
 
@@ -16,43 +17,34 @@ The following resources are used in this demo:
 
 * [**httpbin** Docker image](https://hub.docker.com/r/kennethreitz/httpbin/)
 * [API Firewall Docker image](https://hub.docker.com/r/wallarm/api-firewall)
-* [OWASP CoreRuleSet](https://github.com/coreruleset/coreruleset)
+* [OWASP ModSecurity Core Rule Set](https://github.com/coreruleset/coreruleset)
 
 ## Demo code description
 
-In this demo scenario the OWASP CoreRuleSet collection is used in the API-Firewall to protect the API. 
-There are 3 basic steps in the scenario:
-1. Download the OWASP CRS (v4.x.x) from the https://github.com/coreruleset/coreruleset/releases repo. 
-
-Note: the Makefile (in the root of this demo app) automates this step
-
-2. Configure the ModSecurity engine. The `resources/coraza.conf-recommended` is the configuration which is recommended to use. 
-
-Please note that by default the `SecRuleEngine` directive in the configuration is set to `DetectionOnly`. If the malicious requests should be blocked (not log only) then the value should be `On` and the Request/Response blocking mode of the API-Firewall should be also set to `BLOCK`.  
-The directives description could be found on the https://coraza.io/docs/seclang/directives/. 
-3. Unpack the OWASP CRS collection and mount it to the API-Firewall docker container.
-The OWASP CRS contain the `crs/crs-setup.conf.example` which could be used to configure the collection and could be loaded together with the recommended configuration.
-To load both configurations the absolute paths for each of them should be provided to the `APIFW_MODSEC_CONF_FILES` env var using the `;` delimiter.    
-4. Run the API-Firewall. After the successful configuration and rules loading the log message `The ModSecurity configuration has been loaded successfully` should appear.
-
 The [demo code](https://github.com/wallarm/api-firewall/tree/main/demo/docker-compose/OWASP_CoreRuleSet) contains the following configuration files:
 
-* The demo uses the following files: 
-    * `httpbin.json` is the [**httpbin** OpenAPI 2.0 specification](https://httpbin.org/spec.json) converted to the OpenAPI 3.0 specification format.
-  * ModSecurity related configuration files:
-    * `coraza.conf` is the configuration file that contains recommended Coraza ModSecurity rules and parameters. 
-    The only difference with the `resources/coraza.conf-recommended` file is in the `SecRuleEngine` directive which is set to `On` in this file.
-    * `crs/rules/` is the directory with the OWASP CRS rules files (`*.conf`)
-    * `crs/crs-setup.conf.example` is the OWASP CRS configuration file example
+* `httpbin.json` is the [**httpbin** OpenAPI 2.0 specification](https://httpbin.org/spec.json) converted to the OpenAPI 3.0 specification format.
+* ModSecurity-related configuration files:
 
-  
-  **NOTE**: the `crs/rules` and `crs/crs-setup.conf.example` files will be downloaded automatically after starting the demo 
+    * `coraza.conf` is the configuration file that contains recommended Coraza ModSecurity rules and parameters. It is created based on `resources/coraza.conf-recommended`. The only difference lies in the `SecRuleEngine` directive, which is set to `On` in `coraza.conf`.
+    * `crs/rules/` is the directory with the OWASP CRS rule files (`*.conf`),
+    * `crs/crs-setup.conf.example` is the OWASP CRS configuration file example.
 
-  Both these files will be used to test the demo deployment.
-  * `Makefile` is the configuration file defining Docker routines.
-  * `docker-compose.yml` is the file defining the API Firewall demo configuration.
+    !!! info "Automatically downloading files"
+        The `crs/rules` and `crs/crs-setup.conf.example` files will be downloaded automatically after starting the demo. Both these files will be used to test the demo deployment.
+* `Makefile` is the configuration file defining Docker routines.
+* `docker-compose.yml` is the file defining the API Firewall demo configuration.
 
-To run the demo follow the steps below.
+When executed, the demo code performs the following operations automatically:
+
+1. Fetches the latest OWASP CRS (v4.x.x) directly from the [CoreRuleSet GitHub repository](https://github.com/coreruleset/coreruleset).
+1. Configures the ModSecurity engine based on the `coraza.conf` file from the API Firewall repository, which is adapted from the recommended `resources/coraza.conf-recommended`.
+
+    By default, [`SecRuleEngine`](https://coraza.io/docs/seclang/directives/#secruleengine) is set to `DetectionOnly`. To block malicious requests, it should be set to `On`, and the request/response blocking mode of the API Firewall (`APIFW_REQUEST_VALIDATION`) should be set to `BLOCK` as demonstrated in this demo code. This is the sole difference from the original configuration.
+1. Unpacks and mounts the OWASP CRS to the API Firewall Docker container at the `/opt/resources` directory. This setup is influenced by the specific environment variables:
+
+    * `APIFW_MODSEC_CONF_FILES`: loads both the recommended configuration and the example configuration (`crs/crs-setup.conf.example`). The absolute paths for each are specified using the `;` delimiter.
+    * `APIFW_MODSEC_RULES_DIR`: directs the API Firewall to apply specific rules from the `/opt/resources/crs/rules/` directory during request evaluation.
 
 ## Step 1: Running the demo code
 
@@ -74,14 +66,17 @@ To run the demo code:
     make start
     ```
 
+    After the successful configuration and rules loading:
+    
+    * The log message `The ModSecurity configuration has been loaded successfully` should appear.
     * The application **httpbin** protected by API Firewall will be available at http://localhost:8080.
 4. Proceed to the demo testing.
 
 ## Step 2: Testing the OWASP ModSecurity rules
 
-By default, this demo is running with the **httpbin** OpenAPI 3.0 specification and OWASP CoreRuleSet v4.1.0. To test this demo option, you can use the following requests:
+By default, this demo is running with the **httpbin** OpenAPI 3.0 specification and OWASP Core Rule Set v4.x.x. To test this demo option, you can use the following requests:
 
-* Check that API Firewall pass the requests that contain:
+* Check that API Firewall allows the requests that contain:
 
     ```bash
     curl -sD - 'http://localhost:8080/anything?id=test'
@@ -139,7 +134,7 @@ By default, this demo is running with the **httpbin** OpenAPI 3.0 specification 
     curl -sD - 'http://localhost:8080/anything?id="+select+1'
     ```
 
-  Expected response:
+    Expected response:
 
     ```bash
     HTTP/1.1 403 Forbidden
@@ -148,7 +143,7 @@ By default, this demo is running with the **httpbin** OpenAPI 3.0 specification 
     Content-Length: 0
     ```
 
-    These cases demonstrate that API Firewall protects the application from general types of attacks using the OWASP CoreRuleSet.
+These cases demonstrate that API Firewall protects the application from general types of attacks using the OWASP Core Rule Set.
 
 ## Step 3: Stopping the demo
 
@@ -156,6 +151,5 @@ To stop the demo deployment and clear your environment, use the commands:
 
 ```bash
 make stop
-
 make clean
 ```

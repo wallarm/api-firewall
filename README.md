@@ -48,6 +48,23 @@ By allowing you to set the traffic requirements with the API specification, API 
 
 [API Firewall works](https://www.wallarm.com/what/the-concept-of-a-firewall) as a reverse proxy with a built-in OpenAPI 3.0 or GraphQL request and response validator. It is written in Golang and using fasthttp proxy. The project is optimized for extreme performance and near-zero added latency.
 
+During the processing of incoming requests, the API Firewall recognizes a range of `Content-Type` header values, including:
+
+* `application/json`
+* `application/xml`
+* `application/octet-stream`
+* `application/x-www-form-urlencoded`
+* `application/x-yaml`
+* `application/yaml`
+* `application/zip`
+* `multipart/form-data`
+* `text/csv`
+* `text/plain`
+* `+json` structured syntax suffixes
+* `+xml` structured syntax suffixes
+* `+yaml` structured syntax suffixes
+* `+csv` structured syntax suffixes
+
 ## Starting API Firewall
 
 To download, install, and start API Firewall on Docker, refer to:
