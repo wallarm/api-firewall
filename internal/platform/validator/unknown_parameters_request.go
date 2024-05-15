@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -202,8 +203,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 		})
 	}
 
-	if mType == "application/json" || mType == "application/xml" || mType == "multipart/form-data" ||
-		suffix == "+json" || suffix == "+xml" {
+	if mType == "application/json" || mType == "multipart/form-data" || suffix == "+json" {
 		parserFound = true
 
 		paramList, ok := value.(map[string]interface{})
@@ -218,6 +218,51 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 					Placeholder: "body",
 					Type:        identifyData(paramList[paramName]),
 				})
+			}
+		}
+	}
+
+	if mType == "application/xml" || suffix == "+xml" {
+		parserFound = true
+
+		var propKeys []string
+		for key := range contentType.Schema.Value.Properties {
+			propKeys = append(propKeys, strings.ToLower(key))
+		}
+
+		paramList, ok := value.(map[string]interface{})
+		if !ok {
+			return foundUnknownParams, ErrDecodingFailed
+		}
+
+		switch len(paramList) {
+		case 1:
+			for _, paramValue := range paramList {
+				params, ok := paramValue.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				for paramName, _ := range params {
+					if !slices.Contains(propKeys, strings.ToLower(paramName)) {
+						unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
+						unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
+							Name:        paramName,
+							Placeholder: "body",
+							Type:        identifyData(params[paramName]),
+						})
+					}
+				}
+			}
+		default:
+			for paramName, _ := range paramList {
+				if !slices.Contains(propKeys, strings.ToLower(paramName)) {
+					unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
+					unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
+						Name:        paramName,
+						Placeholder: "body",
+						Type:        identifyData(paramList[paramName]),
+					})
+				}
 			}
 		}
 	}
