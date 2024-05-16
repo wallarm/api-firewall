@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Swagger API-Firewall testing - OpenAPI 3.0",
-    "description": "This is a specific Swagger file for api-firewall Wallarm service testing. No real API is described by this speification.\n  \nIn the specification you can find endpoints witthe different types of the parameters.\n  \n**NOTE** for now this is just a compilation of 2 Swagger files, that were used during the testing",
-    "version": "1.0.11"
+    "description": "This is a specific Swagger file for api-firewall Wallarm service testing. No real API is described by this speification.\n  \nIn the specification you can find endpoints witthe different types of the parameters.\n\n**TODO** Remove deprecated endpoints and create endpoints with descriptive names (what is tested)\n\n**TODO** Move all requestBody types to the `components/requestBodies` section\n\n**TODO** Add endpoints, that use different auth schemas https://swagger.io/docs/specification/authentication/",
+    "version": "2.0.0"
   },
   "externalDocs": {
     "description": "Test plan for the API Firewall",
@@ -20,7 +20,7 @@
       "description": "Endpoints w/o any parameters"
     },
     {
-      "name": "Endpoint parameters",
+      "name": "Path parameters",
       "description": "Endpoints with parameters inside the URI string"
     },
     {
@@ -42,10 +42,37 @@
     {
       "name": "Combinated parameters",
       "description": "Endpoints with multiple types of parameters."
+    },
+    {
+      "name": "Data types",
+      "description": "Test different data types https://swagger.io/docs/specification/data-models/data-types/"
+    },
+    {
+      "name": "Parameters serialization",
+      "description": "Test different parameters serialization styles https://swagger.io/docs/specification/serialization/"
+    },
+    {
+      "name": "Edge Cases",
+      "description": "Client reported edge cases"
     }
   ],
   "paths": {
     "/image": {
+      "get": {
+        "deprecated": true,
+        "tags": [
+          "No parameters"
+        ],
+        "summary": "The endpoint without any parameters",
+        "responses": {
+          "200": {
+            "description": "An image.",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/no_params": {
       "get": {
         "tags": [
           "No parameters"
@@ -71,6 +98,7 @@
             "in": "cookie",
             "description": "mandatory cookie parameter",
             "required": true,
+            "example": "some string",
             "schema": {
               "type": "string"
             }
@@ -80,6 +108,7 @@
             "in": "cookie",
             "description": "optional cookie parameter",
             "required": false,
+            "example": 100,
             "schema": {
               "type": "number",
               "enum": [
@@ -100,14 +129,16 @@
     },
     "/cookies/set/{name}/{value}": {
       "get": {
+        "deprecated": true,
         "tags": [
-          "Endpoint parameters"
+          "Path parameters"
         ],
         "summary": "The endpoint with URI parameters only",
         "parameters": [
           {
             "name": "name",
             "in": "path",
+            "example": "param_name",
             "required": true,
             "schema": {
               "type": "string"
@@ -117,6 +148,7 @@
             "name": "value",
             "in": "path",
             "required": true,
+            "example": "param_value",
             "schema": {
               "type": "string"
             }
@@ -130,8 +162,493 @@
         }
       }
     },
+    "/path_parameters/{name}/{value}": {
+      "get": {
+        "tags": [
+          "Path parameters"
+        ],
+        "summary": "The endpoint with path parameters only",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "example": "Ivan",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "value",
+            "in": "path",
+            "required": true,
+            "example": "Ivanov",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Set cookies and redirects to cookie list.",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/common/path/parameters/{parameter1}": {
+      "parameters": [
+        {
+          "name": "parameter1",
+          "in": "path",
+          "required": true,
+          "example": 3.14,
+          "schema": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Query parameters",
+          "Path parameters"
+        ],
+        "summary": "Get by common parameter + query parameter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "example": 12345,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/offsetParam"
+          },
+          {
+            "$ref": "#/components/parameters/limitParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Set cookies and redirects to cookie list.",
+            "content": {}
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Path parameters",
+          "Request body parameters"
+        ],
+        "summary": "Patch by common parameter + request body",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "some string": {
+                    "example": "this is string",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Set cookies and redirects to cookie list.",
+            "content": {}
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Path parameters"
+        ],
+        "summary": "Delete by overriden common parameter",
+        "parameters": [
+          {
+            "name": "parameter1",
+            "in": "path",
+            "required": true,
+            "example": "3,4,5",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Set cookies and redirects to cookie list.",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/serialization/path/simple/{explode_false}/{explode_true}": {
+      "options": {
+        "tags": [
+          "Path parameters",
+          "Parameters serialization"
+        ],
+        "summary": "Test serialization for path parameters",
+        "parameters": [
+          {
+            "name": "explode_false",
+            "in": "path",
+            "style": "simple",
+            "explode": false,
+            "required": true,
+            "example": "role,admin,firstName,Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          },
+          {
+            "name": "explode_true",
+            "in": "path",
+            "style": "simple",
+            "explode": true,
+            "required": true,
+            "example": "role=admin,firstName=Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/serialization/path/label/{explode_false}/{explode_true}": {
+      "head": {
+        "tags": [
+          "Path parameters",
+          "Parameters serialization"
+        ],
+        "summary": "Test serialization for path parameters",
+        "parameters": [
+          {
+            "name": "explode_false",
+            "in": "path",
+            "style": "label",
+            "explode": false,
+            "required": true,
+            "example": ".role,admin,firstName,Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          },
+          {
+            "name": "explode_true",
+            "in": "path",
+            "style": "label",
+            "explode": true,
+            "required": true,
+            "example": ".role=admin.firstName=Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/serialization/path/matrix/{explode_false}/{explode_true}": {
+      "trace": {
+        "tags": [
+          "Path parameters",
+          "Parameters serialization"
+        ],
+        "summary": "Test serialization for path parameters",
+        "parameters": [
+          {
+            "name": "explode_false",
+            "in": "path",
+            "style": "matrix",
+            "explode": false,
+            "required": true,
+            "example": ";explode_false=role,admin,firstName,Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          },
+          {
+            "name": "explode_true",
+            "in": "path",
+            "style": "matrix",
+            "explode": true,
+            "required": true,
+            "example": ";role=admin;firstName=Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/serialization/query/form": {
+      "get": {
+        "tags": [
+          "Query parameters",
+          "Parameters serialization"
+        ],
+        "summary": "Test serialization for query parameters",
+        "parameters": [
+          {
+            "name": "explode_false",
+            "in": "query",
+            "style": "form",
+            "explode": false,
+            "required": true,
+            "example": "explode_false=role,admin,firstName,Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          },
+          {
+            "name": "explode_true",
+            "in": "query",
+            "style": "form",
+            "explode": true,
+            "required": true,
+            "example": "role=admin&firstName=Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/serialization/query/spaceDelimited": {
+      "get": {
+        "tags": [
+          "Query parameters",
+          "Parameters serialization"
+        ],
+        "summary": "Test serialization for query parameters",
+        "parameters": [
+          {
+            "name": "explode_false",
+            "in": "query",
+            "style": "spaceDelimited",
+            "explode": false,
+            "required": true,
+            "example": "explode_false=3%204%205",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "name": "explode_true",
+            "in": "query",
+            "style": "spaceDelimited",
+            "explode": true,
+            "required": true,
+            "example": "explode_true=3&explode_true=4&explode_true=5",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/serialization/query/pipeDelimited": {
+      "get": {
+        "tags": [
+          "Query parameters",
+          "Parameters serialization"
+        ],
+        "summary": "Test serialization for query parameters",
+        "parameters": [
+          {
+            "name": "explode_false",
+            "in": "query",
+            "style": "pipeDelimited",
+            "explode": false,
+            "required": true,
+            "example": "explode_false=3|4|5",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "name": "explode_true",
+            "in": "query",
+            "style": "pipeDelimited",
+            "explode": true,
+            "required": true,
+            "example": "explode_true=3&explode_true=4&explode_true=5",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/serialization/query/deepObject": {
+      "get": {
+        "tags": [
+          "Query parameters",
+          "Parameters serialization"
+        ],
+        "summary": "Test serialization for query parameters",
+        "parameters": [
+          {
+            "name": "explode_true",
+            "in": "query",
+            "style": "deepObject",
+            "explode": true,
+            "required": true,
+            "example": "explode_true[role]=admin&explode_true[firstName]=Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/serialization/header": {
+      "get": {
+        "tags": [
+          "Query parameters",
+          "Parameters serialization"
+        ],
+        "summary": "Test serialization for query parameters",
+        "parameters": [
+          {
+            "name": "explode_false",
+            "in": "header",
+            "style": "simple",
+            "explode": false,
+            "required": true,
+            "example": "role,admin,firstName,Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          },
+          {
+            "name": "explode_true",
+            "in": "header",
+            "style": "simple",
+            "explode": true,
+            "required": true,
+            "example": "role=admin,firstName=Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/serialization/cookie": {
+      "get": {
+        "tags": [
+          "Query parameters",
+          "Parameters serialization"
+        ],
+        "summary": "Test serialization for query parameters",
+        "parameters": [
+          {
+            "name": "explode_false",
+            "in": "cookie",
+            "style": "form",
+            "explode": false,
+            "required": true,
+            "example": "explode_false=role,admin,firstName,Alex",
+            "schema": {
+              "$ref": "#/components/schemas/SchemaForSerialization"
+            }
+          },
+          {
+            "name": "explode_true",
+            "in": "cookie",
+            "style": "form",
+            "explode": true,
+            "required": true,
+            "example": 3,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {}
+          }
+        }
+      }
+    },
     "/redirect-to": {
       "get": {
+        "deprecated": true,
         "tags": [
           "Query parameters"
         ],
@@ -143,13 +660,205 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "http://test.host"
           },
           {
             "name": "status_code",
             "in": "query",
             "schema": {
-              "type": "integer"
+              "type": "integer",
+              "default": 302
+            },
+            "example": 302
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "A redirection.",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/test_integer_boundaries": {
+      "get": {
+        "tags": [
+          "Query parameters",
+          "Data types"
+        ],
+        "summary": "The endpoint with integer query parameters having boundaries",
+        "parameters": [
+          {
+            "name": "non_exclusive",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 20
+            },
+            "example": 15
+          },
+          {
+            "name": "exclusive",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 302,
+              "minimum": 300,
+              "maximum": 500,
+              "exclusiveMinimum": true,
+              "exclusiveMaximum": true
+            },
+            "example": 302
+          },
+          {
+            "name": "multiple",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "multipleOf": 40
+            },
+            "example": 160
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "A redirection.",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/test_query_params": {
+      "get": {
+        "tags": [
+          "Query parameters"
+        ],
+        "summary": "The endpoint with only non-required query parameters, described using different keywords",
+        "parameters": [
+          {
+            "name": "default_value_param",
+            "in": "query",
+            "example": null,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "empty_allowed_param",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "allowEmptyValue": true,
+            "examples": {
+              "emptyValue": {
+                "summary": "Empty value",
+                "value": null
+              },
+              "oneValue": {
+                "summary": "One value",
+                "value": true
+              }
+            }
+          },
+          {
+            "name": "nullable_param",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            },
+            "examples": {
+              "nullValue": {
+                "summary": "Null value",
+                "value": null
+              },
+              "oneValue": {
+                "summary": "One value",
+                "value": "my_string"
+              },
+              "twoValues": {
+                "summary": "Two values",
+                "value": "my_string,your_string"
+              }
+            }
+          },
+          {
+            "name": "deprecated_param",
+            "in": "query",
+            "required": false,
+            "example": true,
+            "schema": {
+              "type": "boolean"
+            },
+            "deprecated": true
+          },
+          {
+            "name": "reserved_allowed_param",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "float"
+            },
+            "allowReserved": true,
+            "examples": {
+              "reservedValue": {
+                "summary": "Reserved characters value",
+                "value": ":/?#[]@!$&'()*+,;="
+              },
+              "simpleValue": {
+                "summary": "Simple value",
+                "value": 1
+              }
+            }
+          },
+          {
+            "name": "array_parameter",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "style": "form",
+            "explode": false,
+            "example": "3,4,5"
+          },
+          {
+            "name": "json_parameter",
+            "in": "query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "id": 1,
+                    "color": "red"
+                  },
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "color": {
+                      "type": "string",
+                      "enum": [
+                        "red",
+                        "green",
+                        "blue"
+                      ]
+                    }
+                  }
+                }
+              }
             }
           }
         ],
@@ -163,6 +872,7 @@
     },
     "/cache": {
       "get": {
+        "deprecated": true,
         "tags": [
           "Header parameters"
         ],
@@ -173,6 +883,7 @@
             "description": "mandatory header parameter",
             "required": true,
             "in": "header",
+            "example": 1713967879,
             "schema": {
               "type": "integer"
             }
@@ -181,6 +892,7 @@
             "name": "If-None-Match",
             "description": "optional header parameter",
             "in": "header",
+            "example": false,
             "schema": {
               "type": "boolean"
             }
@@ -200,6 +912,7 @@
     },
     "/api/v3/pet": {
       "post": {
+        "deprecated": true,
         "tags": [
           "Request body parameters"
         ],
@@ -257,17 +970,17 @@
     },
     "/api/v3/pet/{petId}": {
       "delete": {
+        "deprecated": true,
         "tags": [
           "Header parameters"
         ],
-        "summary": "Deletes a pet",
-        "description": "delete a pet",
+        "summary": "The endpoint with required header parameters only",
         "operationId": "deletePet",
         "parameters": [
           {
             "name": "api_key",
             "in": "header",
-            "description": "",
+            "example": "1tdpjPicl85hVqhZYmQYcVF4iZAVkPHIg2mAeCzPIoJD2y1OVHpMA6h27dp1bSvN",
             "required": true,
             "schema": {
               "type": "string"
@@ -277,6 +990,7 @@
             "name": "petId",
             "in": "path",
             "description": "Pet id to delete",
+            "example": 42,
             "required": true,
             "schema": {
               "type": "integer",
@@ -288,19 +1002,12 @@
           "400": {
             "description": "Invalid pet value"
           }
-        },
-        "security": [
-          {
-            "petstore_auth": [
-              "write:pets",
-              "read:pets"
-            ]
-          }
-        ]
+        }
       }
     },
     "/api/v3/user": {
       "post": {
+        "deprecated": true,
         "tags": [
           "Request body parameters"
         ],
@@ -350,6 +1057,195 @@
         }
       }
     },
+    "/string_data_formats": {
+      "post": {
+        "tags": [
+          "Request body parameters",
+          "Data types"
+        ],
+        "summary": "The endpoint with different formats for string parameters",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StringFormats"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/StringFormats"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/StringFormats"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/StringFormats"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfull operation"
+          }
+        }
+      }
+    },
+    "/object_data_formats": {
+      "post": {
+        "tags": [
+          "Request body parameters",
+          "Data types"
+        ],
+        "summary": "The endpoint with different formats for objects and arrays",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ObjectArrayFormats"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ObjectArrayFormats"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/ObjectArrayFormats"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ObjectArrayFormats"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfull operation"
+          }
+        }
+      }
+    },
+    "/oneOf_data_formats": {
+      "post": {
+        "tags": [
+          "Request body parameters",
+          "Data types"
+        ],
+        "summary": "The endpoint with different formats for objects and arrays",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/User"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Pet"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfull operation"
+          }
+        }
+      }
+    },
+    "/allOf_data_formats": {
+      "post": {
+        "tags": [
+          "Request body parameters",
+          "Data types"
+        ],
+        "summary": "The endpoint with different formats for objects and arrays",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/User"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Pet"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfull operation"
+          }
+        }
+      }
+    },
+    "/anyOf_data_formats": {
+      "post": {
+        "tags": [
+          "Request body parameters",
+          "Data types"
+        ],
+        "summary": "The endpoint with different formats for objects and arrays",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/User"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Pet"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfull operation"
+          }
+        }
+      }
+    },
+    "/content-type-suffix": {
+      "post": {
+        "tags": [
+          "Request body parameters"
+        ],
+        "summary": "The endpoint with usage of suffix for Content-Type header",
+        "description": "https://jsonapi.org/",
+        "requestBody": {
+          "content": {
+            "application/vnd.api+json": {
+              "schema": {
+                "$ref": "#/components/schemas/Category"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfull operation"
+          }
+        }
+      }
+    },
     "/all_params/{uri_param1}/{uri_param2}": {
       "put": {
         "tags": [
@@ -363,6 +1259,7 @@
             "in": "path",
             "description": "mandatory endpoint parameter",
             "required": true,
+            "example": "first_parameter",
             "schema": {
               "type": "string"
             }
@@ -372,6 +1269,7 @@
             "in": "path",
             "description": "mandatory endpoint parameter",
             "required": true,
+            "example": 1337,
             "schema": {
               "type": "integer"
             }
@@ -381,6 +1279,7 @@
             "in": "query",
             "description": "mandatory query parameter",
             "required": true,
+            "example": "mandatory_parameter",
             "schema": {
               "type": "string"
             }
@@ -390,6 +1289,7 @@
             "in": "query",
             "description": "optional query parameter",
             "required": false,
+            "example": 282,
             "schema": {
               "type": "integer"
             }
@@ -399,6 +1299,7 @@
             "in": "header",
             "description": "mandatory header parameter",
             "required": true,
+            "example": "mandatory_header",
             "schema": {
               "type": "string"
             }
@@ -408,6 +1309,7 @@
             "in": "header",
             "description": "optional header parameter",
             "required": false,
+            "example": true,
             "schema": {
               "type": "boolean"
             }
@@ -417,6 +1319,7 @@
             "in": "cookie",
             "description": "optional header parameter",
             "required": true,
+            "example": "cookies are not evil",
             "schema": {
               "type": "string"
             }
@@ -426,6 +1329,7 @@
             "in": "cookie",
             "description": "optional header parameter",
             "required": false,
+            "example": false,
             "schema": {
               "type": "boolean"
             }
@@ -453,9 +1357,76 @@
           }
         }
       }
+    },
+    "/no_path_params": {
+      "get": {
+        "tags": [
+          "No parameters",
+          "Edge Cases"
+        ],
+        "summary": "The endpoint that should not be read as `/no_path_params/{param}`",
+        "responses": {
+          "200": {
+            "description": "Successfull operation"
+          }
+        }
+      }
+    },
+    "/no_path_params/{param}": {
+      "get": {
+        "tags": [
+          "Path parameters",
+          "Edge Cases"
+        ],
+        "summary": "The endpoint that should not be read as `/no_path_params`",
+        "description": "https://jsonapi.org/",
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "example": "some_string",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull operation"
+          }
+        }
+      }
     }
   },
   "components": {
+    "parameters": {
+      "offsetParam": {
+        "in": "query",
+        "name": "offset",
+        "required": false,
+        "example": 50,
+        "schema": {
+          "type": "integer",
+          "default": 50,
+          "minimum": 0
+        },
+        "description": "The number of items to skip before starting to collect the result set."
+      },
+      "limitParam": {
+        "in": "query",
+        "name": "limit",
+        "required": false,
+        "example": 20,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 20
+        },
+        "description": "The numbers of items to return."
+      }
+    },
     "schemas": {
       "Category": {
         "type": "object",
@@ -526,10 +1497,12 @@
         "properties": {
           "id": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "example": 123
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "example": "tagName"
           }
         },
         "xml": {
@@ -557,6 +1530,10 @@
           },
           "photoUrls": {
             "type": "array",
+            "example": [
+              "http://instagram.com/photo_1",
+              "http://pixiv.com/photo_2"
+            ],
             "xml": {
               "wrapped": true
             },
@@ -579,6 +1556,7 @@
           "status": {
             "type": "string",
             "description": "pet status in the store",
+            "example": "sold",
             "enum": [
               "available",
               "pending",
@@ -588,6 +1566,124 @@
         },
         "xml": {
           "name": "pet"
+        }
+      },
+      "StringFormats": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2024-04-23"
+          },
+          "date-time": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-04-23T15:57:22.446Z"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "dojsad_knar"
+          },
+          "byte-string": {
+            "type": "string",
+            "format": "byte",
+            "example": "U3dhZ2dlciByb2Nrcw=="
+          },
+          "binary-string": {
+            "type": "string",
+            "format": "binary",
+            "example": "\\xc5\\xd7\\x14\\x84\\xf8\\xcf\\x9b\\xf4\\xb7oG\\x90G0\\x80K\\x9e2%\\xa9\\xf13\\xb5\\xde\\xa1h\\xf4\\xe2\\x85\\x1f\\x07/\\xcc\\x00\\xfc\\xaa|\\xa6 aqzH\\xe5.)\\xa3\\xfa7\\x9a\\x95?\\xaah\\x93\\xe3.\\xc5\\xa2{\\x94^`_"
+          },
+          "pattern-string": {
+            "type": "string",
+            "pattern": "^\\d{3}-\\d{2}-\\d{4}$",
+            "example": "123-45-6789"
+          }
+        }
+      },
+      "ObjectArrayFormats": {
+        "type": "object",
+        "additionalProperties": true,
+        "minProperties": 2,
+        "maxProperties": 10,
+        "properties": {
+          "read-only-param": {
+            "type": "integer",
+            "format": "int64",
+            "readOnly": true,
+            "example": 10
+          },
+          "limited-array": {
+            "type": "array",
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "photoUrl"
+              }
+            },
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "example": [
+              "http://instagram.com/photo_1",
+              "http://pixiv.com/photo_2"
+            ]
+          },
+          "mixed-type-array": {
+            "type": "array",
+            "example": [
+              "foo",
+              5,
+              -2,
+              "bar"
+            ],
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "write-only-param": {
+            "type": "string",
+            "example": "1!2qWe7tY",
+            "writeOnly": true
+          },
+          "AnyValue": {
+            "nullable": true,
+            "description": "Can be any value, including `null`.",
+            "example": {
+              "1": 2,
+              "string": "2024-12-2",
+              "null": null
+            }
+          },
+          "not-integer": {
+            "not": {
+              "type": "integer"
+            },
+            "example": "string"
+          }
+        }
+      },
+      "SchemaForSerialization": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          }
         }
       }
     },
