@@ -1,13 +1,4 @@
-package web
-
-const (
-	APIModePostfixStatusCode       = "_status_code"
-	APIModePostfixValidationErrors = "_validation_errors"
-
-	GlobalResponseStatusCodeKey = "global_response_status_code"
-
-	RequestSchemaID = "__wallarm_apifw_request_schema_id"
-)
+package validator
 
 type FieldTypeError struct {
 	Name         string `json:"name"`
@@ -25,12 +16,12 @@ type ValidationError struct {
 	FieldsDetails []FieldTypeError `json:"related_fields_details,omitempty"`
 }
 
-type APIModeResponseSummary struct {
+type ValidationResponseSummary struct {
 	SchemaID   *int `json:"schema_id"`
 	StatusCode *int `json:"status_code"`
 }
 
-type APIModeResponse struct {
-	Summary []*APIModeResponseSummary `json:"summary"`
-	Errors  []*ValidationError        `json:"errors,omitempty"`
+type ValidationResponse struct {
+	Summary []*ValidationResponseSummary `json:"summary"`
+	Errors  []*ValidationError           `json:"errors,omitempty"`
 }

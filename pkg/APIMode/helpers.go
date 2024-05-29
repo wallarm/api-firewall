@@ -1,4 +1,4 @@
-package apifw
+package APIMode
 
 import (
 	"errors"
@@ -9,6 +9,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
 // wrapOASpecErrs wraps errors by the following high level errors ErrSpecValidation, ErrSpecParsing, ErrSpecLoading
@@ -16,12 +17,12 @@ func wrapOASpecErrs(err error) error {
 
 	switch {
 	case errors.Is(err, loader.ErrOASValidation):
-		return fmt.Errorf("%w: %w", ErrSpecValidation, err)
+		return fmt.Errorf("%w: %w", validator.ErrSpecValidation, err)
 	case errors.Is(err, loader.ErrOASParsing):
-		return fmt.Errorf("%w: %w", ErrSpecParsing, err)
+		return fmt.Errorf("%w: %w", validator.ErrSpecParsing, err)
 	}
 
-	return fmt.Errorf("%w: %w", ErrSpecLoading, err)
+	return fmt.Errorf("%w: %w", validator.ErrSpecLoading, err)
 }
 
 // getRouters function prepared router.Mux with the routes from OpenAPI specs

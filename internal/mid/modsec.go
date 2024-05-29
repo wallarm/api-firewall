@@ -17,6 +17,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
 type ModSecurityOptions struct {
@@ -148,7 +149,7 @@ func WAFModSecurity(options *ModSecurityOptions) web.Middleware {
 					tx.DebugLogger().Error().Err(err).Msg("Failed to process request")
 
 					if options.Mode == web.APIMode {
-						if err := web.RespondAPIModeErrors(ctx, "ModSecurity rules: failed to process request", err.Error()); err != nil {
+						if err := respondAPIModeErrors(ctx, "ModSecurity rules: failed to process request", err.Error()); err != nil {
 							options.Logger.WithFields(logrus.Fields{
 								"host":       utils.B2S(ctx.Request.Header.Host()),
 								"path":       utils.B2S(ctx.Path()),
@@ -165,7 +166,7 @@ func WAFModSecurity(options *ModSecurityOptions) web.Middleware {
 				} else if it != nil {
 
 					if options.Mode == web.APIMode {
-						if err := web.RespondAPIModeErrors(ctx, ErrModSecMaliciousRequest.Error(), fmt.Sprintf("ModSecurity rules: request blocked due to rule %d", it.RuleID)); err != nil {
+						if err := respondAPIModeErrors(ctx, ErrModSecMaliciousRequest.Error(), fmt.Sprintf("ModSecurity rules: request blocked due to rule %d", it.RuleID)); err != nil {
 							options.Logger.WithFields(logrus.Fields{
 								"host":       utils.B2S(ctx.Request.Header.Host()),
 								"path":       utils.B2S(ctx.Path()),
@@ -265,6 +266,28 @@ func performResponseAction(ctx *fasthttp.RequestCtx, it *types.Interruption, blo
 		ctx.Redirect(it.Data, it.Status)
 		return nil
 	}
+
+	return nil
+}
+
+// respondAPIModeErrors sends API mode specific response back to the client
+func respondAPIModeErrors(ctx *fasthttp.RequestCtx, code, message string) error {
+
+	schemaIDstr, ok := ctx.UserValue(web.RequestSchemaID).(string)
+	if !ok {
+		ctx.SetUserValue(web.GlobalResponseStatusCodeKey, fasthttp.StatusInternalServerError)
+		return errors.New("request schema ID not found in the request")
+	}
+	schemaID, err := strconv.Atoi(schemaIDstr)
+	if err != nil {
+		ctx.SetUserValue(web.GlobalResponseStatusCodeKey, fasthttp.StatusInternalServerError)
+		return err
+	}
+
+	keyValidationErrors := schemaIDstr + validator.APIModePostfixValidationErrors
+	keyStatusCode := schemaIDstr + validator.APIModePostfixStatusCode
+	ctx.SetUserValue(keyValidationErrors, []*validator.ValidationError{{Message: message, Code: code, SchemaID: &schemaID}})
+	ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
 
 	return nil
 }

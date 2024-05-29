@@ -35,7 +35,10 @@ const (
 	ProxyMode   = "proxy"
 	GraphQLMode = "graphql"
 
-	RequestID = "__wallarm_apifw_request_id"
+	GlobalResponseStatusCodeKey = "global_response_status_code"
+
+	RequestSchemaID = "__wallarm_apifw_request_schema_id"
+	RequestID       = "__wallarm_apifw_request_id"
 )
 
 // App is the entrypoint into our application and what configures our context

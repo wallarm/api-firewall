@@ -16,7 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/demo/interface/api-mode/internal/updater"
-	"github.com/wallarm/api-firewall/pkg/apifw"
+	"github.com/wallarm/api-firewall/pkg/APIMode"
 )
 
 const logMainPrefix = "Wallarm API-Firewall"
@@ -36,8 +36,8 @@ func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	apiFirewall, err := apifw.NewAPIFirewall(
-		apifw.WithPathToDB("./wallarm_apifw_test.db"),
+	apiFirewall, err := APIMode.NewAPIFirewall(
+		APIMode.WithPathToDB("./wallarm_apifw_test.db"),
 	)
 	if err != nil {
 		logger.Error(err)
@@ -69,7 +69,7 @@ func main() {
 			headers.Set(sk, sv)
 		})
 
-		result, err := apiFirewall.ValidateRequest(schemaID, ctx.Request.Header.RequestURI(), ctx.Request.Header.Method(), ctx.Request.Body(), headers)
+		result, err := apiFirewall.ValidateRequest([]int{schemaID}, ctx.Request.Header.RequestURI(), ctx.Request.Header.Method(), ctx.Request.Body(), headers)
 		if err != nil {
 			logger.Error(err)
 		}

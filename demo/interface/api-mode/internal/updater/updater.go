@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/wallarm/api-firewall/pkg/apifw"
+	"github.com/wallarm/api-firewall/pkg/APIMode"
 )
 
 const (
@@ -20,11 +20,11 @@ type Specification struct {
 	logger     *logrus.Logger
 	stop       chan struct{}
 	updateTime time.Duration
-	apifw      apifw.APIFirewall
+	apifw      APIMode.APIFirewall
 }
 
 // NewUpdater function defines configuration updater controller
-func NewUpdater(logger *logrus.Logger, apifw apifw.APIFirewall, updateTime time.Duration) DatabaseUpdater {
+func NewUpdater(logger *logrus.Logger, apifw APIMode.APIFirewall, updateTime time.Duration) DatabaseUpdater {
 	return &Specification{
 		logger:     logger,
 		stop:       make(chan struct{}),
