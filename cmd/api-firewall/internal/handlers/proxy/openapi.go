@@ -107,7 +107,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	// Proxy request if APIFW is disabled
 	if isOptionsReq == true ||
 		strings.EqualFold(s.cfg.RequestValidation, web.ValidationDisable) && strings.EqualFold(s.cfg.ResponseValidation, web.ValidationDisable) {
-		if err := proxy.Perform(ctx, s.proxyPool, s.cfg.Server.ProxyHostHeader); err != nil {
+		if err := proxy.Perform(ctx, s.proxyPool, s.cfg.Server.HostHeader); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"host":       strconv.B2S(ctx.Request.Header.Host()),
@@ -132,7 +132,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 			return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, "")
 		}
 
-		if err := proxy.Perform(ctx, s.proxyPool, s.cfg.Server.ProxyHostHeader); err != nil {
+		if err := proxy.Perform(ctx, s.proxyPool, s.cfg.Server.HostHeader); err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"host":       strconv.B2S(ctx.Request.Header.Host()),
@@ -342,7 +342,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		}
 	}
 
-	if err := proxy.Perform(ctx, s.proxyPool, s.cfg.Server.ProxyHostHeader); err != nil {
+	if err := proxy.Perform(ctx, s.proxyPool, s.cfg.Server.HostHeader); err != nil {
 		s.logger.WithFields(logrus.Fields{
 			"error":      err,
 			"host":       strconv.B2S(ctx.Request.Header.Host()),

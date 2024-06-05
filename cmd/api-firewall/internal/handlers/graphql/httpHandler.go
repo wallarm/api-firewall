@@ -71,7 +71,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 
 	// Proxy request if the validation is disabled
 	if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationDisable) {
-		if err := proxy.Perform(ctx, h.proxyPool, h.cfg.Server.ProxyHostHeader); err != nil {
+		if err := proxy.Perform(ctx, h.proxyPool, h.cfg.Server.HostHeader); err != nil {
 			h.logger.WithFields(logrus.Fields{
 				"error":      err,
 				"protocol":   "HTTP",
@@ -148,7 +148,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 		}
 	}
 
-	if err := proxy.Perform(ctx, h.proxyPool, h.cfg.Server.ProxyHostHeader); err != nil {
+	if err := proxy.Perform(ctx, h.proxyPool, h.cfg.Server.HostHeader); err != nil {
 		h.logger.WithFields(logrus.Fields{
 			"error":      err,
 			"protocol":   "HTTP",
