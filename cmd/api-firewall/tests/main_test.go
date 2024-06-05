@@ -2782,7 +2782,7 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 	serverConf := config.Server{
 		Backend: config.Backend{
 			URL:                "http://localhost:28290",
-			HostHeader:         "testCustomHost",
+			Host:               "testCustomHost",
 			ClientPoolCapacity: 1000,
 			InsecureConnection: false,
 			RootCA:             "",
@@ -2823,7 +2823,7 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 		Request: *req,
 	}
 
-	if err := proxy.Perform(&reqCtx, pool, cfg.Server.HostHeader); err != nil {
+	if err := proxy.Perform(&reqCtx, pool, cfg.Server.Host); err != nil {
 		t.Fatal(err)
 	}
 

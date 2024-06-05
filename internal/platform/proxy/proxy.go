@@ -16,6 +16,7 @@ func Perform(ctx *fasthttp.RequestCtx, proxyPool Pool, customHostHeader string) 
 
 	if customHostHeader != "" {
 		ctx.Request.Header.SetHost(customHostHeader)
+		ctx.Request.URI().SetHost(customHostHeader)
 	}
 
 	if err := client.Do(&ctx.Request, &ctx.Response); err != nil {
