@@ -82,7 +82,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		}).Info("Pass request with OPTIONS method")
 
 		// Proxy request
-		if err := proxy.Perform(ctx, httpClientsPool, cfg.Server.Host); err != nil {
+		if err := proxy.Perform(ctx, httpClientsPool, cfg.Server.RequestHostHeader); err != nil {
 			logger.WithFields(logrus.Fields{
 				"error":      err,
 				"host":       string(ctx.Request.Header.Host()),

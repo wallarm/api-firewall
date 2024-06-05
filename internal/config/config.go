@@ -86,7 +86,7 @@ type Server struct {
 
 type Backend struct {
 	URL                  string        `conf:"default:http://localhost:3000/v1/" validate:"required,url"`
-	Host                 string        `conf:"default:''"`
+	RequestHostHeader    string        `conf:""`
 	ClientPoolCapacity   int           `conf:"default:1000" validate:"gt=0"`
 	InsecureConnection   bool          `conf:"default:false"`
 	RootCA               string        `conf:""`
