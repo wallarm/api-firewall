@@ -6,7 +6,9 @@ This page describes new releases of Wallarm API Firewall.
 
 * Dependency upgrade
 * Supported new interface for the `api` mode usage, only for internal use
-* Added the APIFW_SERVER_REQUEST_HOST_HEADER env variable to set the custom host value for proxied requests
+* Added the `APIFW_SERVER_REQUEST_HOST_HEADER` environment variable to set a custom `Host` header for requests forwarded to your backend after API Firewall validation
+
+    This variable is supported in the [`PROXY`](installation-guides/docker-container.md) and [`graphql`](installation-guides/graphql/docker-container.md) API Firewall modes.
 
 ## v0.7.2 (2024-04-16)
 

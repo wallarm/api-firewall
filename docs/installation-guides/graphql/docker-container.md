@@ -103,6 +103,7 @@ Pass API Firewall configuration in **docker-compose.yml** → `services.api-fire
 | `APIFW_LOG_LEVEL` | API Firewall logging level. Possible values:<ul><li>`DEBUG` to log events of any type (INFO, ERROR, WARNING, and DEBUG).</li><li>`INFO` to log events of the INFO, WARNING, and ERROR types.</li><li>`WARNING` to log events of the WARNING and ERROR types.</li><li>`ERROR` to log events of only the ERROR type.</li><li>`TRACE` to log incoming requests and API Firewall responses, including their content.</li></ul> The default value is `DEBUG`. Logs on requests and responses that do not match the provided schema have the ERROR type. | No |
 | `APIFW_SERVER_DELETE_ACCEPT_ENCODING` | If it is set to `true`, the `Accept-Encoding` header is deleted from proxied requests. The default value is `false`. | No |
 | `APIFW_LOG_FORMAT` | The format of API Firewall logs. The value can be `TEXT` or `JSON`. The default value is `TEXT`. | No |
+| `APIFW_SERVER_REQUEST_HOST_HEADER` | Sets a custom `Host` header for requests forwarded to your backend after API Firewall validation. | No |
 
 **With `services.api-firewall.ports` and `services.api-firewall.networks`**, set the API Firewall container port and connect the container to the created network.
 
