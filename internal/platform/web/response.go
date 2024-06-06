@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/klauspost/compress/flate"
 	"github.com/klauspost/compress/zlib"
@@ -127,28 +126,6 @@ func RespondGraphQLErrors(ctx *fasthttp.Response, errors error) error {
 	if _, err := gqlErrors.WriteResponse(ctx.BodyWriter()); err != nil {
 		return err
 	}
-
-	return nil
-}
-
-// RespondAPIModeErrors sends API mode specific response back to the client
-func RespondAPIModeErrors(ctx *fasthttp.RequestCtx, code, message string) error {
-
-	schemaIDstr, ok := ctx.UserValue(RequestSchemaID).(string)
-	if !ok {
-		ctx.SetUserValue(GlobalResponseStatusCodeKey, fasthttp.StatusInternalServerError)
-		return errors.New("request schema ID not found in the request")
-	}
-	schemaID, err := strconv.Atoi(schemaIDstr)
-	if err != nil {
-		ctx.SetUserValue(GlobalResponseStatusCodeKey, fasthttp.StatusInternalServerError)
-		return err
-	}
-
-	keyValidationErrors := schemaIDstr + APIModePostfixValidationErrors
-	keyStatusCode := schemaIDstr + APIModePostfixStatusCode
-	ctx.SetUserValue(keyValidationErrors, []*ValidationError{{Message: message, Code: code, SchemaID: &schemaID}})
-	ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
 
 	return nil
 }

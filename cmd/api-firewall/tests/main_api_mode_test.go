@@ -27,6 +27,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
 const secondApiModeOpenAPISpecAPIModeTest = `
@@ -641,7 +642,7 @@ func checkResponseOkStatusCode(t *testing.T, reqCtx *fasthttp.RequestCtx, schema
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -672,7 +673,7 @@ func checkResponseForbiddenStatusCode(t *testing.T, reqCtx *fasthttp.RequestCtx,
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -777,7 +778,7 @@ func (s *APIModeServiceTests) testAPIModeSuccess(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParameterInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParameterInvalidValue})
 }
 
 func (s *APIModeServiceTests) testAPIModeMissedMultipleReqParams(t *testing.T) {
@@ -842,7 +843,7 @@ func (s *APIModeServiceTests) testAPIModeMissedMultipleReqParams(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -853,9 +854,9 @@ func (s *APIModeServiceTests) testAPIModeMissedMultipleReqParams(t *testing.T) {
 
 	for _, apifwErr := range apifwResponse.Errors {
 
-		if apifwErr.Code != handlersAPI.ErrCodeRequiredBodyParameterMissed {
+		if apifwErr.Code != validator.ErrCodeRequiredBodyParameterMissed {
 			t.Errorf("Incorrect error code. Expected: %s and got %s",
-				handlersAPI.ErrCodeRequiredBodyParameterMissed, apifwErr.Code)
+				validator.ErrCodeRequiredBodyParameterMissed, apifwErr.Code)
 		}
 
 		if len(apifwErr.Fields) != 1 {
@@ -975,7 +976,7 @@ func (s *APIModeServiceTests) testAPIModeSuccessMultipartStringParameter(t *test
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParseError})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParseError})
 
 }
 
@@ -1028,7 +1029,7 @@ func (s *APIModeServiceTests) testAPIModeOneSchemeMultipleIDs(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1134,7 +1135,7 @@ func (s *APIModeServiceTests) testAPIModeTwoDifferentSchemesMultipleIDs(t *testi
 			reqCtx.Response.StatusCode())
 	}
 
-	response := web.APIModeResponse{}
+	response := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &response); err != nil {
 		t.Errorf("error while unmarshal response: %v", err)
 	}
@@ -1204,7 +1205,7 @@ func (s *APIModeServiceTests) testAPIModeTwoSchemesMultipleIDs(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	response := web.APIModeResponse{}
+	response := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &response); err != nil {
 		t.Errorf("error while unmarshal response: %v", err)
 	}
@@ -1252,7 +1253,7 @@ func (s *APIModeServiceTests) testAPIModeTwoSchemesMultipleIDs(t *testing.T) {
 
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
-	response = web.APIModeResponse{}
+	response = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &response); err != nil {
 		t.Errorf("error while unmarshal response: %v", err)
 	}
@@ -1299,7 +1300,7 @@ func (s *APIModeServiceTests) testAPIModeJSONParseError(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParseError})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParseError})
 }
 
 func (s *APIModeServiceTests) testAPIModeInvalidCTParseError(t *testing.T) {
@@ -1335,7 +1336,7 @@ func (s *APIModeServiceTests) testAPIModeInvalidCTParseError(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParseError})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParseError})
 }
 
 func (s *APIModeServiceTests) testAPIModeCTNotInSpec(t *testing.T) {
@@ -1371,7 +1372,7 @@ func (s *APIModeServiceTests) testAPIModeCTNotInSpec(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParseError})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParseError})
 }
 
 func (s *APIModeServiceTests) testAPIModeEmptyBody(t *testing.T) {
@@ -1395,7 +1396,7 @@ func (s *APIModeServiceTests) testAPIModeEmptyBody(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyMissed})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyMissed})
 }
 
 func (s *APIModeServiceTests) testAPIModeNoXWallarmSchemaIDHeader(t *testing.T) {
@@ -1478,7 +1479,7 @@ func (s *APIModeServiceTests) testAPIModeNoXWallarmSchemaIDHeader(t *testing.T) 
 				reqCtx.Response.StatusCode())
 		}
 
-		apifwResponse := web.APIModeResponse{}
+		apifwResponse := validator.ValidationResponse{}
 		if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 			t.Errorf("Error while JSON response parsing: %v", err)
 		}
@@ -1537,7 +1538,7 @@ func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1554,9 +1555,9 @@ func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
 	}
 
 	if len(apifwResponse.Errors) > 0 {
-		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeMethodAndPathNotFound {
+		if apifwResponse.Errors[0].Code != validator.ErrCodeMethodAndPathNotFound {
 			t.Errorf("Incorrect error code. Expected: %s and got %s",
-				handlersAPI.ErrCodeMethodAndPathNotFound, apifwResponse.Errors[0].Code)
+				validator.ErrCodeMethodAndPathNotFound, apifwResponse.Errors[0].Code)
 		}
 	}
 
@@ -1578,15 +1579,15 @@ func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Errors) > 0 {
-		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeMethodAndPathNotFound {
+		if apifwResponse.Errors[0].Code != validator.ErrCodeMethodAndPathNotFound {
 			t.Errorf("Incorrect error code. Expected: %s and got %s",
-				handlersAPI.ErrCodeMethodAndPathNotFound, apifwResponse.Errors[0].Code)
+				validator.ErrCodeMethodAndPathNotFound, apifwResponse.Errors[0].Code)
 		}
 	}
 }
@@ -1624,7 +1625,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterMissed(t *testing
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredQueryParameterMissed, handlersAPI.ErrCodeUnknownParameterFound})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredQueryParameterMissed, validator.ErrCodeUnknownParameterFound})
 }
 
 func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterMissed(t *testing.T) {
@@ -1663,7 +1664,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterMissed(t *testin
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredHeaderMissed})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredHeaderMissed})
 }
 
 func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterMissed(t *testing.T) {
@@ -1700,7 +1701,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterMissed(t *testin
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredCookieParameterMissed})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredCookieParameterMissed})
 }
 
 func (s *APIModeServiceTests) testAPIModeRequiredBodyMissed(t *testing.T) {
@@ -1751,7 +1752,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyMissed(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyMissed})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyMissed})
 }
 
 func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterMissed(t *testing.T) {
@@ -1813,7 +1814,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterMissed(t *testing.
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParameterMissed})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParameterMissed})
 }
 
 // Invalid parameters errors
@@ -1850,7 +1851,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterInvalidValue(t *t
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredQueryParameterInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredQueryParameterInvalidValue})
 
 	req.SetRequestURI("/test/query?id=" + uuid.New().String() + "&int=wrongvalue")
 
@@ -1864,7 +1865,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredQueryParameterInvalidValue(t *t
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredQueryParameterInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredQueryParameterInvalidValue})
 }
 
 func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterInvalidValue(t *testing.T) {
@@ -1904,7 +1905,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterInvalidValue(t *
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredHeaderInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredHeaderInvalidValue})
 
 	req.Header.Del(testRequestHeader)
 	req.Header.Add(testRequestHeader, xReqTestValue.String())
@@ -1920,7 +1921,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredHeaderParameterInvalidValue(t *
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredHeaderInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredHeaderInvalidValue})
 }
 
 func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterInvalidValue(t *testing.T) {
@@ -1957,7 +1958,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterInvalidValue(t *
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredCookieParameterInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredCookieParameterInvalidValue})
 
 	req.Header.SetCookie(testRequestCookie, uuid.New().String())
 	req.Header.SetCookie(testRequestIntCookie, "invalid_test_value")
@@ -1972,7 +1973,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredCookieParameterInvalidValue(t *
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredCookieParameterInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredCookieParameterInvalidValue})
 }
 
 func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *testing.T) {
@@ -2036,7 +2037,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParameterInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParameterInvalidValue})
 
 	// body with parameter which has invalid type
 	p, err = json.Marshal(map[string]interface{}{
@@ -2066,7 +2067,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParameterInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParameterInvalidValue})
 
 	// body with required parameter that has value less than minimum threshold
 	p, err = json.Marshal(map[string]interface{}{
@@ -2096,7 +2097,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParameterInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParameterInvalidValue})
 
 	// body with required parameter that has value more than maximum threshold
 	p, err = json.Marshal(map[string]interface{}{
@@ -2126,7 +2127,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParameterInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParameterInvalidValue})
 }
 
 // security requirements
@@ -2170,7 +2171,7 @@ func (s *APIModeServiceTests) testAPIModeBasicAuthFailed(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -2188,9 +2189,9 @@ func (s *APIModeServiceTests) testAPIModeBasicAuthFailed(t *testing.T) {
 	}
 
 	if len(apifwResponse.Errors) > 0 {
-		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeSecRequirementsFailed {
+		if apifwResponse.Errors[0].Code != validator.ErrCodeSecRequirementsFailed {
 			t.Errorf("Incorrect error code. Expected: %s and got %s",
-				handlersAPI.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
+				validator.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
 		}
 		if apifwResponse.Errors[0].Fields[0] != headerName {
 			t.Errorf("Incorrect header name. Expected: %s and got %s",
@@ -2238,7 +2239,7 @@ func (s *APIModeServiceTests) testAPIModeBearerTokenFailed(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -2256,9 +2257,9 @@ func (s *APIModeServiceTests) testAPIModeBearerTokenFailed(t *testing.T) {
 	}
 
 	if len(apifwResponse.Errors) > 0 {
-		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeSecRequirementsFailed {
+		if apifwResponse.Errors[0].Code != validator.ErrCodeSecRequirementsFailed {
 			t.Errorf("Incorrect error code. Expected: %s and got %s",
-				handlersAPI.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
+				validator.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
 		}
 
 		if apifwResponse.Errors[0].Fields[0] != headerName {
@@ -2306,7 +2307,7 @@ func (s *APIModeServiceTests) testAPIModeAPITokenCookieFailed(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -2324,9 +2325,9 @@ func (s *APIModeServiceTests) testAPIModeAPITokenCookieFailed(t *testing.T) {
 	}
 
 	if len(apifwResponse.Errors) > 0 {
-		if apifwResponse.Errors[0].Code != handlersAPI.ErrCodeSecRequirementsFailed {
+		if apifwResponse.Errors[0].Code != validator.ErrCodeSecRequirementsFailed {
 			t.Errorf("Incorrect error code. Expected: %s and got %s",
-				handlersAPI.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
+				validator.ErrCodeSecRequirementsFailed, apifwResponse.Errors[0].Code)
 		}
 
 		if apifwResponse.Errors[0].Fields[0] != testSecCookieName {
@@ -2373,7 +2374,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyJSON(t *testing.T) 
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeUnknownParameterFound})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeUnknownParameterFound})
 
 	p, err = json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -2434,7 +2435,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyPost(t *testing.T) 
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeUnknownParameterFound})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeUnknownParameterFound})
 
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
@@ -2480,7 +2481,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterQuery(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeUnknownParameterFound})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeUnknownParameterFound})
 
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/query?id=" + uuid.New().String())
@@ -2549,7 +2550,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterInvalidCT(t *testing.T)
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -2659,7 +2660,7 @@ func (s *APIModeServiceTests) testAPIModeMultipartOptionalParams(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredBodyParseError})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParseError})
 }
 
 func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequest(t *testing.T) {
@@ -2701,7 +2702,7 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequest(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -2757,7 +2758,7 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequestInMultipleSchemas(
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -2815,7 +2816,7 @@ func (s *APIModeServiceTests) testAPIModeAllMethods(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeMethodAndPathNotFound})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeMethodAndPathNotFound})
 }
 
 func (s *APIModeServiceTests) testConflictsInThePath(t *testing.T) {
@@ -2857,7 +2858,7 @@ func (s *APIModeServiceTests) testConflictsInThePath(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredPathParameterInvalidValue})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredPathParameterInvalidValue})
 }
 
 func (s *APIModeServiceTests) testObjectInQuery(t *testing.T) {
@@ -2899,5 +2900,5 @@ func (s *APIModeServiceTests) testObjectInQuery(t *testing.T) {
 	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
 
 	// check response status code and response body
-	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{handlersAPI.ErrCodeRequiredQueryParameterMissed})
+	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredQueryParameterMissed})
 }

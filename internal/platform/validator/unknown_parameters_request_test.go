@@ -2,7 +2,9 @@ package validator
 
 import (
 	"bytes"
+	"encoding/csv"
 	"encoding/json"
+	"encoding/xml"
 	"io"
 	"net/http"
 	"strings"
@@ -73,6 +75,22 @@ paths:
                 subCategory:
                   type: string
           application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - subCategory
+              properties:
+                subCategory:
+                  type: string
+          text/csv:
+            schema:
+              type: object
+              required:
+                - subCategory
+              properties:
+                subCategory:
+                  type: string
+          application/xml:
             schema:
               type: object
               required:
@@ -296,6 +314,66 @@ paths:
 				},
 			},
 		},
+		{
+			name: "Valid CSV unknown params 0",
+			args: args{
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood},
+				url:         "/unknown",
+				ct:          "text/csv",
+			},
+			expectedErr:  nil,
+			expectedResp: nil,
+		},
+		{
+			name: "Valid CSV unknown params 1",
+			args: args{
+				requestBody: &testRequestBody{SubCategory: "Chocolate", UnknownParameter: "unknownValue"},
+				url:         "/unknown",
+				ct:          "text/csv",
+			},
+			expectedErr: nil,
+			expectedResp: []*RequestUnknownParameterError{
+				{
+					Parameters: []RequestParameterDetails{{
+						Name:        "unknown",
+						Placeholder: "body",
+						Type:        "string",
+					},
+					},
+					Message: ErrUnknownBodyParameter.Error(),
+				},
+			},
+		},
+		{
+			name: "Valid XML unknown params 0",
+			args: args{
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood},
+				url:         "/unknown",
+				ct:          "application/xml",
+			},
+			expectedErr:  nil,
+			expectedResp: nil,
+		},
+		{
+			name: "Valid XML unknown params 1",
+			args: args{
+				requestBody: &testRequestBody{SubCategory: "Chocolate", UnknownParameter: "unknownValue"},
+				url:         "/unknown",
+				ct:          "application/xml",
+			},
+			expectedErr: nil,
+			expectedResp: []*RequestUnknownParameterError{
+				{
+					Parameters: []RequestParameterDetails{{
+						Name:        "UnknownParameter",
+						Placeholder: "body",
+						Type:        "string",
+					},
+					},
+					Message: ErrUnknownBodyParameter.Error(),
+				},
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -324,6 +402,41 @@ paths:
 					testingBody, err := json.Marshal(tc.args.requestBody)
 					require.NoError(t, err)
 					requestBody = bytes.NewReader(testingBody)
+				case "application/xml":
+					testingBody, err := xml.Marshal(tc.args.requestBody)
+					require.NoError(t, err)
+					requestBody = bytes.NewReader(testingBody)
+				case "text/csv":
+
+					buf := bytes.Buffer{}
+					writer := csv.NewWriter(&buf)
+					defer writer.Flush()
+
+					var header []string
+					var value []string
+
+					if tc.args.requestBody.SubCategory != "" {
+						header = append(header, "subCategory")
+						value = append(value, tc.args.requestBody.SubCategory)
+					}
+
+					if tc.args.requestBody.Category != nil {
+						header = append(header, "category")
+						value = append(value, *tc.args.requestBody.Category)
+					}
+
+					if tc.args.requestBody.UnknownParameter != "" {
+						header = append(header, "unknown")
+						value = append(value, tc.args.requestBody.UnknownParameter)
+					}
+
+					err := writer.Write(header)
+					require.NoError(t, err)
+					err = writer.Write(value)
+					require.NoError(t, err)
+					writer.Flush()
+
+					requestBody = bytes.NewReader(buf.Bytes())
 				}
 			}
 
@@ -352,7 +465,7 @@ paths:
 				return
 			}
 			if tc.expectedResp != nil && len(tc.expectedResp) > 0 {
-				assert.Equal(t, len(tc.expectedResp), len(upRes), "expect the number of unknown parameters: %t, got %t", len(tc.expectedResp), len(upRes))
+				assert.Equal(t, len(tc.expectedResp), len(upRes), "expect the number of unknown parameters: %d, got %d", len(tc.expectedResp), len(upRes))
 				assert.Equal(t, true, matchUnknownParamsResp(tc.expectedResp, upRes), "expect unknown parameters: %v, got %v", tc.expectedResp, upRes)
 			}
 		})

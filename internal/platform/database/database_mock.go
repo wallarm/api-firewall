@@ -77,11 +77,12 @@ func (mr *MockDBOpenAPILoaderMockRecorder) IsReady() *gomock.Call {
 }
 
 // Load mocks base method.
-func (m *MockDBOpenAPILoader) Load(dbStoragePath string) error {
+func (m *MockDBOpenAPILoader) Load(dbStoragePath string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Load", dbStoragePath)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Load indicates an expected call of Load.

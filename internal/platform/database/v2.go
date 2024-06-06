@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -12,8 +13,6 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 )
 
@@ -29,42 +28,41 @@ type SpecificationEntryV2 struct {
 
 type SQLLiteV2 struct {
 	isReady     bool
-	Log         *logrus.Logger
 	RawSpecs    map[int]*SpecificationEntryV2
 	LastUpdate  time.Time
 	OpenAPISpec map[int]*openapi3.T
 	lock        *sync.RWMutex
 }
 
-func NewOpenAPIDBV2(log *logrus.Logger, dbStoragePath string) (DBOpenAPILoader, error) {
+func NewOpenAPIDBV2(dbStoragePath string) (DBOpenAPILoader, error) {
 
 	sqlObj := SQLLiteV2{
-		Log:         log,
 		lock:        &sync.RWMutex{},
 		RawSpecs:    make(map[int]*SpecificationEntryV2),
 		OpenAPISpec: make(map[int]*openapi3.T),
 		isReady:     true,
 	}
 
-	if err := sqlObj.Load(dbStoragePath); err != nil {
-		sqlObj.isReady = false
-		return &sqlObj, err
+	var err error
+	sqlObj.isReady, err = sqlObj.Load(dbStoragePath)
+
+	if errAfterLoad := sqlObj.AfterLoad(dbStoragePath); errAfterLoad != nil {
+		if sqlObj.isReady {
+			sqlObj.isReady = false
+		}
+		err = errors.Join(err, errAfterLoad)
 	}
 
-	if err := sqlObj.AfterLoad(dbStoragePath); err != nil {
-		sqlObj.isReady = false
-		return &sqlObj, err
-	}
-
-	log.Debugf("OpenAPI specifications with the following IDs were found in the DB: %v", sqlObj.SchemaIDs())
-
-	return &sqlObj, nil
+	return &sqlObj, err
 }
 
-func (s *SQLLiteV2) Load(dbStoragePath string) error {
+func (s *SQLLiteV2) Load(dbStoragePath string) (bool, error) {
 
 	entries := make(map[int]*SpecificationEntryV2)
 	specs := make(map[int]*openapi3.T)
+
+	var parsingErrs error
+	var isReady bool
 
 	currentDBPath := dbStoragePath
 	if currentDBPath == "" {
@@ -73,18 +71,18 @@ func (s *SQLLiteV2) Load(dbStoragePath string) error {
 
 	// check if file exists
 	if _, err := os.Stat(currentDBPath); errors.Is(err, os.ErrNotExist) {
-		return err
+		return isReady, err
 	}
 
 	db, err := sql.Open("sqlite3", currentDBPath)
 	if err != nil {
-		return err
+		return isReady, err
 	}
 	defer db.Close()
 
 	rows, err := db.Query("select schema_id,schema_version,schema_format,schema_content,status from openapi_schemas")
 	if err != nil {
-		return err
+		return isReady, err
 	}
 	defer rows.Close()
 
@@ -92,13 +90,13 @@ func (s *SQLLiteV2) Load(dbStoragePath string) error {
 		entry := SpecificationEntryV2{}
 		err = rows.Scan(&entry.SchemaID, &entry.SchemaVersion, &entry.SchemaFormat, &entry.SchemaContent, &entry.Status)
 		if err != nil {
-			return err
+			return isReady, err
 		}
 		entries[entry.SchemaID] = &entry
 	}
 
 	if err := rows.Err(); err != nil {
-		return err
+		return isReady, err
 	}
 
 	s.RawSpecs = entries
@@ -108,7 +106,7 @@ func (s *SQLLiteV2) Load(dbStoragePath string) error {
 
 		parsedSpec, err := loader.ParseOAS(getSpecBytes(spec.SchemaContent), spec.SchemaVersion, schemaID)
 		if err != nil {
-			s.Log.Errorf("error: %v", err)
+			parsingErrs = errors.Join(parsingErrs, err)
 			delete(s.RawSpecs, schemaID)
 			continue
 		}
@@ -121,8 +119,9 @@ func (s *SQLLiteV2) Load(dbStoragePath string) error {
 
 	s.RawSpecs = entries
 	s.OpenAPISpec = specs
+	isReady = true
 
-	return nil
+	return isReady, parsingErrs
 }
 
 func (s *SQLLiteV2) Specification(schemaID int) *openapi3.T {

@@ -2,9 +2,15 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/getkin/kin-openapi/openapi3"
+)
+
+var (
+	ErrOASValidation = errors.New("OpenAPI specification validation error")
+	ErrOASParsing    = errors.New("OpenAPI specification parsing error")
 )
 
 func validateOAS(spec *openapi3.T) error {
@@ -28,11 +34,11 @@ func ParseOAS(schema []byte, SchemaVersion string, schemaID int) (*openapi3.T, e
 	loader := openapi3.NewLoader()
 	parsedSpec, err := loader.LoadFromData(schema)
 	if err != nil {
-		return nil, fmt.Errorf("OpenAPI specification (version %s; schema ID %d) parsing failed: %v", SchemaVersion, schemaID, err)
+		return nil, fmt.Errorf("%w: schema version %s, schema ID %d: %w", ErrOASParsing, SchemaVersion, schemaID, err)
 	}
 
 	if err := validateOAS(parsedSpec); err != nil {
-		return nil, fmt.Errorf("OpenAPI specification (version %s; schema ID %d) validation failed: %v: ", SchemaVersion, schemaID, err)
+		return nil, fmt.Errorf("%w: schema version %s, schema ID %d: %w: ", ErrOASValidation, SchemaVersion, schemaID, err)
 	}
 
 	return parsedSpec, nil

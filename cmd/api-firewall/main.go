@@ -21,7 +21,6 @@ import (
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	handlersGQL "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
 	handlersProxy "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
-	"github.com/wallarm/api-firewall/cmd/api-firewall/internal/updater"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
@@ -165,9 +164,13 @@ func runAPIMode(logger *logrus.Logger) error {
 	serverErrors := make(chan error, 1)
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, cfg.PathToSpecDB, cfg.DBVersion)
+	specStorage, err := database.NewOpenAPIDB(cfg.PathToSpecDB, cfg.DBVersion)
 	if err != nil {
 		logger.Errorf("%s: trying to load API Spec value from SQLLite Database : %v\n", logPrefix, err.Error())
+	}
+
+	if specStorage != nil {
+		logger.Debugf("OpenAPI specifications with the following IDs were found in the DB: %v", specStorage.SchemaIDs())
 	}
 
 	// =========================================================================
@@ -274,7 +277,7 @@ func runAPIMode(logger *logrus.Logger) error {
 
 	updSpecErrors := make(chan error, 1)
 
-	updOpenAPISpec := updater.NewController(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache, waf)
+	updOpenAPISpec := handlersAPI.NewHandlerUpdater(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache, waf)
 
 	// disable updater if SpecificationUpdatePeriod == 0
 	if cfg.SpecificationUpdatePeriod.Seconds() > 0 {
@@ -418,12 +421,12 @@ func runGraphQLMode(logger *logrus.Logger) error {
 
 	validationRes, err := schema.Validate()
 	if err != nil {
-		logger.Fatalf("GraphQL Schema validation error: %v", err)
+		logger.Fatalf("GraphQL Schema validator error: %v", err)
 		return err
 	}
 
 	if !validationRes.Valid {
-		logger.Fatalf("GraphQL Schema validation error: %v", validationRes.Errors)
+		logger.Fatalf("GraphQL Schema validator error: %v", validationRes.Errors)
 		return validationRes.Errors
 	}
 
@@ -663,7 +666,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	validate := validator.New()
 
 	if err := validate.RegisterValidation("HttpStatusCodes", config.ValidateStatusList); err != nil {
-		return errors.Errorf("Configuration validation error: %s", err.Error())
+		return errors.Errorf("Configuration validator error: %s", err.Error())
 	}
 
 	if err := validate.Struct(cfg); err != nil {
@@ -671,21 +674,21 @@ func runProxyMode(logger *logrus.Logger) error {
 		for _, err := range err.(validator.ValidationErrors) {
 			switch err.Tag() {
 			case "gt":
-				return errors.Errorf("configuration validation error: parameter %s should be > %s. Actual value: %d", err.Field(), err.Param(), err.Value())
+				return errors.Errorf("configuration validator error: parameter %s should be > %s. Actual value: %d", err.Field(), err.Param(), err.Value())
 			case "url":
-				return errors.Errorf("configuration validation error: parameter %s should be a string in URL format. Example: http://localhost:8080/; actual value: %s", err.Field(), err.Value())
+				return errors.Errorf("configuration validator error: parameter %s should be a string in URL format. Example: http://localhost:8080/; actual value: %s", err.Field(), err.Value())
 			case "oneof":
-				return errors.Errorf("configuration validation error: parameter %s should have one of the following value: %s; actual value: %s", err.Field(), err.Param(), err.Value())
+				return errors.Errorf("configuration validator error: parameter %s should have one of the following value: %s; actual value: %s", err.Field(), err.Param(), err.Value())
 			}
 		}
-		return errors.Wrap(err, "configuration validation error")
+		return errors.Wrap(err, "configuration validator error")
 	}
 
 	// oauth introspection endpoint: validate format of configured content-type
 	if cfg.Server.Oauth.Introspection.ContentType != "" {
 		_, _, err := mime.ParseMediaType(cfg.Server.Oauth.Introspection.ContentType)
 		if err != nil {
-			return errors.Wrap(err, "configuration validation error")
+			return errors.Wrap(err, "configuration validator error")
 		}
 	}
 

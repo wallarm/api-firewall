@@ -1,25 +1,25 @@
-package updater
+package api
 
 import (
 	"os"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/corazawaf/coraza/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
+	"github.com/wallarm/api-firewall/internal/platform/database/updater"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 )
 
-type Updater interface {
-	Start() error
-	Shutdown() error
-	Load() (database.DBOpenAPILoader, error)
-}
+const (
+	logPrefix = "Regular OpenAPI specification updater"
+)
 
 type Specification struct {
 	logger         *logrus.Logger
@@ -30,13 +30,13 @@ type Specification struct {
 	cfg            *config.APIMode
 	api            *fasthttp.Server
 	shutdown       chan os.Signal
-	health         *handlersAPI.Health
+	health         *Health
 	lock           *sync.RWMutex
 	allowedIPCache *allowiplist.AllowedIPsType
 }
 
-// NewController function defines configuration updater controller
-func NewController(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *handlersAPI.Health, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) Updater {
+// NewHandlerUpdater function defines configuration updater controller
+func NewHandlerUpdater(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage database.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *Health, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
 	return &Specification{
 		logger:         logger,
 		waf:            waf,
@@ -74,32 +74,41 @@ func (s *Specification) Run() {
 			// load new schemes
 			newSpecDB, err := s.Load()
 			if err != nil {
-				s.logger.WithFields(logrus.Fields{"error": err}).Error("Updating OpenAPI specification")
+				s.logger.WithFields(logrus.Fields{"error": err}).Errorf("%s: loading specifications", logPrefix)
 				continue
 			}
 
 			// do not downgrade the db version
 			if s.sqlLiteStorage.Version() > newSpecDB.Version() {
-				s.logger.Error("Regular update checker: version of the new DB structure is lower then current one (V2)")
+				s.logger.Errorf("%s: version of the new DB structure is lower then current one (V2)", logPrefix)
 				continue
 			}
 
 			if s.sqlLiteStorage.ShouldUpdate(newSpecDB) {
-				s.logger.Debugf("OpenAPI specifications has been updated. The schemas with the following IDs were updated: %v", newSpecDB.SchemaIDs())
+				s.logger.Debugf("%s: OpenAPI specifications with the following IDs were updated: %v", logPrefix, newSpecDB.SchemaIDs())
+
+				// find new IDs and log them
+				newScemaIDs := newSpecDB.SchemaIDs()
+				oldSchemaIDs := s.sqlLiteStorage.SchemaIDs()
+				for _, ns := range newScemaIDs {
+					if !slices.Contains(oldSchemaIDs, ns) {
+						s.logger.Infof("%s: fetched new OpenAPI specification from the database with id: %d", logPrefix, ns)
+					}
+				}
 
 				s.lock.Lock()
 				s.sqlLiteStorage = newSpecDB
-				s.api.Handler = handlersAPI.Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache, s.waf)
+				s.api.Handler = Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache, s.waf)
 				s.health.OpenAPIDB = s.sqlLiteStorage
 				if err := s.sqlLiteStorage.AfterLoad(s.cfg.PathToSpecDB); err != nil {
-					s.logger.WithFields(logrus.Fields{"error": err}).Error("Regular update checker: error in after specification loading function")
+					s.logger.WithFields(logrus.Fields{"error": err}).Errorf("%s: error in after specification loading function", logPrefix)
 				}
 				s.lock.Unlock()
 
 				continue
 			}
 
-			s.logger.Debugf("regular update checker: new OpenAPI specifications not found")
+			s.logger.Debugf("%s: new OpenAPI specifications not found", logPrefix)
 		case <-s.stop:
 			updateTicker.Stop()
 			return
@@ -117,7 +126,7 @@ func (s *Specification) Start() error {
 
 // Shutdown function stops update process
 func (s *Specification) Shutdown() error {
-	defer s.logger.Infof("specification updater: stopped")
+	defer s.logger.Infof("%s: stopped", logPrefix)
 
 	// close worker and finish Start function
 	for i := 0; i < 2; i++ {
@@ -131,5 +140,10 @@ func (s *Specification) Shutdown() error {
 func (s *Specification) Load() (database.DBOpenAPILoader, error) {
 
 	// Load specification
-	return database.NewOpenAPIDB(s.logger, s.cfg.PathToSpecDB, s.cfg.DBVersion)
+	return database.NewOpenAPIDB(s.cfg.PathToSpecDB, s.cfg.DBVersion)
+}
+
+// Find function searches for the handler by path and method
+func (s *Specification) Find(rctx *router.Context, schemaID int, method, path string) (router.Handler, error) {
+	return nil, nil
 }

@@ -49,7 +49,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		Logger: logger,
 	}
 
-	// Construct the web.App which holds all routes as well as common Middleware.
+	// Construct the App which holds all routes as well as common Middleware.
 	apps := NewApp(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.IPAllowlist(&ipAllowlistOptions), mid.WAFModSecurity(&modSecOptions), mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
 
 	for _, schemaID := range schemaIDs {
@@ -67,6 +67,10 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		serverURL, err := url.Parse(serverURLStr)
 		if err != nil {
 			logger.Errorf("parsing server URL from OpenAPI specification: %v", err)
+		}
+
+		if serverURL.Path == "" {
+			serverURL.Path = "/"
 		}
 
 		// get new router
@@ -106,5 +110,5 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 
 	}
 
-	return apps.APIModeRouteHandler
+	return apps.APIModeMainHandler
 }

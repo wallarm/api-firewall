@@ -5,11 +5,10 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/sirupsen/logrus"
 )
 
 type DBOpenAPILoader interface {
-	Load(dbStoragePath string) error
+	Load(dbStoragePath string) (bool, error)
 	AfterLoad(dbStoragePath string) error
 	SpecificationRaw(schemaID int) interface{}
 	SpecificationRawContent(schemaID int) []byte
@@ -27,21 +26,21 @@ func getSpecBytes(spec string) []byte {
 }
 
 // NewOpenAPIDB loads OAS specs from the database and returns the struct with the parsed specs
-func NewOpenAPIDB(log *logrus.Logger, dbStoragePath string, version int) (DBOpenAPILoader, error) {
+func NewOpenAPIDB(dbStoragePath string, version int) (DBOpenAPILoader, error) {
 
 	switch version {
 	case 1:
-		return NewOpenAPIDBV1(log, dbStoragePath)
+		return NewOpenAPIDBV1(dbStoragePath)
 	case 2:
-		return NewOpenAPIDBV2(log, dbStoragePath)
+		return NewOpenAPIDBV2(dbStoragePath)
 	default:
 		// first trying to load db v2
-		storageV2, errV2 := NewOpenAPIDBV2(log, dbStoragePath)
+		storageV2, errV2 := NewOpenAPIDBV2(dbStoragePath)
 		if errV2 == nil {
 			return storageV2, errV2
 		}
 
-		return NewOpenAPIDBV1(log, dbStoragePath)
+		return NewOpenAPIDBV1(dbStoragePath)
 
 	}
 

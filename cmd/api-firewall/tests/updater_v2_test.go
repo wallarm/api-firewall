@@ -1,4 +1,4 @@
-package updater
+package tests
 
 import (
 	"database/sql"
@@ -18,6 +18,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
 const (
@@ -152,7 +153,7 @@ func TestLoadBasicV2(t *testing.T) {
 	}()
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, currentDBPath, 0)
+	specStorage, err := database.NewOpenAPIDB(currentDBPath, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +183,7 @@ func TestLoadBasicV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -217,7 +218,7 @@ func TestLoadBasicV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -242,7 +243,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, currentDBPath, 0)
+	specStorage, err := database.NewOpenAPIDB(currentDBPath, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +287,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -306,7 +307,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -321,15 +322,15 @@ func TestUpdaterBasicV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusOK {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -339,7 +340,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfgV2, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgV2, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -370,7 +371,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -396,7 +397,7 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, "./wallarm_api2_empty.db", 0)
+	specStorage, err := database.NewOpenAPIDB("./wallarm_api2_empty.db", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,7 +413,7 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -427,15 +428,15 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusInternalServerError {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -445,7 +446,7 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfgV2, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgV2, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -461,7 +462,7 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -476,15 +477,15 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusOK {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -496,7 +497,7 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -511,15 +512,15 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusForbidden {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -537,7 +538,7 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, "./wallarm_api2_update.db", dbVersionV2)
+	specStorage, err := database.NewOpenAPIDB("./wallarm_api2_update.db", dbVersionV2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -553,7 +554,7 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -568,15 +569,15 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusForbidden {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -588,7 +589,7 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -603,15 +604,15 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusOK {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -629,7 +630,7 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfgV2Empty, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgV2Empty, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -645,7 +646,7 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -660,15 +661,15 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusInternalServerError {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -686,7 +687,7 @@ func TestUpdaterInvalidDBSchemaV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, "./wallarm_api_invalid_schema.db", dbVersionV2)
+	specStorage, err := database.NewOpenAPIDB("./wallarm_api_invalid_schema.db", dbVersionV2)
 	if err != nil {
 		t.Log(err)
 	}
@@ -700,7 +701,7 @@ func TestUpdaterInvalidDBSchemaV2(t *testing.T) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -730,7 +731,7 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, "./wallarm_api2_update.db", dbVersionV2)
+	specStorage, err := database.NewOpenAPIDB("./wallarm_api2_update.db", dbVersionV2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -746,7 +747,7 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -761,15 +762,15 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusForbidden {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -781,7 +782,7 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -796,15 +797,15 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusOK {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -822,7 +823,7 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfgV2Invalid, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgV2Invalid, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -838,7 +839,7 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -853,15 +854,15 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusOK {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -879,7 +880,7 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, "./wallarm_api_invalid.db", dbVersionV2)
+	specStorage, err := database.NewOpenAPIDB("./wallarm_api_invalid.db", dbVersionV2)
 	if err != nil {
 		t.Log(err)
 	}
@@ -895,7 +896,7 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -918,7 +919,7 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfgV2, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgV2, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -934,7 +935,7 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -949,15 +950,15 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusOK {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -969,7 +970,7 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -984,15 +985,15 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusForbidden {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -1010,7 +1011,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, "./wallarm_api_before_update.db", dbVersion)
+	specStorage, err := database.NewOpenAPIDB("./wallarm_api_before_update.db", dbVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1026,7 +1027,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -1041,15 +1042,15 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusForbidden {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -1061,7 +1062,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -1076,15 +1077,15 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusOK {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -1108,7 +1109,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfgV2, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgV2, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -1139,7 +1140,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1174,7 +1175,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1200,7 +1201,7 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, "./wallarm_api2_update.db", dbVersionV2)
+	specStorage, err := database.NewOpenAPIDB("./wallarm_api2_update.db", dbVersionV2)
 	if err != nil {
 		t.Log(err)
 	}
@@ -1216,7 +1217,7 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -1231,15 +1232,15 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusForbidden {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -1249,7 +1250,7 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := NewController(&lock, logger, specStorage, &cfg, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfg, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -1265,7 +1266,7 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -1280,15 +1281,15 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusOK {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",
@@ -1300,7 +1301,7 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
 	req.Header.SetMethod("GET")
-	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultUpdaterSchemaID))
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -1315,15 +1316,15 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
 
 	if len(apifwResponse.Summary) > 0 {
-		if *apifwResponse.Summary[0].SchemaID != DefaultSchemaID {
+		if *apifwResponse.Summary[0].SchemaID != DefaultUpdaterSchemaID {
 			t.Errorf("Incorrect error code. Expected: %d and got %d",
-				DefaultSchemaID, *apifwResponse.Summary[0].SchemaID)
+				DefaultUpdaterSchemaID, *apifwResponse.Summary[0].SchemaID)
 		}
 		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusForbidden {
 			t.Errorf("Incorrect result status. Expected: %d and got %d",

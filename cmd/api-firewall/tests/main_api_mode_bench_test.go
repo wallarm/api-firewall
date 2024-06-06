@@ -26,7 +26,7 @@ func BenchmarkAPIModeBasic(b *testing.B) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(logger, "../../../resources/test/database/wallarm_api.db", dbVersion)
+	specStorage, err := database.NewOpenAPIDB("../../../resources/test/database/wallarm_api.db", dbVersion)
 	if err != nil {
 		b.Fatalf("trying to load API Spec value from SQLLite Database : %v\n", err.Error())
 	}

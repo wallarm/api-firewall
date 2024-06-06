@@ -17,6 +17,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
 var (
@@ -96,7 +97,7 @@ func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPI
 	}
 
 	// Get Wallarm Schema ID
-	xWallarmSchemaIDsStr := string(ctx.Request.Header.Peek(web.XWallarmSchemaIDHeader))
+	xWallarmSchemaIDsStr := strconv.B2S(ctx.Request.Header.Peek(web.XWallarmSchemaIDHeader))
 	if xWallarmSchemaIDsStr == "" {
 		return nil, nil, errors.New("required X-WALLARM-SCHEMA-ID header is missing")
 	}
@@ -128,8 +129,8 @@ func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPI
 	return
 }
 
-// APIModeRouteHandler routes request to the appropriate handler according to the OpenAPI specification schema ID
-func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
+// APIModeMainHandler routes request to the appropriate handler according to the OpenAPI specification schema ID
+func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 
 	// handle panic
 	defer func() {
@@ -151,18 +152,18 @@ func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 
 		a.Log.WithFields(logrus.Fields{
 			"error":      err,
-			"host":       string(ctx.Request.Header.Host()),
-			"path":       string(ctx.Path()),
-			"method":     string(ctx.Request.Header.Method()),
+			"host":       strconv.B2S(ctx.Request.Header.Host()),
+			"path":       strconv.B2S(ctx.Path()),
+			"method":     strconv.B2S(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("error while getting schema ID")
 
 		if err := web.RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
 			a.Log.WithFields(logrus.Fields{
 				"error":      err,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
+				"host":       strconv.B2S(ctx.Request.Header.Host()),
+				"path":       strconv.B2S(ctx.Path()),
+				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Error("error while sending response")
 		}
@@ -188,8 +189,8 @@ func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 
 		// handler not found in the OAS
 		if handler == nil {
-			keyValidationErrors := strconv2.Itoa(schemaID) + web.APIModePostfixValidationErrors
-			keyStatusCode := strconv2.Itoa(schemaID) + web.APIModePostfixStatusCode
+			keyValidationErrors := strconv2.Itoa(schemaID) + validator.APIModePostfixValidationErrors
+			keyStatusCode := strconv2.Itoa(schemaID) + validator.APIModePostfixStatusCode
 
 			// OPTIONS methods are passed if the passOPTIONS is set to true
 			if a.passOPTIONS == true && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
@@ -210,7 +211,7 @@ func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 				"method":     strconv.B2S(ctx.Request.Header.Method()),
 				"request_id": ctx.UserValue(web.RequestID),
 			}).Debug("Method or path were not found")
-			ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: ErrMethodAndPathNotFound.Error(), Code: ErrCodeMethodAndPathNotFound, SchemaID: &schemaID}})
+			ctx.SetUserValue(keyValidationErrors, []*validator.ValidationError{{Message: validator.ErrMethodAndPathNotFound.Error(), Code: validator.ErrCodeMethodAndPathNotFound, SchemaID: &schemaID}})
 			ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
 			continue
 		}
@@ -229,8 +230,8 @@ func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 		}
 	}
 
-	responseSummary := make([]*web.APIModeResponseSummary, 0, len(schemaIDs))
-	responseErrors := make([]*web.ValidationError, 0)
+	responseSummary := make([]*validator.ValidationResponseSummary, 0, len(schemaIDs))
+	responseErrors := make([]*validator.ValidationError, 0)
 
 	for i := 0; i < len(schemaIDs); i++ {
 
@@ -240,11 +241,11 @@ func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 			return
 		}
 
-		statusCode, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + web.APIModePostfixStatusCode).(int)
+		statusCode, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + validator.APIModePostfixStatusCode).(int)
 		if !ok {
 			// set summary for the schema ID in pass Options mode
 			if a.passOPTIONS && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
-				responseSummary = append(responseSummary, &web.APIModeResponseSummary{
+				responseSummary = append(responseSummary, &validator.ValidationResponseSummary{
 					SchemaID:   &schemaIDs[i],
 					StatusCode: &statusOK,
 				})
@@ -257,19 +258,19 @@ func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 			statusCode = fasthttp.StatusInternalServerError
 		}
 
-		responseSummary = append(responseSummary, &web.APIModeResponseSummary{
+		responseSummary = append(responseSummary, &validator.ValidationResponseSummary{
 			SchemaID:   &schemaIDs[i],
 			StatusCode: &statusCode,
 		})
 
-		if validationErrors, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + web.APIModePostfixValidationErrors).([]*web.ValidationError); ok && validationErrors != nil {
+		if validationErrors, ok := ctx.UserValue(strconv2.Itoa(schemaIDs[i]) + validator.APIModePostfixValidationErrors).([]*validator.ValidationError); ok && validationErrors != nil {
 			responseErrors = append(responseErrors, validationErrors...)
 		}
 	}
 
 	// Add schema IDs that were not found in the DB to the response
 	for i := 0; i < len(notFoundSchemaIDs); i++ {
-		responseSummary = append(responseSummary, &web.APIModeResponseSummary{
+		responseSummary = append(responseSummary, &validator.ValidationResponseSummary{
 			SchemaID:   &notFoundSchemaIDs[i],
 			StatusCode: &statusInternalError,
 		})
@@ -283,12 +284,12 @@ func (a *App) APIModeRouteHandler(ctx *fasthttp.RequestCtx) {
 		ctx.Request.Header.SetMethod(fasthttp.MethodGet)
 	}
 
-	if err := web.Respond(ctx, web.APIModeResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
+	if err := web.Respond(ctx, validator.ValidationResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
 		a.Log.WithFields(logrus.Fields{
 			"request_id": ctx.UserValue(web.RequestID),
-			"host":       string(ctx.Request.Header.Host()),
-			"path":       string(ctx.Path()),
-			"method":     string(ctx.Request.Header.Method()),
+			"host":       strconv.B2S(ctx.Request.Header.Host()),
+			"path":       strconv.B2S(ctx.Path()),
+			"method":     strconv.B2S(ctx.Request.Header.Method()),
 			"error":      err,
 		}).Error("respond error")
 	}
