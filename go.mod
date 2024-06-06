@@ -22,7 +22,7 @@ require (
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
-	github.com/valyala/fasthttp v1.52.0
+	github.com/valyala/fasthttp v1.54.0
 	github.com/valyala/fastjson v1.6.4
 	github.com/wundergraph/graphql-go-tools v1.67.2
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
@@ -79,9 +79,9 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.18.1 // indirect
-	golang.org/x/crypto v0.22.0 // indirect
-	golang.org/x/net v0.24.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
+	golang.org/x/crypto v0.24.0 // indirect
+	golang.org/x/net v0.26.0 // indirect
+	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect

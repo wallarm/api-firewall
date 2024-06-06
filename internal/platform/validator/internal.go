@@ -64,3 +64,13 @@ func convertToMap(v *fastjson.Value) interface{} {
 		return nil
 	}
 }
+
+// Contains returns true if v is present in the elems slice, false otherwise
+func Contains[T comparable](elems []T, v T) bool {
+	for _, s := range elems {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}

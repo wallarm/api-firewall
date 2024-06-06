@@ -3,7 +3,6 @@ package api
 import (
 	"os"
 	"runtime/debug"
-	"slices"
 	"sync"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/database/updater"
 	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/validator"
 )
 
 const (
@@ -91,7 +91,7 @@ func (s *Specification) Run() {
 				newScemaIDs := newSpecDB.SchemaIDs()
 				oldSchemaIDs := s.sqlLiteStorage.SchemaIDs()
 				for _, ns := range newScemaIDs {
-					if !slices.Contains(oldSchemaIDs, ns) {
+					if !validator.Contains(oldSchemaIDs, ns) {
 						s.logger.Infof("%s: fetched new OpenAPI specification from the database with id: %d", logPrefix, ns)
 					}
 				}

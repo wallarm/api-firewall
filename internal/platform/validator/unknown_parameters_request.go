@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -243,7 +242,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 					continue
 				}
 				for paramName, _ := range params {
-					if !slices.Contains(propKeys, strings.ToLower(paramName)) {
+					if !Contains(propKeys, strings.ToLower(paramName)) {
 						unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
 						unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
 							Name:        paramName,
@@ -255,7 +254,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 			}
 		default:
 			for paramName, _ := range paramList {
-				if !slices.Contains(propKeys, strings.ToLower(paramName)) {
+				if !Contains(propKeys, strings.ToLower(paramName)) {
 					unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
 					unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
 						Name:        paramName,
