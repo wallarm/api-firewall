@@ -2,10 +2,11 @@
 
 This page describes new releases of Wallarm API Firewall.
 
-## v0.7.3 (TBD)
+## v0.7.3 (2024-06-06)
 
 * Dependency upgrade
 * Supported new interface for the `api` mode usage, only for internal use
+* Added the APIFW_SERVER_REQUEST_HOST_HEADER env variable to set the custom host value for proxied requests
 
 ## v0.7.2 (2024-04-16)
 
