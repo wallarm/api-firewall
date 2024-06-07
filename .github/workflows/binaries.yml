@@ -178,7 +178,7 @@ jobs:
       -
         uses: addnab/docker-run-action@v3
         with:
-          image: golang:${{ env.X_GO_VERSION }}-alpine3.19
+          image: golang:${{ env.X_GO_VERSION }}-alpine3.20
           options: >
             --volume ${{ github.workspace }}:/build
             --workdir /build
