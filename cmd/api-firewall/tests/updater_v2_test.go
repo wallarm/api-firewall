@@ -18,6 +18,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
 const (
@@ -182,7 +183,7 @@ func TestLoadBasicV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -217,7 +218,7 @@ func TestLoadBasicV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -286,7 +287,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -321,7 +322,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -370,7 +371,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -427,7 +428,7 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -476,7 +477,7 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -511,7 +512,7 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -568,7 +569,7 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -603,7 +604,7 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -660,7 +661,7 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -761,7 +762,7 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -796,7 +797,7 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -853,7 +854,7 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -949,7 +950,7 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -984,7 +985,7 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1041,7 +1042,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1076,7 +1077,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1139,7 +1140,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1174,7 +1175,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1231,7 +1232,7 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse := web.APIModeResponse{}
+	apifwResponse := validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1280,7 +1281,7 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}
@@ -1315,7 +1316,7 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	apifwResponse = web.APIModeResponse{}
+	apifwResponse = validator.ValidationResponse{}
 	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
 		t.Errorf("Error while JSON response parsing: %v", err)
 	}

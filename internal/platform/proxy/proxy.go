@@ -6,13 +6,18 @@ import (
 )
 
 // Perform function proxies the request to the backend server
-func Perform(ctx *fasthttp.RequestCtx, proxyPool Pool) error {
+func Perform(ctx *fasthttp.RequestCtx, proxyPool Pool, customHostHeader string) error {
 
 	client, err := proxyPool.Get()
 	if err != nil {
 		return err
 	}
 	defer proxyPool.Put(client)
+
+	if customHostHeader != "" {
+		ctx.Request.Header.SetHost(customHostHeader)
+		ctx.Request.URI().SetHost(customHostHeader)
+	}
 
 	if err := client.Do(&ctx.Request, &ctx.Response); err != nil {
 		// request proxy has been failed

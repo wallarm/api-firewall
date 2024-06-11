@@ -1,4 +1,4 @@
-package APImode
+package validator
 
 import (
 	"context"
@@ -16,8 +16,8 @@ import (
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/router"
-	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
 var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
@@ -31,7 +31,7 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 				if bHeader == "" || !strings.HasPrefix(strings.ToLower(bHeader), "basic ") {
 					return &SecurityRequirementsParameterIsMissingError{
 						Field:   "Authorization",
-						Message: fmt.Sprintf("%v: basic authentication is required", ErrAuthHeaderMissed),
+						Message: fmt.Sprintf("%v: basic authentication is required", validator.ErrAuthHeaderMissed),
 					}
 				}
 			case "bearer":
@@ -39,7 +39,7 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 				if bHeader == "" || !strings.HasPrefix(strings.ToLower(bHeader), "bearer ") {
 					return &SecurityRequirementsParameterIsMissingError{
 						Field:   "Authorization",
-						Message: fmt.Sprintf("%v: bearer authentication is required", ErrAuthHeaderMissed),
+						Message: fmt.Sprintf("%v: bearer authentication is required", validator.ErrAuthHeaderMissed),
 					}
 				}
 			}
@@ -49,14 +49,14 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 				if input.RequestValidationInput.Request.Header.Get(input.SecurityScheme.Name) == "" {
 					return &SecurityRequirementsParameterIsMissingError{
 						Field:   input.SecurityScheme.Name,
-						Message: fmt.Sprintf("%v: missing %s header", ErrAPITokenMissed, input.SecurityScheme.Name),
+						Message: fmt.Sprintf("%v: missing %s header", validator.ErrAPITokenMissed, input.SecurityScheme.Name),
 					}
 				}
 			case "query":
 				if input.RequestValidationInput.Request.URL.Query().Get(input.SecurityScheme.Name) == "" {
 					return &SecurityRequirementsParameterIsMissingError{
 						Field:   input.SecurityScheme.Name,
-						Message: fmt.Sprintf("%v: missing %s query parameter", ErrAPITokenMissed, input.SecurityScheme.Name),
+						Message: fmt.Sprintf("%v: missing %s query parameter", validator.ErrAPITokenMissed, input.SecurityScheme.Name),
 					}
 				}
 			case "cookie":
@@ -64,7 +64,7 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 				if err != nil {
 					return &SecurityRequirementsParameterIsMissingError{
 						Field:   input.SecurityScheme.Name,
-						Message: fmt.Sprintf("%v: missing %s cookie", ErrAPITokenMissed, input.SecurityScheme.Name),
+						Message: fmt.Sprintf("%v: missing %s cookie", validator.ErrAPITokenMissed, input.SecurityScheme.Name),
 					}
 				}
 			}
@@ -73,8 +73,8 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 	},
 }
 
-// ValidateRequest validates request and respond with 200, 403 (with error) or 500 status code
-func ValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPool, openAPI *loader.CustomRoute, unknownParametersDetection bool) (validationErrs []*web.ValidationError, err error) {
+// APIModeValidateRequest validates request and respond with 200, 403 (with error) or 500 status code
+func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPool, openAPI *loader.CustomRoute, unknownParametersDetection bool) (validationErrs []*validator.ValidationError, err error) {
 
 	// handle panic
 	defer func() {
@@ -126,8 +126,8 @@ func ValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPo
 
 	var valReqErrors error
 	var valUPReqErrors error
-	var upResults []validator.RequestUnknownParameterError
-	var respErrors []*web.ValidationError
+	var upResults []RequestUnknownParameterError
+	var respErrors []*validator.ValidationError
 
 	wg.Add(1)
 	go func() {
@@ -144,7 +144,7 @@ func ValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPo
 		jsonParser := jsonParserPool.Get()
 		defer jsonParserPool.Put(jsonParser)
 
-		valReqErrors = validator.ValidateRequest(ctx, requestValidationInput, jsonParser)
+		valReqErrors = ValidateRequest(ctx, requestValidationInput, jsonParser)
 	}()
 
 	// Validate unknown parameters
@@ -164,7 +164,7 @@ func ValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPo
 			jsonParser := jsonParserPool.Get()
 			defer jsonParserPool.Put(jsonParser)
 
-			upResults, valUPReqErrors = validator.ValidateUnknownRequestParameters(ctx, requestValidationInput.Route, req.Header, jsonParser)
+			upResults, valUPReqErrors = ValidateUnknownRequestParameters(ctx, requestValidationInput.Route, req.Header, jsonParser)
 		}()
 	}
 
@@ -176,10 +176,10 @@ func ValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPo
 		case openapi3.MultiError:
 
 			for _, currentErr := range valErr {
-				// Parse validation error and build the response
+				// Parse validator error and build the response
 				parsedValErrs, unknownErr := GetErrorResponse(currentErr)
 				if unknownErr != nil {
-					return nil, errors.Wrap(unknownErr, "validation response parsing error")
+					return nil, errors.Wrap(unknownErr, "validator response parsing error")
 				}
 
 				if len(parsedValErrs) > 0 {
@@ -188,10 +188,10 @@ func ValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPo
 			}
 
 		default:
-			// Parse validation error and build the response
+			// Parse validator error and build the response
 			parsedValErrs, unknownErr := GetErrorResponse(valErr)
 			if unknownErr != nil {
-				return nil, errors.Wrap(unknownErr, "validation response parsing error")
+				return nil, errors.Wrap(unknownErr, "validator response parsing error")
 			}
 			if parsedValErrs != nil {
 				respErrors = append(respErrors, parsedValErrs...)
@@ -204,7 +204,7 @@ func ValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPo
 
 			// If it is not a parsing error then return 500
 			// If it is a parsing error then it already handled by the request validator
-			var parseError *validator.ParseError
+			var parseError *ParseError
 			if !errors.As(valUPReqErrors, &parseError) {
 				return nil, errors.Wrap(valUPReqErrors, "unknown parameter detection error")
 			}
@@ -213,9 +213,9 @@ func ValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPo
 		if len(upResults) > 0 {
 			for _, upResult := range upResults {
 				for _, f := range upResult.Parameters {
-					response := web.ValidationError{}
+					response := validator.ValidationError{}
 					response.Message = upResult.Message
-					response.Code = ErrCodeUnknownParameterFound
+					response.Code = validator.ErrCodeUnknownParameterFound
 					response.Fields = []string{f.Name}
 					respErrors = append(respErrors, &response)
 				}

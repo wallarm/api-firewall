@@ -486,6 +486,8 @@ func TestBasic(t *testing.T) {
 	t.Run("unknownParamInvalidMimeType", apifwTests.unknownParamUnsupportedMimeType)
 
 	t.Run("testConflictPaths", apifwTests.testConflictPaths)
+
+	t.Run("testCustomHostHeader", apifwTests.testCustomHostHeader)
 }
 
 func (s *ServiceTests) testCustomBlockStatusCode(t *testing.T) {
@@ -2751,6 +2753,79 @@ func (s *ServiceTests) testConflictPaths(t *testing.T) {
 	s.proxy.EXPECT().Put(s.client).Return(nil)
 
 	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+}
+
+func checkHostHeaderEndpoint(ctx *fasthttp.RequestCtx) {
+	if bytes.EqualFold(ctx.Request.Header.Host(), []byte("testCustomHost")) {
+		ctx.SetStatusCode(fasthttp.StatusOK)
+	} else {
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+	}
+}
+
+func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/get/test")
+	req.Header.SetMethod("GET")
+	req.Header.SetHost("wrongHost")
+
+	port := 28290
+	defer startServerOnPort(t, port, checkHostHeaderEndpoint).Close()
+
+	serverConf := config.Server{
+		Backend: config.Backend{
+			URL:                "http://localhost:28290",
+			RequestHostHeader:  "testCustomHost",
+			ClientPoolCapacity: 1000,
+			InsecureConnection: false,
+			RootCA:             "",
+			MaxConnsPerHost:    512,
+			ReadTimeout:        time.Second * 5,
+			WriteTimeout:       time.Second * 5,
+			DialTimeout:        time.Second * 5,
+		},
+	}
+
+	var cfg = config.ProxyMode{
+		RequestValidation:         "BLOCK",
+		ResponseValidation:        "BLOCK",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+		Server: serverConf,
+	}
+
+	options := proxy.Options{
+		InitialPoolCapacity: 100,
+		ClientPoolCapacity:  cfg.Server.ClientPoolCapacity,
+		InsecureConnection:  cfg.Server.InsecureConnection,
+		RootCA:              cfg.Server.RootCA,
+		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
+		ReadTimeout:         cfg.Server.ReadTimeout,
+		WriteTimeout:        cfg.Server.WriteTimeout,
+		DialTimeout:         cfg.Server.DialTimeout,
+	}
+	pool, err := proxy.NewChanPool("localhost:28290", &options)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	if err := proxy.Perform(&reqCtx, pool, cfg.Server.RequestHostHeader); err != nil {
+		t.Fatal(err)
+	}
 
 	if reqCtx.Response.StatusCode() != 200 {
 		t.Errorf("Incorrect response status code. Expected: 200 and got %d",

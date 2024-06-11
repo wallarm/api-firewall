@@ -9,9 +9,10 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
 	"github.com/wallarm/api-firewall/internal/config"
-	"github.com/wallarm/api-firewall/internal/platform/APImode"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
+	apiMode "github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
 type RequestValidator struct {
@@ -37,8 +38,8 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 		}
 	}()
 
-	keyValidationErrors := strconv2.Itoa(s.SchemaID) + web.APIModePostfixValidationErrors
-	keyStatusCode := strconv2.Itoa(s.SchemaID) + web.APIModePostfixStatusCode
+	keyValidationErrors := strconv2.Itoa(s.SchemaID) + validator.APIModePostfixValidationErrors
+	keyStatusCode := strconv2.Itoa(s.SchemaID) + validator.APIModePostfixStatusCode
 
 	// Route not found
 	if s.CustomRoute == nil {
@@ -48,12 +49,12 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 			"method":     strconv.B2S(ctx.Request.Header.Method()),
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Debug("Method or path were not found")
-		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: APImode.ErrMethodAndPathNotFound.Error(), Code: APImode.ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
+		ctx.SetUserValue(keyValidationErrors, []*validator.ValidationError{{Message: validator.ErrMethodAndPathNotFound.Error(), Code: validator.ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
 		return nil
 	}
 
-	validationErrors, err := APImode.ValidateRequest(ctx, s.ParserPool, s.CustomRoute, s.Cfg.UnknownParametersDetection)
+	validationErrors, err := apiMode.APIModeValidateRequest(ctx, s.ParserPool, s.CustomRoute, s.Cfg.UnknownParametersDetection)
 	if err != nil {
 		s.Log.WithFields(logrus.Fields{
 			"error":      err,

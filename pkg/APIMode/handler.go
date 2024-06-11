@@ -1,4 +1,4 @@
-package apifw
+package APIMode
 
 import (
 	"fmt"
@@ -6,9 +6,9 @@ import (
 
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
-	"github.com/wallarm/api-firewall/internal/platform/APImode"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
-	"github.com/wallarm/api-firewall/internal/platform/web"
+	apiMode "github.com/wallarm/api-firewall/internal/platform/validator"
+	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
 type RequestValidator struct {
@@ -37,17 +37,17 @@ func (rv *RequestValidator) APIModeHandler(ctx *fasthttp.RequestCtx) (err error)
 		}
 	}()
 
-	keyValidationErrors := strconv2.Itoa(rv.SchemaID) + web.APIModePostfixValidationErrors
-	keyStatusCode := strconv2.Itoa(rv.SchemaID) + web.APIModePostfixStatusCode
+	keyValidationErrors := strconv2.Itoa(rv.SchemaID) + validator.APIModePostfixValidationErrors
+	keyStatusCode := strconv2.Itoa(rv.SchemaID) + validator.APIModePostfixStatusCode
 
 	// Route not found
 	if rv.CustomRoute == nil {
-		ctx.SetUserValue(keyValidationErrors, []*web.ValidationError{{Message: APImode.ErrMethodAndPathNotFound.Error(), Code: APImode.ErrCodeMethodAndPathNotFound, SchemaID: &rv.SchemaID}})
+		ctx.SetUserValue(keyValidationErrors, []*validator.ValidationError{{Message: validator.ErrMethodAndPathNotFound.Error(), Code: validator.ErrCodeMethodAndPathNotFound, SchemaID: &rv.SchemaID}})
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
 		return nil
 	}
 
-	validationErrors, err := APImode.ValidateRequest(ctx, rv.ParserPool, rv.CustomRoute, rv.Options.UnknownParametersDetection)
+	validationErrors, err := apiMode.APIModeValidateRequest(ctx, rv.ParserPool, rv.CustomRoute, rv.Options.UnknownParametersDetection)
 	if err != nil {
 		return err
 	}
