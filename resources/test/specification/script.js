@@ -36,7 +36,7 @@ let headerMandatory = 282;
 
 // FIXME by some reason k6 compiler throws exception on spread operator (`...apifwHeaders`), so use variables for now in some cases
 const apifwSchemaHeader = "X-WALLARM-SCHEMA-ID";
-const apifwSchemaId = 15;
+const apifwSchemaId = 5;
 const apifwHeaders = {
     [apifwSchemaHeader]: apifwSchemaId
 }
