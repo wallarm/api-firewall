@@ -149,6 +149,7 @@ func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -243,6 +244,7 @@ func (s *ServiceGraphQLTests) testGQLEndpointNotExists(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -326,6 +328,7 @@ func (s *ServiceGraphQLTests) testGQLGETSuccess(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -414,6 +417,7 @@ func (s *ServiceGraphQLTests) testGQLGETMutationFailed(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -490,6 +494,7 @@ func (s *ServiceGraphQLTests) testGQLValidationFailed(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -576,6 +581,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidQuerySyntax(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -662,6 +668,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxComplexity(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -747,6 +754,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxDepth(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -832,6 +840,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidNodeLimit(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -920,6 +929,7 @@ func (s *ServiceGraphQLTests) testGQLBatchQueryLimit(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -997,6 +1007,7 @@ func (s *ServiceGraphQLTests) testGQLDenylistBlock(t *testing.T) {
 
 	var cfg = config.GraphQLMode{
 		Graphql:  gqlCfg,
+		APIHost:  "http://localhost:8080/query",
 		Denylist: config.Denylist{Tokens: tokensCfg},
 	}
 
@@ -1222,6 +1233,7 @@ func (s *ServiceGraphQLTests) testGQLSubscription(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/graphql",
 		Server: config.Backend{
 			URL: "http://localhost:19090/graphql",
 		},
@@ -1396,6 +1408,7 @@ func (s *ServiceGraphQLTests) testGQLSubscriptionLogOnly(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/graphql",
 		Server: config.Backend{
 			URL: "http://localhost:19092/graphql",
 		},
@@ -1533,6 +1546,7 @@ func (s *ServiceGraphQLTests) testGQLMaxAliasesNum(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
@@ -1629,6 +1643,7 @@ func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
+		APIHost: "http://localhost:8080/query",
 	}
 
 	// parse the GraphQL schema
