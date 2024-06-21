@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/corazawaf/coraza/v3"
 	"github.com/golang-jwt/jwt"
@@ -17,6 +18,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
+	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
@@ -24,7 +26,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *loader.Router, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
+func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, specStorage database.DBOpenAPILoader, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -38,13 +40,13 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		if strings.HasPrefix(strings.ToLower(cfg.Server.Oauth.JWT.SignatureAlgorithm), "rs") && cfg.Server.Oauth.JWT.PubCertFile != "" {
 			verifyBytes, err := os.ReadFile(cfg.Server.Oauth.JWT.PubCertFile)
 			if err != nil {
-				logger.Errorf("Error reading public key from file: %s", err)
+				logger.Errorf("Error reading public key from file: %v", err)
 				break
 			}
 
 			key, err = jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
 			if err != nil {
-				logger.Errorf("Error parsing public key: %s", err)
+				logger.Errorf("Error parsing public key: %v", err)
 				break
 			}
 
@@ -143,6 +145,12 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		RequestValidation:     cfg.RequestValidation,
 		ResponseValidation:    cfg.ResponseValidation,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
+	}
+
+	swagRouter, err := loader.NewRouter(specStorage.Specification(0), true)
+	if err != nil {
+		logger.Errorf("Error parsing OpenAPI specification: %v", err)
+		return nil
 	}
 
 	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.IPAllowlist(&ipAllowlistOptions), mid.Denylist(&denylistOptions), mid.WAFModSecurity(&modSecOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))
