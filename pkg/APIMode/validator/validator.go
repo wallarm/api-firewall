@@ -64,7 +64,7 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*rou
 	// handler not found in the existing OAS
 	if handler == nil {
 		// OPTIONS methods are passed if the passOPTIONS is set to true
-		if passOptionsRequests == true && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
+		if passOptionsRequests && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 			return &ValidationResponse{
 				Summary: []*ValidationResponseSummary{
 					{

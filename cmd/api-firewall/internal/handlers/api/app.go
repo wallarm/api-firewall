@@ -193,7 +193,7 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 			keyStatusCode := strconv2.Itoa(schemaID) + validator.APIModePostfixStatusCode
 
 			// OPTIONS methods are passed if the passOPTIONS is set to true
-			if a.passOPTIONS == true && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
+			if a.passOPTIONS && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 				ctx.SetUserValue(keyStatusCode, fasthttp.StatusOK)
 				a.Log.WithFields(logrus.Fields{
 					"host":       strconv.B2S(ctx.Request.Header.Host()),

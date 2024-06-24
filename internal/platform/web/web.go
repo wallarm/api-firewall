@@ -134,7 +134,7 @@ func (a *App) MainHandler(ctx *fasthttp.RequestCtx) {
 	if handler == nil {
 
 		// OPTIONS methods are passed if the passOPTIONS is set to true
-		if a.Options.PassOptions == true && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
+		if a.Options.PassOptions && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 
 			ctx.SetUserValue(PassRequestOPTIONS, true)
 
