@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
@@ -26,7 +27,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, specStorage database.DBOpenAPILoader, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
+func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, specStorage database.DBOpenAPILoader, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -113,6 +114,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
 		OptionsHandler:        optionsHandler,
 		DefaultHandler:        defaultOpenAPIWaf.openapiWafHandler,
+		Lock:                  lock,
 	}
 
 	proxyOptions := mid.ProxyOptions{
@@ -134,7 +136,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 		Mode:                  web.ProxyMode,
 		Config:                &cfg.AllowIP,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
-		AllowedIPs:            AllowedIPCache,
+		AllowedIPs:            allowedIPCache,
 		Logger:                logger,
 	}
 
