@@ -15,6 +15,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"github.com/valyala/fastjson"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/oauth2"
@@ -98,13 +99,13 @@ func getValidationHeader(ctx *fasthttp.RequestCtx, err error) *string {
 
 func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 
-	// Pass OPTIONS if the feature is enabled
+	// pass OPTIONS if the feature is enabled
 	var isOptionsReq, ok bool
 	if isOptionsReq, ok = ctx.UserValue(web.PassRequestOPTIONS).(bool); !ok {
 		isOptionsReq = false
 	}
 
-	// Proxy request if APIFW is disabled
+	// proxy request if APIFW is disabled
 	if isOptionsReq == true ||
 		strings.EqualFold(s.cfg.RequestValidation, web.ValidationDisable) && strings.EqualFold(s.cfg.ResponseValidation, web.ValidationDisable) {
 		if err := proxy.Perform(ctx, s.proxyPool, s.cfg.Server.RequestHostHeader); err != nil {
@@ -119,7 +120,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		return nil
 	}
 
-	// If Validation is BLOCK for request and response then respond by CustomBlockStatusCode
+	// if Validation is BLOCK for request and response then respond by CustomBlockStatusCode
 	if s.customRoute == nil {
 		// route for the request not found
 		ctx.SetUserValue(web.RequestProxyNoRoute, true)
@@ -150,7 +151,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		pathParams = router.AllURLParams(ctx)
 	}
 
-	// Convert fasthttp request to net/http request
+	// convert fasthttp request to net/http request
 	req := http.Request{}
 	if err := fasthttpadaptor.ConvertRequest(ctx, &req, false); err != nil {
 		s.logger.WithFields(logrus.Fields{
@@ -180,7 +181,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		}
 	}
 
-	// Validate request
+	// validate request
 	requestValidationInput := &openapi3filter.RequestValidationInput{
 		Request:     &req,
 		PathParams:  pathParams,
@@ -232,7 +233,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		},
 	}
 
-	// Get fastjson parser
+	// get fastjson parser
 	jsonParser := s.parserPool.Get()
 	defer s.parserPool.Put(jsonParser)
 
@@ -352,7 +353,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		return nil
 	}
 
-	// Prepare http response headers
+	// prepare http response headers
 	respHeader := http.Header{}
 	ctx.Response.Header.VisitAll(func(k, v []byte) {
 		sk := strconv.B2S(k)
@@ -387,7 +388,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		},
 	}
 
-	// Validate response
+	// validate response
 	switch strings.ToLower(s.cfg.ResponseValidation) {
 	case web.ValidationBlock:
 		if err := validator.ValidateResponse(ctx, responseValidationInput, jsonParser); err != nil {

@@ -13,7 +13,6 @@ import (
 	"syscall"
 
 	"github.com/ardanlabs/conf"
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-playground/validator"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -25,7 +24,6 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
-	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
@@ -740,32 +738,32 @@ func runProxyMode(logger *logrus.Logger) error {
 	// buffered channel so the goroutine can exit if we don't collect this error.
 	serverErrors := make(chan error, 1)
 
+	// OAS Usage Lock
+	var lock sync.RWMutex
+
 	// =========================================================================
 	// Init Swagger
 
-	var swagger *openapi3.T
+	//var swagger *openapi3.T
+	var specStorage database.DBOpenAPILoader
 
 	apiSpecURL, err := url.ParseRequestURI(cfg.APISpecs)
 	if err != nil {
 		logger.Debugf("%s: Trying to parse API Spec value as URL : %v\n", logPrefix, err.Error())
 	}
 
-	switch apiSpecURL {
-	case nil:
-		swagger, err = openapi3.NewLoader().LoadFromFile(cfg.APISpecs)
+	switch apiSpecURL.Scheme {
+	case "":
+		specStorage, err = database.NewOpenAPIFromFile(cfg.APISpecs)
 		if err != nil {
 			return errors.Wrap(err, "loading OpenAPI specification from file")
 		}
 	default:
-		swagger, err = openapi3.NewLoader().LoadFromURI(apiSpecURL)
+		//swagger, err = openapi3.NewLoader().LoadFromURI(apiSpecURL)
+		//specStorage, err = database.NewOpenAPIFromURI(apiSpecURL)
 		if err != nil {
 			return errors.Wrap(err, "loading OpenAPI specification from URL")
 		}
-	}
-
-	swagRouter, err := loader.NewRouter(swagger, true)
-	if err != nil {
-		return errors.Wrap(err, "parsing OpenAPI specification")
 	}
 
 	// =========================================================================
@@ -828,16 +826,16 @@ func runProxyMode(logger *logrus.Logger) error {
 
 	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
 
-	AllowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
+	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
 	if err != nil {
 		return errors.Wrap(err, "The allow IP list init error")
 	}
 
-	switch AllowedIPCache {
+	switch allowedIPCache {
 	case nil:
 		logger.Infof("%s: The allow ip list is not configured", logPrefix)
 	default:
-		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, AllowedIPCache.ElementsNum)
+		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
 	}
 
 	// =========================================================================
@@ -856,7 +854,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Handlers
 
-	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens, AllowedIPCache, waf)
+	requestHandlers = handlersProxy.Handlers(&lock, &cfg, serverURL, shutdown, logger, pool, specStorage, deniedTokens, allowedIPCache, waf)
 
 	// =========================================================================
 	// Start Health API Service
@@ -922,6 +920,21 @@ func runProxyMode(logger *logrus.Logger) error {
 		WriteTimeout:          cfg.WriteTimeout,
 		Logger:                logger,
 		NoDefaultServerHeader: true,
+	}
+
+	// =========================================================================
+	// Init Regular Update Controller
+
+	updSpecErrors := make(chan error, 1)
+
+	updOpenAPISpec := handlersProxy.NewHandlerUpdater(&lock, logger, specStorage, &cfg, serverURL, &api, shutdown, pool, deniedTokens, allowedIPCache, waf)
+
+	// disable updater if SpecificationUpdatePeriod == 0
+	if cfg.SpecificationUpdatePeriod.Seconds() > 0 {
+		go func() {
+			logger.Infof("%s: starting specification regular update process every %.0f seconds", logPrefix, cfg.SpecificationUpdatePeriod.Seconds())
+			updSpecErrors <- updOpenAPISpec.Start()
+		}()
 	}
 
 	// Start the service listening for requests.

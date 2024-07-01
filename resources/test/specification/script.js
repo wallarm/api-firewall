@@ -14,6 +14,13 @@
 import http from "k6/http";
 import { group, check, sleep } from "k6";
 
+export const options = {
+    thresholds: {
+      // the rate of successful checks should be 100%
+      checks: ['rate==1'],
+    },
+  };
+
 const BASE_URL = "http://localhost:8282";
 // Sleep duration between successive requests.
 // You might want to edit the value of this variable or remove calls to the sleep function on the script.
@@ -29,14 +36,14 @@ let headerMandatory = 282;
 
 // FIXME by some reason k6 compiler throws exception on spread operator (`...apifwHeaders`), so use variables for now in some cases
 const apifwSchemaHeader = "X-WALLARM-SCHEMA-ID";
-const apifwSchemaId = 15;
+const apifwSchemaId = 5;
 const apifwHeaders = {
     [apifwSchemaHeader]: apifwSchemaId
 }
 
 export default function() {
     group("/serialization/query/deepObject", () => {
-        let explodeTrueQuery = 'explode_true[role]=admin&id[firstName]=Alex'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
+        let explodeTrueQuery = 'explode_true[role]=admin&explode_true[firstName]=Alex'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
 
         // Request No. 1: 
         {
@@ -45,7 +52,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -67,7 +75,8 @@ export default function() {
             let request = http.post(url, JSON.stringify(body), params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -100,8 +109,10 @@ export default function() {
             let params = {headers: {"Content-Type": "application/json", "Accept": "application/json", [apifwSchemaHeader]: apifwSchemaId}};
             let request = http.post(url, JSON.stringify(body), params);
 
+            // FIXME https://wallarm.atlassian.net/browse/KERBEROS-1466
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200 (KERBEROS-1466)": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -117,7 +128,8 @@ export default function() {
             let request = http.request('TRACE', url, null, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -133,7 +145,8 @@ export default function() {
             let request = http.options(url, null, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -157,11 +170,24 @@ export default function() {
                phone: "12345",
                userStatus: 1
              }
-            let params = {headers: {"Content-Type": "application/json", "header_mandatory": `${headerMandatory}`, "header_optional": `${headerOptional}`, "Accept": "application/json", [apifwSchemaHeader]: apifwSchemaId}};
+            let params = {
+                headers: {
+                    "Content-Type": "application/json", 
+                    "header_mandatory": `${headerMandatory}`, 
+                    "header_optional": `${headerOptional}`, 
+                    "Accept": "application/json", 
+                    [apifwSchemaHeader]: apifwSchemaId
+                },
+                cookies: {
+                    "cookie_mandatory": "cookies are not evil",
+                    "cookie_optional": false
+                }
+            };
             let request = http.put(url, JSON.stringify(body), params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -175,14 +201,15 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
 
     group("/common/path/parameters/{parameter1}", () => {
         let offset = '50'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
-        let limit = '100'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
+        let limit = '20'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
         let id = '12345'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
         let parameter1 = '3.14'; // extracted from 'example' field defined at the parameter level of OpenAPI spec
 
@@ -193,7 +220,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
 
             sleep(SLEEP_DURATION);
@@ -207,7 +235,8 @@ export default function() {
             let request = http.patch(url, JSON.stringify(body), params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -222,8 +251,10 @@ export default function() {
             let params = {headers: apifwHeaders};
             let request = http.get(url, params);
 
+            // FIXME https://wallarm.atlassian.net/browse/KERBEROS-1468
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200 (KERBEROS-1468)": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -263,8 +294,10 @@ export default function() {
             let params = {headers: {"Content-Type": "application/json", "Accept": "application/json", [apifwSchemaHeader]: apifwSchemaId}};
             let request = http.post(url, JSON.stringify(body), params);
 
+            // FIXME https://wallarm.atlassian.net/browse/KERBEROS-1469
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200 (KERBEROS-1469)": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -279,8 +312,10 @@ export default function() {
             let params = {headers: apifwHeaders};
             let request = http.get(url, params);
 
+            // FIXME https://wallarm.atlassian.net/browse/KERBEROS-1468
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200 (KERBEROS-1468)": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -305,7 +340,8 @@ export default function() {
             let request = http.post(url, JSON.stringify(body), params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -319,7 +355,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -333,7 +370,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -347,7 +385,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -362,8 +401,10 @@ export default function() {
             let params = {headers: apifwHeaders};
             let request = http.get(url, params);
 
+            // FIXME https://wallarm.atlassian.net/browse/KERBEROS-1468
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200 (KERBEROS-1468)": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -379,7 +420,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -396,7 +438,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -410,7 +453,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -423,10 +467,14 @@ export default function() {
         {
             let url = BASE_URL + `/serialization/path/label/${explodeFalsePath}/${explodeTruePath}`;
             let params = {headers: apifwHeaders};
-            let request = http.head(url, params);
+            let request = http.request('HEAD', url, undefined, params);
 
+            console.log(request.body);
+
+            // FIXME https://wallarm.atlassian.net/browse/KERBEROS-1470
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200 (KERBEROS-1470)": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -449,8 +497,10 @@ export default function() {
             let params = {headers: {"Content-Type": "application/json", "Accept": "application/json", [apifwSchemaHeader]: apifwSchemaId}};
             let request = http.post(url, JSON.stringify(body), params);
 
+            // FIXME https://wallarm.atlassian.net/browse/KERBEROS-1469
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200 (KERBEROS-1469)": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -466,7 +516,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -485,7 +536,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -518,7 +570,8 @@ export default function() {
             let request = http.post(url, JSON.stringify(body), params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -534,7 +587,8 @@ export default function() {
             let request = http.del(url, {} , params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -549,7 +603,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -576,8 +631,10 @@ export default function() {
             let params = {headers: {"Content-Type": "application/json", "Accept": "application/json", [apifwSchemaHeader]: apifwSchemaId}};
             let request = http.post(url, JSON.stringify(body), params);
 
+            // FIXME https://wallarm.atlassian.net/browse/KERBEROS-1469
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200 (KERBEROS-1469)": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -587,11 +644,18 @@ export default function() {
         // Request No. 1: 
         {
             let url = BASE_URL + `/serialization/cookie`;
-            let params = {headers: apifwHeaders};
+            let params = {
+                headers: apifwHeaders,
+                cookies: {
+                    'explode_false': 'role,admin,firstName,Alex',
+                    'explode_true': 3
+                }
+            };
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -607,7 +671,8 @@ export default function() {
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -617,11 +682,18 @@ export default function() {
         // Request No. 1: 
         {
             let url = BASE_URL + `/cookie_params`;
-            let params = {headers: apifwHeaders};
+            let params = {
+                headers: apifwHeaders,
+                cookies: {
+                    'cookie_mandatory': 'some string',
+                    'cookie_optional': 100
+                }
+            };
             let request = http.get(url, params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
@@ -631,14 +703,14 @@ export default function() {
         // Request No. 1: 
         {
             let url = BASE_URL + `/content-type-suffix`;
-            let body = {"id": 1, "name": "Dogs"};
+            let body = {id: 1, name: "Dogs"};
             let params = {headers: {"Content-Type": "application/vnd.api+json", "Accept": "application/json", [apifwSchemaHeader]: apifwSchemaId}};
             let request = http.post(url, JSON.stringify(body), params);
 
             check(request, {
-                "Success": (r) => r.status === 200
+                "Is response status 200": (r) => r.status === 200,
+                "Is response body status 200": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
-
 }

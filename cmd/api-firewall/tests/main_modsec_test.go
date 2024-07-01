@@ -1,16 +1,18 @@
 package tests
 
 import (
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/wallarm/api-firewall/internal/platform/database"
 	"net/url"
 	"os"
 	"os/signal"
 	"path"
+	"sync"
 	"syscall"
 	"testing"
 
 	"github.com/corazawaf/coraza/v3"
 	"github.com/corazawaf/coraza/v3/types"
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -102,12 +104,17 @@ type ModSecIntegrationTests struct {
 	swagRouter *loader.Router
 	waf        coraza.WAF
 	loggerHook *test.Hook
+	dbSpec     *database.MockDBOpenAPILoader
+	lock       *sync.RWMutex
 }
 
 func TestModSec(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
+
+	var lock sync.RWMutex
+	dbSpec := database.NewMockDBOpenAPILoader(mockCtrl)
 
 	testLogger, hook := test.NewNullLogger()
 	testLogger.SetLevel(logrus.ErrorLevel)
@@ -125,10 +132,11 @@ func TestModSec(t *testing.T) {
 		t.Fatalf("loading OpenAPI specification file: %s", err.Error())
 	}
 
-	swagRouter, err := loader.NewRouter(swagger, true)
-	if err != nil {
-		t.Fatalf("parsing OpenAPI specification file: %s", err.Error())
-	}
+	dbSpec.EXPECT().SchemaIDs().Return([]int{}).AnyTimes()
+	dbSpec.EXPECT().Specification(gomock.Any()).Return(swagger).AnyTimes()
+	dbSpec.EXPECT().SpecificationVersion(gomock.Any()).Return("").AnyTimes()
+	dbSpec.EXPECT().IsLoaded(gomock.Any()).Return(true).AnyTimes()
+	dbSpec.EXPECT().IsReady().Return(true).AnyTimes()
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
@@ -169,9 +177,10 @@ func TestModSec(t *testing.T) {
 		logger:     testLogger,
 		proxy:      pool,
 		client:     client,
-		swagRouter: swagRouter,
 		waf:        waf,
 		loggerHook: hook,
+		lock:       &lock,
+		dbSpec:     dbSpec,
 	}
 
 	// basic test
@@ -205,7 +214,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestBlockMode(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -259,7 +268,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestLogOnlyMode(t *testing.T) 
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -326,7 +335,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestDisableMode(t *testing.T) 
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -387,7 +396,7 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseBlockMode(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -449,7 +458,7 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseLogOnlyMode(t *testing.T)
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -520,7 +529,7 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseDisableMode(t *testing.T)
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -588,7 +597,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestBody(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -644,7 +653,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestHeader(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -708,7 +717,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestCookie(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -772,7 +781,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestPath(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/token/test")
@@ -835,7 +844,7 @@ func (s *ModSecIntegrationTests) basicResponseActionRedirect(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/token/test")

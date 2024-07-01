@@ -79,7 +79,14 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 		mu:         sync.Mutex{},
 	}
 
-	graphqlPath := serverURL.Path
+	// use API Host env var to take path
+	apiHost, err := url.ParseRequestURI(cfg.APIHost)
+	if err != nil {
+		logger.Fatalf("parsing API Host URL: %v", err)
+		return nil
+	}
+
+	graphqlPath := apiHost.Path
 	if graphqlPath == "" {
 		graphqlPath = "/"
 	}

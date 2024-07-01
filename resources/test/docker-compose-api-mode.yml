@@ -1,0 +1,25 @@
+version: '3.8'
+services:
+  api-firewall:
+    container_name: api-firewall
+    image: wallarm/api-firewall:v0.7.3
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    restart: on-failure
+    environment:
+      APIFW_MODE: "api"
+      APIFW_SPECIFICATION_UPDATE_PERIOD: "1m"
+      APIFW_API_MODE_UNKNOWN_PARAMETERS_DETECTION: "true"
+      APIFW_PASS_OPTIONS: "false"
+      APIFW_URL: "http://0.0.0.0:8080"
+      APIFW_HEALTH_HOST: "0.0.0.0:9667"
+      APIFW_READ_TIMEOUT: "5s"
+      APIFW_WRITE_TIMEOUT: "5s"
+      APIFW_LOG_LEVEL: "info"
+    volumes:
+      - ./database/wallarm_api.db:/var/lib/wallarm-api/1/wallarm_api.db:ro
+    ports:
+      - "8282:8080"
+      - "9667:9667"
+    stop_grace_period: 1s

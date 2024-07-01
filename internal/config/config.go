@@ -33,6 +33,8 @@ type ProxyMode struct {
 	AddValidationStatusHeader bool   `conf:"default:false"`
 	APISpecs                  string `conf:"required,env:API_SPECS" validate:"required"`
 	PassOptionsRequests       bool   `conf:"default:false,env:PASS_OPTIONS"`
+
+	SpecificationUpdatePeriod time.Duration `conf:"default:1h"`
 }
 
 type APIMode struct {

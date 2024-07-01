@@ -14,7 +14,7 @@ const (
 	testSchemaID2    = 4
 	testSpecVersion2 = "2"
 
-	expectedSchemaNum   = 3
+	expectedSchemaNum   = 4
 	expectedSchemaNumV2 = 1
 
 	testDBVersion1 = 1
