@@ -94,8 +94,11 @@ func (a *App) Handle(method string, path string, handler router.Handler, mw ...M
 	// The function to execute for each request.
 	h := func(ctx *fasthttp.RequestCtx) error {
 
-		a.lock.RLock()
-		defer a.lock.RUnlock()
+		// read lock for an OAS update in proxy mode
+		if a.lock != nil {
+			a.lock.RLock()
+			defer a.lock.RUnlock()
+		}
 
 		if err := handler(ctx); err != nil {
 			a.SignalShutdown()
