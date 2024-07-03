@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
-	"github.com/wallarm/api-firewall/internal/platform/database"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
@@ -26,7 +26,7 @@ func BenchmarkAPIModeBasic(b *testing.B) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("../../../resources/test/database/wallarm_api.db", dbVersion)
+	specStorage, err := storage.NewOpenAPIDB("../../../resources/test/database/wallarm_api.db", dbVersion)
 	if err != nil {
 		b.Fatalf("trying to load API Spec value from SQLLite Database : %v\n", err.Error())
 	}

@@ -14,7 +14,7 @@ import (
 	"github.com/valyala/fasthttp"
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
-	"github.com/wallarm/api-firewall/internal/platform/database"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
@@ -40,7 +40,7 @@ func TestUpdaterBasic(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_before_update.db", dbUpdaterVersion)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_before_update.db", dbUpdaterVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestUpdaterFromEmptyDB(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_empty.db", dbUpdaterVersion)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_empty.db", dbUpdaterVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +357,7 @@ func TestUpdaterToEmptyDB(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_before_update.db", dbUpdaterVersion)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_before_update.db", dbUpdaterVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -506,7 +506,7 @@ func TestUpdaterInvalidDBSchema(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_invalid_schema.db", dbUpdaterVersion)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_invalid_schema.db", dbUpdaterVersion)
 	if err != nil {
 		t.Log(err)
 	}
@@ -550,7 +550,7 @@ func TestUpdaterInvalidDBFile(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_invalid_file.db", dbUpdaterVersion)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_invalid_file.db", dbUpdaterVersion)
 	if err != nil {
 		t.Log(err)
 	}
@@ -594,7 +594,7 @@ func TestUpdaterToInvalidDB(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_before_update.db", dbUpdaterVersion)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_before_update.db", dbUpdaterVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -743,7 +743,7 @@ func TestUpdaterFromInvalidDB(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_invalid.db", dbUpdaterVersion)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_invalid.db", dbUpdaterVersion)
 	if err != nil {
 		t.Log(err)
 	}
@@ -874,7 +874,7 @@ func TestUpdaterToNotExistDB(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_before_update.db", dbUpdaterVersion)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_before_update.db", dbUpdaterVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1023,7 +1023,7 @@ func TestUpdaterFromNotExistDB(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_not_exist.db", dbUpdaterVersion)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_not_exist.db", dbUpdaterVersion)
 	if err != nil {
 		t.Log(err)
 	}

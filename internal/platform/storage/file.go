@@ -1,10 +1,9 @@
-package database
+package storage
 
 import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
-	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"io"
 	"log"
 	"os"
@@ -14,6 +13,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/savsgio/gotils/strconv"
+
+	"github.com/wallarm/api-firewall/internal/platform/loader"
 )
 
 const (
@@ -28,6 +29,8 @@ type File struct {
 	OpenAPISpec *openapi3.T
 	lock        *sync.RWMutex
 }
+
+var _ DBOpenAPILoader = (*File)(nil)
 
 func NewOpenAPIFromFile(OASPath string) (DBOpenAPILoader, error) {
 
@@ -83,32 +86,32 @@ func (f *File) Load(OASPath string) (bool, error) {
 	return isReady, parsingErrs
 }
 
-func (s *File) Specification(schemaID int) *openapi3.T {
+func (s *File) Specification(_ int) *openapi3.T {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
 	return s.OpenAPISpec
 }
 
-func (s *File) SpecificationRaw(schemaID int) interface{} {
+func (s *File) SpecificationRaw(_ int) interface{} {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
 	return s.RawSpec
 }
 
-func (s *File) SpecificationRawContent(schemaID int) []byte {
+func (s *File) SpecificationRawContent(_ int) []byte {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
 	return getSpecBytes(s.RawSpec)
 }
 
-func (s *File) SpecificationVersion(schemaID int) string {
+func (s *File) SpecificationVersion(_ int) string {
 	return ""
 }
 
-func (s *File) IsLoaded(schemaID int) bool {
+func (s *File) IsLoaded(_ int) bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -130,7 +133,7 @@ func (s *File) Version() int {
 	return currentFileVersion
 }
 
-func (s *File) AfterLoad(oasPath string) error {
+func (s *File) AfterLoad(_ string) error {
 	return nil
 }
 
@@ -139,9 +142,5 @@ func (s *File) ShouldUpdate(newStorage DBOpenAPILoader) bool {
 	beforeUpdateSpecs := getChecksum(s.SpecificationRawContent(undefinedSchemaID))
 	afterUpdateSpecs := getChecksum(newStorage.SpecificationRawContent(undefinedSchemaID))
 
-	if !bytes.Equal(beforeUpdateSpecs, afterUpdateSpecs) {
-		return true
-	}
-
-	return false
+	return !bytes.Equal(beforeUpdateSpecs, afterUpdateSpecs)
 }

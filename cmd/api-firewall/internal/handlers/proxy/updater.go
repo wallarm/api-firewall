@@ -12,11 +12,11 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
-	"github.com/wallarm/api-firewall/internal/platform/database"
-	"github.com/wallarm/api-firewall/internal/platform/database/updater"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
+	"github.com/wallarm/api-firewall/internal/platform/storage/updater"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 type Specification struct {
 	logger         *logrus.Logger
 	waf            coraza.WAF
-	oasStorage     database.DBOpenAPILoader
+	oasStorage     storage.DBOpenAPILoader
 	stop           chan struct{}
 	updateTime     time.Duration
 	cfg            *config.ProxyMode
@@ -40,7 +40,7 @@ type Specification struct {
 }
 
 // NewHandlerUpdater function defines configuration updater controller
-func NewHandlerUpdater(lock *sync.RWMutex, logger *logrus.Logger, oasStorage database.DBOpenAPILoader, cfg *config.ProxyMode, serverURL *url.URL, api *fasthttp.Server, shutdown chan os.Signal, pool proxy.Pool, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
+func NewHandlerUpdater(lock *sync.RWMutex, logger *logrus.Logger, oasStorage storage.DBOpenAPILoader, cfg *config.ProxyMode, serverURL *url.URL, api *fasthttp.Server, shutdown chan os.Signal, pool proxy.Pool, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
 	return &Specification{
 		logger:         logger,
 		waf:            waf,
@@ -126,10 +126,10 @@ func (s *Specification) Shutdown() error {
 }
 
 // Load function reads DB file and returns it
-func (s *Specification) Load() (database.DBOpenAPILoader, error) {
+func (s *Specification) Load() (storage.DBOpenAPILoader, error) {
 
 	// Load specification
-	return database.NewOpenAPIFromFile(s.cfg.APISpecs)
+	return storage.NewOpenAPIFromFile(s.cfg.APISpecs)
 }
 
 // Find function searches for the handler by path and method

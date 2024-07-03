@@ -2,7 +2,7 @@ package tests
 
 import (
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/wallarm/api-firewall/internal/platform/database"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"net/url"
 	"os"
 	"os/signal"
@@ -104,7 +104,7 @@ type ModSecIntegrationTests struct {
 	swagRouter *loader.Router
 	waf        coraza.WAF
 	loggerHook *test.Hook
-	dbSpec     *database.MockDBOpenAPILoader
+	dbSpec     *storage.MockDBOpenAPILoader
 	lock       *sync.RWMutex
 }
 
@@ -114,7 +114,7 @@ func TestModSec(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	var lock sync.RWMutex
-	dbSpec := database.NewMockDBOpenAPILoader(mockCtrl)
+	dbSpec := storage.NewMockDBOpenAPILoader(mockCtrl)
 
 	testLogger, hook := test.NewNullLogger()
 	testLogger.SetLevel(logrus.ErrorLevel)

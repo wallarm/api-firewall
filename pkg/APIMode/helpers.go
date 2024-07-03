@@ -6,9 +6,9 @@ import (
 	"net/url"
 
 	"github.com/valyala/fastjson"
-	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
@@ -26,7 +26,7 @@ func wrapOASpecErrs(err error) error {
 }
 
 // getRouters function prepared router.Mux with the routes from OpenAPI specs
-func getRouters(specStorage database.DBOpenAPILoader, parserPool *fastjson.ParserPool, options *Configuration) (map[int]*router.Mux, error) {
+func getRouters(specStorage storage.DBOpenAPILoader, parserPool *fastjson.ParserPool, options *Configuration) (map[int]*router.Mux, error) {
 
 	// Init routers
 	routers := make(map[int]*router.Mux)

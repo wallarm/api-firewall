@@ -25,7 +25,7 @@ import (
 	"github.com/valyala/fasthttp"
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
-	"github.com/wallarm/api-firewall/internal/platform/database"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
@@ -500,7 +500,7 @@ type APIModeServiceTests struct {
 	serverUrl *url.URL
 	shutdown  chan os.Signal
 	logger    *logrus.Logger
-	dbSpec    *database.MockDBOpenAPILoader
+	dbSpec    *storage.MockDBOpenAPILoader
 	lock      *sync.RWMutex
 }
 
@@ -509,7 +509,7 @@ func TestAPIModeBasic(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	dbSpec := database.NewMockDBOpenAPILoader(mockCtrl)
+	dbSpec := storage.NewMockDBOpenAPILoader(mockCtrl)
 
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)

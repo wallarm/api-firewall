@@ -17,8 +17,8 @@ import (
 
 	proxyHandler "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"
-	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 )
 
 const openAPIJSONSpecTest = `
@@ -96,7 +96,7 @@ func TestJSONBasic(t *testing.T) {
 
 	var lock sync.RWMutex
 
-	dbSpec := database.NewMockDBOpenAPILoader(mockCtrl)
+	dbSpec := storage.NewMockDBOpenAPILoader(mockCtrl)
 
 	serverUrl, err := url.ParseRequestURI("http://127.0.0.1:80")
 	if err != nil {

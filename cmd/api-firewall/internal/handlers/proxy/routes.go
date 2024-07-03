@@ -19,20 +19,20 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
-	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, specStorage database.DBOpenAPILoader, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
+func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, specStorage storage.DBOpenAPILoader, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
 
-	// Init OAuth validator
+	// init OAuth validator
 	var oauthValidator woauth2.OAuth2
 
 	switch strings.ToLower(cfg.Server.Oauth.ValidationType) {
@@ -69,13 +69,13 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 		}
 	}
 
-	// Define options Handler to handle requests with Options method
+	// define options Handler to handle requests with Options method
 	optionsHandler := func(ctx *fasthttp.RequestCtx) {
 
-		// Add request ID
+		// add request ID
 		ctx.SetUserValue(web.RequestID, uuid.NewString())
 
-		// Log request
+		// log request
 		logger.WithFields(logrus.Fields{
 			"host":           string(ctx.Request.Header.Host()),
 			"method":         bytes.NewBuffer(ctx.Request.Header.Method()).String(),
@@ -84,7 +84,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 			"request_id":     ctx.UserValue(web.RequestID),
 		}).Info("Pass request with OPTIONS method")
 
-		// Proxy request
+		// proxy request
 		if err := proxy.Perform(ctx, httpClientsPool, cfg.Server.RequestHostHeader); err != nil {
 			logger.WithFields(logrus.Fields{
 				"error":      err,
@@ -105,7 +105,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 		parserPool:  &parserPool,
 	}
 
-	// Construct the web.App which holds all routes as well as common Middleware.
+	// construct the web.App which holds all routes as well as common Middleware.
 	options := web.AppAdditionalOptions{
 		Mode:                  cfg.Mode,
 		PassOptions:           cfg.PassOptionsRequests,

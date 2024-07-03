@@ -22,9 +22,9 @@ import (
 	handlersProxy "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
-	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 )
@@ -137,7 +137,7 @@ func runAPIMode(logger *logrus.Logger) error {
 		return errors.New("invalid log level")
 	}
 
-	// Print the build version for our logs. Also expose it under /debug/vars.
+	// print the build version for our logs. Also expose it under /debug/vars
 	expvar.NewString("build").Set(build)
 
 	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
@@ -149,20 +149,20 @@ func runAPIMode(logger *logrus.Logger) error {
 	}
 	logger.Infof("%s: Configuration Loaded :\n%v\n", logPrefix, out)
 
-	// Make a channel to listen for an interrupt or terminate signal from the OS.
-	// Use a buffered channel because the signal package requires it.
+	// make a channel to listen for an interrupt or terminate signal from the OS
+	// use a buffered channel because the signal package requires it
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	// DB Usage Lock
 	var dbLock sync.RWMutex
 
-	// Make a channel to listen for errors coming from the listener. Use a
+	// make a channel to listen for errors coming from the listener. Use a
 	// buffered channel so the goroutine can exit if we don't collect this error.
 	serverErrors := make(chan error, 1)
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(cfg.PathToSpecDB, cfg.DBVersion)
+	specStorage, err := storage.NewOpenAPIDB(cfg.PathToSpecDB, cfg.DBVersion)
 	if err != nil {
 		logger.Errorf("%s: trying to load API Spec value from SQLLite Database : %v\n", logPrefix, err.Error())
 	}
@@ -285,7 +285,7 @@ func runAPIMode(logger *logrus.Logger) error {
 		}()
 	}
 
-	// Start the service listening for requests.
+	// start the service listening for requests.
 	go func() {
 		logger.Infof("%s: API listening on %s", logPrefix, cfg.APIHost)
 		switch isTLS {
@@ -300,7 +300,7 @@ func runAPIMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Shutdown
 
-	// Blocking main and waiting for shutdown.
+	// blocking main and waiting for shutdown.
 	select {
 	case err := <-serverErrors:
 		return errors.Wrap(err, "server error")
@@ -317,7 +317,7 @@ func runAPIMode(logger *logrus.Logger) error {
 			}
 		}
 
-		// Asking listener to shutdown and shed load.
+		// asking listener to shutdown and shed load.
 		if err := api.Shutdown(); err != nil {
 			return errors.Wrap(err, "could not stop server gracefully")
 		}
@@ -715,7 +715,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// App Starting
 
-	// Print the build version for our logs. Also expose it under /debug/vars.
+	// print the build version for our logs. Also expose it under /debug/vars
 	expvar.NewString("build").Set(build)
 
 	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
@@ -745,7 +745,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// Init Swagger
 
 	//var swagger *openapi3.T
-	var specStorage database.DBOpenAPILoader
+	var specStorage storage.DBOpenAPILoader
 
 	apiSpecURL, err := url.ParseRequestURI(cfg.APISpecs)
 	if err != nil {
@@ -754,13 +754,12 @@ func runProxyMode(logger *logrus.Logger) error {
 
 	switch apiSpecURL.Scheme {
 	case "":
-		specStorage, err = database.NewOpenAPIFromFile(cfg.APISpecs)
+		specStorage, err = storage.NewOpenAPIFromFile(cfg.APISpecs)
 		if err != nil {
 			return errors.Wrap(err, "loading OpenAPI specification from file")
 		}
 	default:
-		//swagger, err = openapi3.NewLoader().LoadFromURI(apiSpecURL)
-		//specStorage, err = database.NewOpenAPIFromURI(apiSpecURL)
+		specStorage, err = storage.NewOpenAPIFromURL(cfg.APISpecs, &cfg.APISpecsCustomHeader)
 		if err != nil {
 			return errors.Wrap(err, "loading OpenAPI specification from URL")
 		}

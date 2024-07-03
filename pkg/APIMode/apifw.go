@@ -8,8 +8,8 @@ import (
 
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
-	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
@@ -21,7 +21,7 @@ type APIFirewall interface {
 
 type APIFWModeAPI struct {
 	routers      map[int]*router.Mux
-	specsStorage database.DBOpenAPILoader
+	specsStorage storage.DBOpenAPILoader
 	parserPool   *fastjson.ParserPool
 	lock         *sync.RWMutex
 	options      *Configuration
@@ -93,7 +93,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 	var err error
 
 	// load spec from the database
-	specsStorage, errLoadDB := database.NewOpenAPIDB(apiMode.options.PathToSpecDB, apiMode.options.DBVersion)
+	specsStorage, errLoadDB := storage.NewOpenAPIDB(apiMode.options.PathToSpecDB, apiMode.options.DBVersion)
 	if errLoadDB != nil {
 		err = errors.Join(err, wrapOASpecErrs(errLoadDB))
 	}
@@ -117,7 +117,7 @@ func (a *APIFWModeAPI) UpdateSpecsStorage() ([]int, bool, error) {
 	var isUpdated bool
 
 	// load new schemes
-	newSpecDB, err := database.NewOpenAPIDB(a.options.PathToSpecDB, a.options.DBVersion)
+	newSpecDB, err := storage.NewOpenAPIDB(a.options.PathToSpecDB, a.options.DBVersion)
 	if err != nil {
 		return a.specsStorage.SchemaIDs(), isUpdated, wrapOASpecErrs(err)
 	}

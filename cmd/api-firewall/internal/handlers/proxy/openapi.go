@@ -106,7 +106,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	}
 
 	// proxy request if APIFW is disabled
-	if isOptionsReq == true ||
+	if isOptionsReq ||
 		strings.EqualFold(s.cfg.RequestValidation, web.ValidationDisable) && strings.EqualFold(s.cfg.ResponseValidation, web.ValidationDisable) {
 		if err := proxy.Perform(ctx, s.proxyPool, s.cfg.Server.RequestHostHeader); err != nil {
 			s.logger.WithFields(logrus.Fields{

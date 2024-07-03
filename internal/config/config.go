@@ -10,6 +10,11 @@ type APIFWMode struct {
 	Mode string `conf:"default:PROXY" validate:"oneof=PROXY API GRAPHQL"`
 }
 
+type CustomHeader struct {
+	Name  string
+	Value string
+}
+
 type ProxyMode struct {
 	conf.Version
 	APIFWMode
@@ -27,12 +32,13 @@ type ProxyMode struct {
 	LogLevel      string        `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
 	LogFormat     string        `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
 
-	RequestValidation         string `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
-	ResponseValidation        string `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
-	CustomBlockStatusCode     int    `conf:"default:403" validate:"HttpStatusCodes"`
-	AddValidationStatusHeader bool   `conf:"default:false"`
-	APISpecs                  string `conf:"required,env:API_SPECS" validate:"required"`
-	PassOptionsRequests       bool   `conf:"default:false,env:PASS_OPTIONS"`
+	RequestValidation         string       `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
+	ResponseValidation        string       `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
+	CustomBlockStatusCode     int          `conf:"default:403" validate:"HttpStatusCodes"`
+	AddValidationStatusHeader bool         `conf:"default:false"`
+	APISpecs                  string       `conf:"required,env:API_SPECS" validate:"required"`
+	APISpecsCustomHeader      CustomHeader `conf:"env:API_SPECS_CUSTOM_HEADER"`
+	PassOptionsRequests       bool         `conf:"default:false,env:PASS_OPTIONS"`
 
 	SpecificationUpdatePeriod time.Duration `conf:"default:1h"`
 }

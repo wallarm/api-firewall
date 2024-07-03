@@ -14,8 +14,8 @@ import (
 	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/router"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
@@ -34,12 +34,12 @@ type App struct {
 	passOPTIONS bool
 	shutdown    chan os.Signal
 	mw          []web.Middleware
-	storedSpecs database.DBOpenAPILoader
+	storedSpecs storage.DBOpenAPILoader
 	lock        *sync.RWMutex
 }
 
 // NewApp creates an App value that handle a set of routes for the set of application.
-func NewApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs database.DBOpenAPILoader, shutdown chan os.Signal, logger *logrus.Logger, mw ...web.Middleware) *App {
+func NewApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs storage.DBOpenAPILoader, shutdown chan os.Signal, logger *logrus.Logger, mw ...web.Middleware) *App {
 
 	schemaIDs := storedSpecs.SchemaIDs()
 
@@ -90,7 +90,7 @@ func (a *App) Handle(schemaID int, method string, path string, handler router.Ha
 }
 
 // getWallarmSchemaID returns lists of found schema IDs in the DB, not found schema IDs in the DB and errors
-func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs database.DBOpenAPILoader) (found []int, notFound []int, err error) {
+func getWallarmSchemaID(ctx *fasthttp.RequestCtx, storedSpecs storage.DBOpenAPILoader) (found []int, notFound []int, err error) {
 
 	if !storedSpecs.IsReady() {
 		return nil, nil, errors.New("DB with schemas has not loaded")

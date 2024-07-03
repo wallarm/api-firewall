@@ -7,13 +7,13 @@ import (
 	"strings"
 	"sync"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/fasthttp/websocket"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/validator"
@@ -100,7 +100,7 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 	// batch query limit
 	if h.cfg.Graphql.BatchQueryLimit > 0 && h.cfg.Graphql.BatchQueryLimit < len(gqlRequest) {
 		h.logger.WithFields(logrus.Fields{
-			"error":      errors.New(fmt.Sprintf("the batch query limit has been exceeded. The number of queries in the batch is %d. The current batch query limit is %d", len(gqlRequest), h.cfg.Graphql.BatchQueryLimit)),
+			"error":      fmt.Errorf("the batch query limit has been exceeded. The number of queries in the batch is %d. The current batch query limit is %d", len(gqlRequest), h.cfg.Graphql.BatchQueryLimit),
 			"protocol":   "HTTP",
 			"request_id": ctx.UserValue(web.RequestID),
 		}).Error("GraphQL query validation")

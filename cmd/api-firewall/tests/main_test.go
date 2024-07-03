@@ -27,9 +27,9 @@ import (
 	proxy2 "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
-	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 )
 
 const openAPISpecTest = `
@@ -352,7 +352,7 @@ type ServiceTests struct {
 	proxy     *proxy.MockPool
 	client    *proxy.MockHTTPClient
 	lock      *sync.RWMutex
-	dbSpec    *database.MockDBOpenAPILoader
+	dbSpec    *storage.MockDBOpenAPILoader
 }
 
 func compressFlate(data []byte) ([]byte, error) {
@@ -418,7 +418,7 @@ func TestBasic(t *testing.T) {
 	logger.SetLevel(logrus.ErrorLevel)
 
 	var lock sync.RWMutex
-	dbSpec := database.NewMockDBOpenAPILoader(mockCtrl)
+	dbSpec := storage.NewMockDBOpenAPILoader(mockCtrl)
 
 	serverUrl, err := url.ParseRequestURI("http://127.0.0.1:80")
 	if err != nil {

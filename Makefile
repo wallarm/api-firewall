@@ -1,4 +1,4 @@
-VERSION := 0.7.3
+VERSION := 0.7.4
 
 .DEFAULT_GOAL := build
 
@@ -21,8 +21,8 @@ bench:
 
 genmocks:
 	mockgen -source ./internal/platform/proxy/chainpool.go -destination ./internal/platform/proxy/httppool_mock.go -package proxy
-	mockgen -source ./internal/platform/database/database.go -destination ./internal/platform/database/database_mock.go -package database
-	mockgen -source ./internal/platform/database/updater/updater.go -destination ./internal/platform/database/updater/updater_mock.go -package updater
+	mockgen -source ./internal/platform/storage/storage.go -destination ./internal/platform/storage/storage_mock.go -package storage
+	mockgen -source ./internal/platform/storage/updater/updater.go -destination ./internal/platform/storage/updater/updater_mock.go -package updater
 	mockgen -source ./internal/platform/proxy/ws.go -destination ./internal/platform/proxy/ws_mock.go -package proxy
 	mockgen -source ./internal/platform/proxy/wsClient.go -destination ./internal/platform/proxy/wsClient_mock.go -package proxy
 

@@ -175,7 +175,15 @@ func (a *App) MainHandler(ctx *fasthttp.RequestCtx) {
 
 		// block request if the GraphQL endpoint not found
 		if a.Options.Mode == GraphQLMode {
-			RespondError(ctx, fasthttp.StatusForbidden, "")
+			if err := RespondError(ctx, fasthttp.StatusForbidden, ""); err != nil {
+				a.Log.WithFields(logrus.Fields{
+					"error":      err,
+					"host":       strconv.B2S(ctx.Request.Header.Host()),
+					"path":       strconv.B2S(ctx.Path()),
+					"method":     strconv.B2S(ctx.Request.Header.Method()),
+					"request_id": ctx.UserValue(RequestID),
+				}).Error("Error in the request handler")
+			}
 			return
 		}
 

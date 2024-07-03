@@ -3,7 +3,7 @@
   "info": {
     "title": "Swagger API-Firewall testing - OpenAPI 3.0",
     "description": "This is a specific Swagger file for api-firewall Wallarm service testing. No real API is described by this speification.\n  \nIn the specification you can find endpoints witthe different types of the parameters.\n\n**TODO** Remove deprecated endpoints and create endpoints with descriptive names (what is tested)\n\n**TODO** Move all requestBody types to the `components/requestBodies` section\n\n**TODO** Add endpoints, that use different auth schemas https://swagger.io/docs/specification/authentication/",
-    "version": "0.7.4"
+    "version": "0.7.3"
   },
   "externalDocs": {
     "description": "Test plan for the API Firewall",
