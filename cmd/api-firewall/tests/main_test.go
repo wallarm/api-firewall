@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/savsgio/gotils/strconv"
 	"io"
 	"net"
 	"net/url"
@@ -496,6 +497,7 @@ func TestBasic(t *testing.T) {
 	t.Run("testConflictPaths", apifwTests.testConflictPaths)
 
 	t.Run("testCustomHostHeader", apifwTests.testCustomHostHeader)
+	t.Run("testCustomHeaderOASviaURL", apifwTests.testCustomHeaderOASviaURL)
 }
 
 func (s *ServiceTests) testCustomBlockStatusCode(t *testing.T) {
@@ -2777,6 +2779,15 @@ func checkHostHeaderEndpoint(ctx *fasthttp.RequestCtx) {
 	}
 }
 
+func checkCustomHeaderEndpoint(ctx *fasthttp.RequestCtx) {
+	if bytes.Equal(ctx.Request.Header.Peek("x-test"), []byte("testValue")) {
+		ctx.SetStatusCode(fasthttp.StatusOK)
+		ctx.Response.SetBody(strconv.S2B(openAPISpecTest))
+	} else {
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+	}
+}
+
 func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 
 	req := fasthttp.AcquireRequest()
@@ -2838,6 +2849,32 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 	if reqCtx.Response.StatusCode() != 200 {
 		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
 			reqCtx.Response.StatusCode())
+	}
+
+}
+
+func (s *ServiceTests) testCustomHeaderOASviaURL(t *testing.T) {
+
+	customHeader := config.CustomHeader{
+		Name:  "x-test",
+		Value: "testValue",
+	}
+
+	port := 28291
+	defer startServerOnPort(t, port, checkCustomHeaderEndpoint).Close()
+
+	specStorage, err := storage.NewOpenAPIFromURL("http://localhost:28291", &customHeader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !specStorage.IsReady() {
+		t.Errorf("Incorrect ready state. Expected: true and got %t",
+			specStorage.IsReady())
+	}
+
+	if !bytes.Equal(specStorage.SpecificationRawContent(-1), strconv.S2B(openAPISpecTest)) {
+		t.Error("Incorrect spec raw bytes")
 	}
 
 }

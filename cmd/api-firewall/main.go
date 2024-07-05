@@ -17,6 +17,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
+
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	handlersGQL "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
 	handlersProxy "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
@@ -26,7 +28,6 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
-	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 )
 
 var build = "develop"
@@ -744,25 +745,9 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Swagger
 
-	//var swagger *openapi3.T
-	var specStorage storage.DBOpenAPILoader
-
-	apiSpecURL, err := url.ParseRequestURI(cfg.APISpecs)
+	specStorage, err := storage.NewOpenAPIFromFileOrURL(cfg.APISpecs, &cfg.APISpecsCustomHeader)
 	if err != nil {
-		logger.Debugf("%s: Trying to parse API Spec value as URL : %v\n", logPrefix, err.Error())
-	}
-
-	switch apiSpecURL.Scheme {
-	case "":
-		specStorage, err = storage.NewOpenAPIFromFile(cfg.APISpecs)
-		if err != nil {
-			return errors.Wrap(err, "loading OpenAPI specification from file")
-		}
-	default:
-		specStorage, err = storage.NewOpenAPIFromURL(cfg.APISpecs, &cfg.APISpecsCustomHeader)
-		if err != nil {
-			return errors.Wrap(err, "loading OpenAPI specification from URL")
-		}
+		return errors.Wrap(err, "loading OpenAPI specification from File or URL")
 	}
 
 	// =========================================================================

@@ -10,6 +10,7 @@ import (
 	"github.com/corazawaf/coraza/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
@@ -127,9 +128,7 @@ func (s *Specification) Shutdown() error {
 
 // Load function reads DB file and returns it
 func (s *Specification) Load() (storage.DBOpenAPILoader, error) {
-
-	// Load specification
-	return storage.NewOpenAPIFromFile(s.cfg.APISpecs)
+	return storage.NewOpenAPIFromFileOrURL(s.cfg.APISpecs, &s.cfg.APISpecsCustomHeader)
 }
 
 // Find function searches for the handler by path and method
