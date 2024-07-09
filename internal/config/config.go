@@ -40,7 +40,7 @@ type ProxyMode struct {
 	APISpecsCustomHeader      CustomHeader `conf:"env:API_SPECS_CUSTOM_HEADER"`
 	PassOptionsRequests       bool         `conf:"default:false,env:PASS_OPTIONS"`
 
-	SpecificationUpdatePeriod time.Duration `conf:"default:1h"`
+	SpecificationUpdatePeriod time.Duration `conf:"default:0"`
 }
 
 type APIMode struct {
