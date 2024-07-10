@@ -27,7 +27,7 @@ networks:
 services:
   api-firewall:
     container_name: api-firewall
-    image: wallarm/api-firewall:v0.7.3
+    image: wallarm/api-firewall:v0.7.4
     restart: on-failure
     volumes:
       - <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC>
@@ -96,6 +96,9 @@ Pass API Firewall configuration in **docker-compose.yml** → `services.api-fire
 | `APIFW_MODE` | Sets the general API Firewall mode. Possible values are `PROXY` (default), [`graphql`](graphql/docker-container.md) and [`API`](api-mode.md). | No |
 | `APIFW_PASS_OPTIONS` | When set to `true`, the API Firewall allows `OPTIONS` requests to endpoints in the specification, even if the `OPTIONS` method is not described. The default value is `false`. | No |
 | `APIFW_SHADOW_API_UNKNOWN_PARAMETERS_DETECTION` | This specifies whether requests are identified as non-matching the specification if their parameters do not align with those defined in the OpenAPI specification. The default value is `true`.<br><br>If running API Firewall in the [`API` mode](api-mode.md), this variable takes on a different name `APIFW_API_MODE_UNKNOWN_PARAMETERS_DETECTION`. | No |
+| `API_SPECS_CUSTOM_HEADER_NAME` | Specifies the custom header name to be added to requests for your OpenAPI specification URL (defined in `APIFW_API_SPECS`). For example, you can specify a header name for authentication data required to access the URL. | No |
+| `API_SPECS_CUSTOM_HEADER_VALUE` | Specifies the custom header value to be added to requests for your OpenAPI specification URL. For example, you can specify authentication data for the custom header defined in `API_SPECS_CUSTOM_HEADER_NAME` to access the URL. | No |
+| `APIFW_SPECIFICATION_UPDATE_PERIOD` | Specifies the interval for updating the OpenAPI specification from the hosted URL (defined in `APIFW_API_SPECS`). The default value is `0`, which disables updates and uses the initially downloaded specification. The value format is: `5s`, `1h`, etc. | No |
 | `APIFW_MODSEC_CONF_FILES` | Allows to set the list of [ModSecurity](../migrating/modseс-to-apif.md) configuration files. The delimiter is ;. The default value is [] (empty). Example: `APIFW_MODSEC_CONF_FILES=modsec.conf;crs-setup.conf.example`. | No |
 | `APIFW_MODSEC_RULES_DIR` | Allows to set the [ModSecurity](../migrating/modseс-to-apif.md) directory with the rules that should be loaded. The files with the `*.conf` wildcard will be loaded from the directory. The default value is `""`. | No |
 | `APIFW_SERVER_REQUEST_HOST_HEADER` | Sets a custom `Host` header for requests forwarded to your backend after API Firewall validation. | No |
@@ -156,6 +159,6 @@ To start API Firewall on Docker, you can also use regular Docker commands as in 
         -v <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC> -e APIFW_API_SPECS=<PATH_TO_MOUNTED_SPEC> \
         -e APIFW_URL=<API_FIREWALL_URL> -e APIFW_SERVER_URL=<PROTECTED_APP_URL> \
         -e APIFW_REQUEST_VALIDATION=<REQUEST_VALIDATION_MODE> -e APIFW_RESPONSE_VALIDATION=<RESPONSE_VALIDATION_MODE> \
-        -p 8088:8088 wallarm/api-firewall:v0.7.3
+        -p 8088:8088 wallarm/api-firewall:v0.7.4
     ```
 4. When the environment is started, test it and enable traffic on API Firewall following steps 6 and 7.
