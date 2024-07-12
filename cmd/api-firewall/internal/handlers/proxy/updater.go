@@ -1,6 +1,7 @@
-package api
+package proxy
 
 import (
+	"net/url"
 	"os"
 	"runtime/debug"
 	"sync"
@@ -9,12 +10,14 @@ import (
 	"github.com/corazawaf/coraza/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
+	"github.com/wallarm/api-firewall/internal/platform/denylist"
+	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/storage/updater"
-	"github.com/wallarm/api-firewall/internal/platform/validator"
 )
 
 const (
@@ -24,30 +27,34 @@ const (
 type Specification struct {
 	logger         *logrus.Logger
 	waf            coraza.WAF
-	sqlLiteStorage storage.DBOpenAPILoader
+	oasStorage     storage.DBOpenAPILoader
 	stop           chan struct{}
 	updateTime     time.Duration
-	cfg            *config.APIMode
+	cfg            *config.ProxyMode
 	api            *fasthttp.Server
 	shutdown       chan os.Signal
-	health         *Health
 	lock           *sync.RWMutex
+	pool           proxy.Pool
+	serverURL      *url.URL
+	deniedTokens   *denylist.DeniedTokens
 	allowedIPCache *allowiplist.AllowedIPsType
 }
 
 // NewHandlerUpdater function defines configuration updater controller
-func NewHandlerUpdater(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage storage.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *Health, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
+func NewHandlerUpdater(lock *sync.RWMutex, logger *logrus.Logger, oasStorage storage.DBOpenAPILoader, cfg *config.ProxyMode, serverURL *url.URL, api *fasthttp.Server, shutdown chan os.Signal, pool proxy.Pool, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
 	return &Specification{
 		logger:         logger,
 		waf:            waf,
-		sqlLiteStorage: sqlLiteStorage,
+		oasStorage:     oasStorage,
 		stop:           make(chan struct{}),
 		updateTime:     cfg.SpecificationUpdatePeriod,
 		cfg:            cfg,
 		api:            api,
 		shutdown:       shutdown,
-		health:         health,
 		lock:           lock,
+		pool:           pool,
+		serverURL:      serverURL,
+		deniedTokens:   deniedTokens,
 		allowedIPCache: allowedIPCache,
 	}
 }
@@ -78,37 +85,20 @@ func (s *Specification) Run() {
 				continue
 			}
 
-			// do not downgrade the db version
-			if s.sqlLiteStorage.Version() > newSpecDB.Version() {
-				s.logger.Errorf("%s: version of the new DB structure is lower then current one (V2)", logPrefix)
-				continue
-			}
-
-			if s.sqlLiteStorage.ShouldUpdate(newSpecDB) {
-				s.logger.Debugf("%s: OpenAPI specifications with the following IDs were updated: %v", logPrefix, newSpecDB.SchemaIDs())
-
-				// find new IDs and log them
-				newScemaIDs := newSpecDB.SchemaIDs()
-				oldSchemaIDs := s.sqlLiteStorage.SchemaIDs()
-				for _, ns := range newScemaIDs {
-					if !validator.Contains(oldSchemaIDs, ns) {
-						s.logger.Infof("%s: fetched new OpenAPI specification from the database with id: %d", logPrefix, ns)
-					}
-				}
+			if s.oasStorage.ShouldUpdate(newSpecDB) {
 
 				s.lock.Lock()
-				s.sqlLiteStorage = newSpecDB
-				s.api.Handler = Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache, s.waf)
-				s.health.OpenAPIDB = s.sqlLiteStorage
-				if err := s.sqlLiteStorage.AfterLoad(s.cfg.PathToSpecDB); err != nil {
+				s.oasStorage = newSpecDB
+				s.api.Handler = Handlers(s.lock, s.cfg, s.serverURL, s.shutdown, s.logger, s.pool, s.oasStorage, s.deniedTokens, s.allowedIPCache, s.waf)
+				if err := s.oasStorage.AfterLoad(s.cfg.APISpecs); err != nil {
 					s.logger.WithFields(logrus.Fields{"error": err}).Errorf("%s: error in after specification loading function", logPrefix)
 				}
 				s.lock.Unlock()
 
+				s.logger.Debugf("%s: OpenAPI specification has been updated", logPrefix)
+
 				continue
 			}
-
-			s.logger.Debugf("%s: new OpenAPI specifications not found", logPrefix)
 		case <-s.stop:
 			updateTicker.Stop()
 			return
@@ -138,9 +128,7 @@ func (s *Specification) Shutdown() error {
 
 // Load function reads DB file and returns it
 func (s *Specification) Load() (storage.DBOpenAPILoader, error) {
-
-	// Load specification
-	return storage.NewOpenAPIDB(s.cfg.PathToSpecDB, s.cfg.DBVersion)
+	return storage.NewOpenAPIFromFileOrURL(s.cfg.APISpecs, &s.cfg.APISpecsCustomHeader)
 }
 
 // Find function searches for the handler by path and method

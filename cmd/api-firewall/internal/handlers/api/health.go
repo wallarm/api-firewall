@@ -5,14 +5,14 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/platform/database"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
 type Health struct {
 	Build     string
 	Logger    *logrus.Logger
-	OpenAPIDB database.DBOpenAPILoader
+	OpenAPIDB storage.DBOpenAPILoader
 }
 
 // Readiness checks if the Fasthttp connection pool is ready to handle new requests.

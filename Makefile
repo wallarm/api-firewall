@@ -1,4 +1,4 @@
-VERSION := 0.7.3
+VERSION := 0.7.4
 
 .DEFAULT_GOAL := build
 
@@ -21,8 +21,8 @@ bench:
 
 genmocks:
 	mockgen -source ./internal/platform/proxy/chainpool.go -destination ./internal/platform/proxy/httppool_mock.go -package proxy
-	mockgen -source ./internal/platform/database/database.go -destination ./internal/platform/database/database_mock.go -package database
-	mockgen -source ./internal/platform/database/updater/updater.go -destination ./internal/platform/database/updater/updater_mock.go -package updater
+	mockgen -source ./internal/platform/storage/storage.go -destination ./internal/platform/storage/storage_mock.go -package storage
+	mockgen -source ./internal/platform/storage/updater/updater.go -destination ./internal/platform/storage/updater/updater_mock.go -package updater
 	mockgen -source ./internal/platform/proxy/ws.go -destination ./internal/platform/proxy/ws_mock.go -package proxy
 	mockgen -source ./internal/platform/proxy/wsClient.go -destination ./internal/platform/proxy/wsClient_mock.go -package proxy
 
@@ -35,4 +35,12 @@ fmt:
 vulncheck:
 	govulncheck ./...
 
-.PHONY: lint tidy test fmt build genmocks vulncheck
+stop_k6_tests:
+	@docker-compose -f resources/test/docker-compose-api-mode.yml down
+
+run_k6_tests: stop_k6_tests
+	@docker-compose -f resources/test/docker-compose-api-mode.yml up --build --detach --force-recreate
+	docker run --rm -i --network host grafana/k6 run -v - <resources/test/specification/script.js || true
+	$(MAKE) stop_k6_tests
+
+.PHONY: lint tidy test fmt build genmocks vulncheck run_k6_tests stop_k6_tests

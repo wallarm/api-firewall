@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/corazawaf/coraza/v3"
 	"github.com/golang-jwt/jwt"
@@ -14,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
@@ -21,15 +23,16 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, swagRouter *loader.Router, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
+func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, specStorage storage.DBOpenAPILoader, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
 
-	// Init OAuth validator
+	// init OAuth validator
 	var oauthValidator woauth2.OAuth2
 
 	switch strings.ToLower(cfg.Server.Oauth.ValidationType) {
@@ -38,13 +41,13 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		if strings.HasPrefix(strings.ToLower(cfg.Server.Oauth.JWT.SignatureAlgorithm), "rs") && cfg.Server.Oauth.JWT.PubCertFile != "" {
 			verifyBytes, err := os.ReadFile(cfg.Server.Oauth.JWT.PubCertFile)
 			if err != nil {
-				logger.Errorf("Error reading public key from file: %s", err)
+				logger.Errorf("Error reading public key from file: %v", err)
 				break
 			}
 
 			key, err = jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
 			if err != nil {
-				logger.Errorf("Error parsing public key: %s", err)
+				logger.Errorf("Error parsing public key: %v", err)
 				break
 			}
 
@@ -66,13 +69,13 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		}
 	}
 
-	// Define options Handler to handle requests with Options method
+	// define options Handler to handle requests with Options method
 	optionsHandler := func(ctx *fasthttp.RequestCtx) {
 
-		// Add request ID
+		// add request ID
 		ctx.SetUserValue(web.RequestID, uuid.NewString())
 
-		// Log request
+		// log request
 		logger.WithFields(logrus.Fields{
 			"host":           string(ctx.Request.Header.Host()),
 			"method":         bytes.NewBuffer(ctx.Request.Header.Method()).String(),
@@ -81,7 +84,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 			"request_id":     ctx.UserValue(web.RequestID),
 		}).Info("Pass request with OPTIONS method")
 
-		// Proxy request
+		// proxy request
 		if err := proxy.Perform(ctx, httpClientsPool, cfg.Server.RequestHostHeader); err != nil {
 			logger.WithFields(logrus.Fields{
 				"error":      err,
@@ -102,7 +105,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		parserPool:  &parserPool,
 	}
 
-	// Construct the web.App which holds all routes as well as common Middleware.
+	// construct the web.App which holds all routes as well as common Middleware.
 	options := web.AppAdditionalOptions{
 		Mode:                  cfg.Mode,
 		PassOptions:           cfg.PassOptionsRequests,
@@ -111,6 +114,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
 		OptionsHandler:        optionsHandler,
 		DefaultHandler:        defaultOpenAPIWaf.openapiWafHandler,
+		Lock:                  lock,
 	}
 
 	proxyOptions := mid.ProxyOptions{
@@ -132,7 +136,7 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		Mode:                  web.ProxyMode,
 		Config:                &cfg.AllowIP,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
-		AllowedIPs:            AllowedIPCache,
+		AllowedIPs:            allowedIPCache,
 		Logger:                logger,
 	}
 
@@ -143,6 +147,12 @@ func Handlers(cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal
 		RequestValidation:     cfg.RequestValidation,
 		ResponseValidation:    cfg.ResponseValidation,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
+	}
+
+	swagRouter, err := loader.NewRouter(specStorage.Specification(0), true)
+	if err != nil {
+		logger.Errorf("Error parsing OpenAPI specification: %v", err)
+		return nil
 	}
 
 	app := web.NewApp(&options, shutdown, logger, mid.Logger(logger), mid.Errors(logger), mid.Panics(logger), mid.Proxy(&proxyOptions), mid.IPAllowlist(&ipAllowlistOptions), mid.Denylist(&denylistOptions), mid.WAFModSecurity(&modSecOptions), mid.ShadowAPIMonitor(logger, &cfg.ShadowAPI))

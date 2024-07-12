@@ -1,7 +1,10 @@
-package database
+package storage
 
 import (
 	"bytes"
+	"github.com/pkg/errors"
+	"github.com/wallarm/api-firewall/internal/config"
+	"net/url"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	_ "github.com/mattn/go-sqlite3"
@@ -44,4 +47,29 @@ func NewOpenAPIDB(dbStoragePath string, version int) (DBOpenAPILoader, error) {
 
 	}
 
+}
+
+// NewOpenAPIFromFileOrURL loads OAS specs from the file or URL and returns the struct with the parsed specs
+func NewOpenAPIFromFileOrURL(specPath string, header *config.CustomHeader) (DBOpenAPILoader, error) {
+
+	var specStorage DBOpenAPILoader
+	var err error
+
+	// try to parse path or URL
+	apiSpecURL, _ := url.ParseRequestURI(specPath)
+
+	switch apiSpecURL.Scheme {
+	case "":
+		specStorage, err = NewOpenAPIFromFile(specPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "loading OpenAPI specification from file")
+		}
+	default:
+		specStorage, err = NewOpenAPIFromURL(specPath, header)
+		if err != nil {
+			return nil, errors.Wrap(err, "loading OpenAPI specification from URL")
+		}
+	}
+
+	return specStorage, err
 }

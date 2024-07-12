@@ -13,22 +13,21 @@ import (
 	"syscall"
 
 	"github.com/ardanlabs/conf"
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-playground/validator"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
+
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	handlersGQL "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
 	handlersProxy "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
-	"github.com/wallarm/api-firewall/internal/platform/database"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
-	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
-	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 )
 
 var build = "develop"
@@ -139,7 +138,7 @@ func runAPIMode(logger *logrus.Logger) error {
 		return errors.New("invalid log level")
 	}
 
-	// Print the build version for our logs. Also expose it under /debug/vars.
+	// print the build version for our logs. Also expose it under /debug/vars
 	expvar.NewString("build").Set(build)
 
 	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
@@ -151,20 +150,20 @@ func runAPIMode(logger *logrus.Logger) error {
 	}
 	logger.Infof("%s: Configuration Loaded :\n%v\n", logPrefix, out)
 
-	// Make a channel to listen for an interrupt or terminate signal from the OS.
-	// Use a buffered channel because the signal package requires it.
+	// make a channel to listen for an interrupt or terminate signal from the OS
+	// use a buffered channel because the signal package requires it
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	// DB Usage Lock
 	var dbLock sync.RWMutex
 
-	// Make a channel to listen for errors coming from the listener. Use a
+	// make a channel to listen for errors coming from the listener. Use a
 	// buffered channel so the goroutine can exit if we don't collect this error.
 	serverErrors := make(chan error, 1)
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(cfg.PathToSpecDB, cfg.DBVersion)
+	specStorage, err := storage.NewOpenAPIDB(cfg.PathToSpecDB, cfg.DBVersion)
 	if err != nil {
 		logger.Errorf("%s: trying to load API Spec value from SQLLite Database : %v\n", logPrefix, err.Error())
 	}
@@ -287,7 +286,7 @@ func runAPIMode(logger *logrus.Logger) error {
 		}()
 	}
 
-	// Start the service listening for requests.
+	// start the service listening for requests.
 	go func() {
 		logger.Infof("%s: API listening on %s", logPrefix, cfg.APIHost)
 		switch isTLS {
@@ -302,7 +301,7 @@ func runAPIMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Shutdown
 
-	// Blocking main and waiting for shutdown.
+	// blocking main and waiting for shutdown.
 	select {
 	case err := <-serverErrors:
 		return errors.Wrap(err, "server error")
@@ -319,7 +318,7 @@ func runAPIMode(logger *logrus.Logger) error {
 			}
 		}
 
-		// Asking listener to shutdown and shed load.
+		// asking listener to shutdown and shed load.
 		if err := api.Shutdown(); err != nil {
 			return errors.Wrap(err, "could not stop server gracefully")
 		}
@@ -717,7 +716,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// App Starting
 
-	// Print the build version for our logs. Also expose it under /debug/vars.
+	// print the build version for our logs. Also expose it under /debug/vars
 	expvar.NewString("build").Set(build)
 
 	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
@@ -740,32 +739,15 @@ func runProxyMode(logger *logrus.Logger) error {
 	// buffered channel so the goroutine can exit if we don't collect this error.
 	serverErrors := make(chan error, 1)
 
+	// OAS Usage Lock
+	var lock sync.RWMutex
+
 	// =========================================================================
 	// Init Swagger
 
-	var swagger *openapi3.T
-
-	apiSpecURL, err := url.ParseRequestURI(cfg.APISpecs)
+	specStorage, err := storage.NewOpenAPIFromFileOrURL(cfg.APISpecs, &cfg.APISpecsCustomHeader)
 	if err != nil {
-		logger.Debugf("%s: Trying to parse API Spec value as URL : %v\n", logPrefix, err.Error())
-	}
-
-	switch apiSpecURL {
-	case nil:
-		swagger, err = openapi3.NewLoader().LoadFromFile(cfg.APISpecs)
-		if err != nil {
-			return errors.Wrap(err, "loading OpenAPI specification from file")
-		}
-	default:
-		swagger, err = openapi3.NewLoader().LoadFromURI(apiSpecURL)
-		if err != nil {
-			return errors.Wrap(err, "loading OpenAPI specification from URL")
-		}
-	}
-
-	swagRouter, err := loader.NewRouter(swagger, true)
-	if err != nil {
-		return errors.Wrap(err, "parsing OpenAPI specification")
+		return errors.Wrap(err, "loading OpenAPI specification from File or URL")
 	}
 
 	// =========================================================================
@@ -828,16 +810,16 @@ func runProxyMode(logger *logrus.Logger) error {
 
 	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
 
-	AllowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
+	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
 	if err != nil {
 		return errors.Wrap(err, "The allow IP list init error")
 	}
 
-	switch AllowedIPCache {
+	switch allowedIPCache {
 	case nil:
 		logger.Infof("%s: The allow ip list is not configured", logPrefix)
 	default:
-		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, AllowedIPCache.ElementsNum)
+		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
 	}
 
 	// =========================================================================
@@ -856,7 +838,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Handlers
 
-	requestHandlers = handlersProxy.Handlers(&cfg, serverURL, shutdown, logger, pool, swagRouter, deniedTokens, AllowedIPCache, waf)
+	requestHandlers = handlersProxy.Handlers(&lock, &cfg, serverURL, shutdown, logger, pool, specStorage, deniedTokens, allowedIPCache, waf)
 
 	// =========================================================================
 	// Start Health API Service
@@ -922,6 +904,21 @@ func runProxyMode(logger *logrus.Logger) error {
 		WriteTimeout:          cfg.WriteTimeout,
 		Logger:                logger,
 		NoDefaultServerHeader: true,
+	}
+
+	// =========================================================================
+	// Init Regular Update Controller
+
+	updSpecErrors := make(chan error, 1)
+
+	updOpenAPISpec := handlersProxy.NewHandlerUpdater(&lock, logger, specStorage, &cfg, serverURL, &api, shutdown, pool, deniedTokens, allowedIPCache, waf)
+
+	// disable updater if SpecificationUpdatePeriod == 0
+	if cfg.SpecificationUpdatePeriod.Seconds() > 0 {
+		go func() {
+			logger.Infof("%s: starting specification regular update process every %.0f seconds", logPrefix, cfg.SpecificationUpdatePeriod.Seconds())
+			updSpecErrors <- updOpenAPISpec.Start()
+		}()
 	}
 
 	// Start the service listening for requests.

@@ -14,9 +14,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
-	"github.com/wallarm/api-firewall/internal/platform/database"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
@@ -153,7 +154,7 @@ func TestLoadBasicV2(t *testing.T) {
 	}()
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(currentDBPath, 0)
+	specStorage, err := storage.NewOpenAPIDB(currentDBPath, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +244,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB(currentDBPath, 0)
+	specStorage, err := storage.NewOpenAPIDB(currentDBPath, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,7 +398,7 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api2_empty.db", 0)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api2_empty.db", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -538,7 +539,7 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api2_update.db", dbVersionV2)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api2_update.db", dbVersionV2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -687,7 +688,7 @@ func TestUpdaterInvalidDBSchemaV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_invalid_schema.db", dbVersionV2)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_invalid_schema.db", dbVersionV2)
 	if err != nil {
 		t.Log(err)
 	}
@@ -731,7 +732,7 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api2_update.db", dbVersionV2)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api2_update.db", dbVersionV2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -880,7 +881,7 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_invalid.db", dbVersionV2)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_invalid.db", dbVersionV2)
 	if err != nil {
 		t.Log(err)
 	}
@@ -1011,7 +1012,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api_before_update.db", dbVersion)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api_before_update.db", dbVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1201,7 +1202,7 @@ func TestUpdaterFromV2DBToV1(t *testing.T) {
 	var lock sync.RWMutex
 
 	// load spec from the database
-	specStorage, err := database.NewOpenAPIDB("./wallarm_api2_update.db", dbVersionV2)
+	specStorage, err := storage.NewOpenAPIDB("./wallarm_api2_update.db", dbVersionV2)
 	if err != nil {
 		t.Log(err)
 	}

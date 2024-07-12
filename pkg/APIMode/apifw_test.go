@@ -17,7 +17,7 @@ import (
 
 	strconv2 "github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
-	"github.com/wallarm/api-firewall/internal/platform/database"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
@@ -46,7 +46,7 @@ paths:
 `
 )
 
-func insertSpecV1(dbFilePath, newSpec string) (*database.SpecificationEntryV1, error) {
+func insertSpecV1(dbFilePath, newSpec string) (*storage.SpecificationEntryV1, error) {
 
 	db, err := sql.Open("sqlite3", dbFilePath)
 	if err != nil {
@@ -61,7 +61,7 @@ func insertSpecV1(dbFilePath, newSpec string) (*database.SpecificationEntryV1, e
 	}
 
 	// entry of the V1
-	entry := database.SpecificationEntryV1{}
+	entry := storage.SpecificationEntryV1{}
 
 	rows, err := db.Query("SELECT * FROM openapi_schemas ORDER BY schema_id DESC LIMIT 1")
 	if err != nil {

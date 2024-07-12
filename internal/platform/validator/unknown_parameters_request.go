@@ -152,15 +152,11 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 
 	unknownBodyParams := RequestUnknownParameterError{}
 	mType, suffix := parseMediaType(mediaType)
-	parserFound := false
 
-	if mType == "text/plain" || suffix == "+plain" {
-		parserFound = true
+	switch {
+	case mType == "text/plain" || suffix == "+plain":
 		return foundUnknownParams, nil
-	}
-
-	if mType == "text/csv" || suffix == "+csv" {
-		parserFound = true
+	case mType == "text/csv" || suffix == "+csv":
 
 		paramStr, ok := value.(string)
 		if !ok {
@@ -180,11 +176,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 				})
 			}
 		}
-	}
-
-	if mType == "application/x-www-form-urlencoded" {
-		parserFound = true
-
+	case mType == "application/x-www-form-urlencoded":
 		// required params in paramList
 		paramList, ok := value.(map[string]interface{})
 		if !ok {
@@ -200,16 +192,12 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 				})
 			}
 		})
-	}
-
-	if mType == "application/json" || mType == "multipart/form-data" || suffix == "+json" {
-		parserFound = true
-
+	case mType == "application/json" || mType == "multipart/form-data" || suffix == "+json":
 		paramList, ok := value.(map[string]interface{})
 		if !ok {
 			return foundUnknownParams, ErrDecodingFailed
 		}
-		for paramName, _ := range paramList {
+		for paramName := range paramList {
 			if _, found := contentType.Schema.Value.Properties[paramName]; !found {
 				unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
 				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
@@ -219,11 +207,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 				})
 			}
 		}
-	}
-
-	if mType == "application/xml" || suffix == "+xml" {
-		parserFound = true
-
+	case mType == "application/xml" || suffix == "+xml":
 		var propKeys []string
 		for key := range contentType.Schema.Value.Properties {
 			propKeys = append(propKeys, strings.ToLower(key))
@@ -241,7 +225,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 				if !ok {
 					continue
 				}
-				for paramName, _ := range params {
+				for paramName := range params {
 					if !Contains(propKeys, strings.ToLower(paramName)) {
 						unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
 						unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
@@ -253,7 +237,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 				}
 			}
 		default:
-			for paramName, _ := range paramList {
+			for paramName := range paramList {
 				if !Contains(propKeys, strings.ToLower(paramName)) {
 					unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
 					unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
@@ -264,10 +248,8 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 				}
 			}
 		}
-	}
-
-	// the parser for body is not supported by the unknown parameter detector
-	if !parserFound {
+	default:
+		// the parser for body is not supported by the unknown parameter detector
 		return foundUnknownParams, ErrDecodingFailed
 	}
 

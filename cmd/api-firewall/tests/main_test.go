@@ -7,27 +7,30 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/savsgio/gotils/strconv"
 	"io"
 	"net"
 	"net/url"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/andybalholm/brotli"
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+
 	proxy2 "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
-	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 )
 
 const openAPISpecTest = `
@@ -344,12 +347,13 @@ var (
 )
 
 type ServiceTests struct {
-	serverUrl  *url.URL
-	shutdown   chan os.Signal
-	logger     *logrus.Logger
-	proxy      *proxy.MockPool
-	client     *proxy.MockHTTPClient
-	swagRouter *loader.Router
+	serverUrl *url.URL
+	shutdown  chan os.Signal
+	logger    *logrus.Logger
+	proxy     *proxy.MockPool
+	client    *proxy.MockHTTPClient
+	lock      *sync.RWMutex
+	dbSpec    *storage.MockDBOpenAPILoader
 }
 
 func compressFlate(data []byte) ([]byte, error) {
@@ -414,6 +418,9 @@ func TestBasic(t *testing.T) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
+	var lock sync.RWMutex
+	dbSpec := storage.NewMockDBOpenAPILoader(mockCtrl)
+
 	serverUrl, err := url.ParseRequestURI("http://127.0.0.1:80")
 	if err != nil {
 		t.Fatalf("parsing API Host URL: %s", err.Error())
@@ -427,21 +434,23 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("loading OpenAPI specification file: %s", err.Error())
 	}
 
-	swagRouter, err := loader.NewRouter(swagger, true)
-	if err != nil {
-		t.Fatalf("parsing OpenAPI specification file: %s", err.Error())
-	}
+	dbSpec.EXPECT().SchemaIDs().Return([]int{}).AnyTimes()
+	dbSpec.EXPECT().Specification(gomock.Any()).Return(swagger).AnyTimes()
+	dbSpec.EXPECT().SpecificationVersion(gomock.Any()).Return("").AnyTimes()
+	dbSpec.EXPECT().IsLoaded(gomock.Any()).Return(true).AnyTimes()
+	dbSpec.EXPECT().IsReady().Return(true).AnyTimes()
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	apifwTests := ServiceTests{
-		serverUrl:  serverUrl,
-		shutdown:   shutdown,
-		logger:     logger,
-		proxy:      pool,
-		client:     client,
-		swagRouter: swagRouter,
+		serverUrl: serverUrl,
+		shutdown:  shutdown,
+		logger:    logger,
+		proxy:     pool,
+		client:    client,
+		lock:      &lock,
+		dbSpec:    dbSpec,
 	}
 
 	// basic test
@@ -488,6 +497,7 @@ func TestBasic(t *testing.T) {
 	t.Run("testConflictPaths", apifwTests.testConflictPaths)
 
 	t.Run("testCustomHostHeader", apifwTests.testCustomHostHeader)
+	t.Run("testCustomHeaderOASviaURL", apifwTests.testCustomHeaderOASviaURL)
 }
 
 func (s *ServiceTests) testCustomBlockStatusCode(t *testing.T) {
@@ -502,7 +512,7 @@ func (s *ServiceTests) testCustomBlockStatusCode(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -549,7 +559,7 @@ func (s *ServiceTests) testCustomBlockStatusCode(t *testing.T) {
 		},
 	}
 
-	handler = proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler = proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -576,7 +586,7 @@ func (s *ServiceTests) testPathNotExists(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -640,7 +650,7 @@ func (s *ServiceTests) testPathNotExists(t *testing.T) {
 		},
 	}
 
-	handler = proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler = proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
@@ -668,7 +678,7 @@ func (s *ServiceTests) testPathNotExists(t *testing.T) {
 		},
 	}
 
-	handler = proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler = proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	s.proxy.EXPECT().Get().Return(s.client, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
@@ -699,7 +709,7 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -789,7 +799,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, deniedTokens, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, deniedTokens, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -868,7 +878,7 @@ func (s *ServiceTests) testAllowlist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, allowedIPs, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, allowedIPs, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -966,7 +976,7 @@ func (s *ServiceTests) testAllowlistXForwardedFor(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, allowedIPs, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, allowedIPs, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1082,7 +1092,7 @@ func (s *ServiceTests) testShadowAPI(t *testing.T) {
 		}{Tokens: tokensCfg},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1135,7 +1145,7 @@ func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1189,7 +1199,7 @@ func (s *ServiceTests) testDisableMode(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"email": "wallarm.com",
@@ -1240,7 +1250,7 @@ func (s *ServiceTests) testBlockLogOnlyMode(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1292,7 +1302,7 @@ func (s *ServiceTests) testLogOnlyBlockMode(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -1345,7 +1355,7 @@ func (s *ServiceTests) testCommonParameters(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/users/1/1")
@@ -1481,7 +1491,7 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1568,7 +1578,7 @@ func (s *ServiceTests) testOauthIntrospectionReadUnsuccessful(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1634,7 +1644,7 @@ func (s *ServiceTests) testOauthIntrospectionInvalidResponse(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1700,7 +1710,7 @@ func (s *ServiceTests) testOauthIntrospectionReadWriteSuccess(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1771,7 +1781,7 @@ func (s *ServiceTests) testOauthIntrospectionContentTypeRequest(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1834,7 +1844,7 @@ func (s *ServiceTests) testOauthJWTRS256(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1911,7 +1921,7 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 		Server: serverConf,
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	resp := fasthttp.AcquireResponse()
 	resp.SetStatusCode(fasthttp.StatusOK)
@@ -1959,7 +1969,7 @@ func (s *ServiceTests) testRequestHeaders(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	xReqTestValue := uuid.New()
 
@@ -2016,7 +2026,7 @@ func (s *ServiceTests) testResponseHeaders(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	xRespTestValue := uuid.New()
 
@@ -2077,7 +2087,7 @@ func (s *ServiceTests) testRequestBodyCompression(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
@@ -2184,7 +2194,7 @@ func (s *ServiceTests) testResponseBodyCompression(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -2273,7 +2283,7 @@ func (s *ServiceTests) requestOptionalCookies(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/cookie_params")
@@ -2361,7 +2371,7 @@ func (s *ServiceTests) requestOptionalMinMaxCookies(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/cookie_params_min_max")
@@ -2464,7 +2474,7 @@ func (s *ServiceTests) unknownParamQuery(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -2518,7 +2528,7 @@ func (s *ServiceTests) unknownParamPostBody(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
@@ -2574,7 +2584,7 @@ func (s *ServiceTests) unknownParamJSONParam(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal(map[string]interface{}{
 		"firstname": "test",
@@ -2655,7 +2665,7 @@ func (s *ServiceTests) unknownParamUnsupportedMimeType(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/signup")
@@ -2714,7 +2724,7 @@ func (s *ServiceTests) testConflictPaths(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(&cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/path/testValue1")
@@ -2764,6 +2774,15 @@ func (s *ServiceTests) testConflictPaths(t *testing.T) {
 func checkHostHeaderEndpoint(ctx *fasthttp.RequestCtx) {
 	if bytes.EqualFold(ctx.Request.Header.Host(), []byte("testCustomHost")) {
 		ctx.SetStatusCode(fasthttp.StatusOK)
+	} else {
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+	}
+}
+
+func checkCustomHeaderEndpoint(ctx *fasthttp.RequestCtx) {
+	if bytes.Equal(ctx.Request.Header.Peek("x-test"), []byte("testValue")) {
+		ctx.SetStatusCode(fasthttp.StatusOK)
+		ctx.Response.SetBody(strconv.S2B(openAPISpecTest))
 	} else {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 	}
@@ -2830,6 +2849,32 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 	if reqCtx.Response.StatusCode() != 200 {
 		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
 			reqCtx.Response.StatusCode())
+	}
+
+}
+
+func (s *ServiceTests) testCustomHeaderOASviaURL(t *testing.T) {
+
+	customHeader := config.CustomHeader{
+		Name:  "x-test",
+		Value: "testValue",
+	}
+
+	port := 28291
+	defer startServerOnPort(t, port, checkCustomHeaderEndpoint).Close()
+
+	specStorage, err := storage.NewOpenAPIFromURL("http://localhost:28291", &customHeader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !specStorage.IsReady() {
+		t.Errorf("Incorrect ready state. Expected: true and got %t",
+			specStorage.IsReady())
+	}
+
+	if !bytes.Equal(specStorage.SpecificationRawContent(-1), strconv.S2B(openAPISpecTest)) {
+		t.Error("Incorrect spec raw bytes")
 	}
 
 }

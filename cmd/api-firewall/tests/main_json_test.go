@@ -3,20 +3,22 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/getkin/kin-openapi/openapi3"
 	"net/url"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"testing"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+
 	proxyHandler "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"
-	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 )
 
 const openAPIJSONSpecTest = `
@@ -92,6 +94,10 @@ func TestJSONBasic(t *testing.T) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
+	var lock sync.RWMutex
+
+	dbSpec := storage.NewMockDBOpenAPILoader(mockCtrl)
+
 	serverUrl, err := url.ParseRequestURI("http://127.0.0.1:80")
 	if err != nil {
 		t.Fatalf("parsing API Host URL: %s", err.Error())
@@ -105,21 +111,23 @@ func TestJSONBasic(t *testing.T) {
 		t.Fatalf("loading OpenAPI specification file: %s", err.Error())
 	}
 
-	swagRouter, err := loader.NewRouter(swagger, true)
-	if err != nil {
-		t.Fatalf("parsing OpenAPI specification file: %s", err.Error())
-	}
+	dbSpec.EXPECT().SchemaIDs().Return([]int{}).AnyTimes()
+	dbSpec.EXPECT().Specification(gomock.Any()).Return(swagger).AnyTimes()
+	dbSpec.EXPECT().SpecificationVersion(gomock.Any()).Return("").AnyTimes()
+	dbSpec.EXPECT().IsLoaded(gomock.Any()).Return(true).AnyTimes()
+	dbSpec.EXPECT().IsReady().Return(true).AnyTimes()
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	apifwTests := ServiceTests{
-		serverUrl:  serverUrl,
-		shutdown:   shutdown,
-		logger:     logger,
-		proxy:      pool,
-		client:     client,
-		swagRouter: swagRouter,
+		serverUrl: serverUrl,
+		shutdown:  shutdown,
+		logger:    logger,
+		proxy:     pool,
+		client:    client,
+		lock:      &lock,
+		dbSpec:    dbSpec,
 	}
 
 	// basic test
@@ -131,7 +139,7 @@ func TestJSONBasic(t *testing.T) {
 
 func (s *ServiceTests) testBasicObjJSONFieldValidation(t *testing.T) {
 
-	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxyHandler.Handlers(s.lock, &apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	// basic object check
 	p, err := json.Marshal(map[string]interface{}{
@@ -178,7 +186,7 @@ func (s *ServiceTests) testBasicObjJSONFieldValidation(t *testing.T) {
 
 func (s *ServiceTests) testBasicArrJSONFieldValidation(t *testing.T) {
 
-	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxyHandler.Handlers(s.lock, &apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	p, err := json.Marshal([]map[string]interface{}{{
 		"valueNum":           10.1,
@@ -226,7 +234,7 @@ func (s *ServiceTests) testBasicArrJSONFieldValidation(t *testing.T) {
 
 func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 
-	handler := proxyHandler.Handlers(&apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.swagRouter, nil, nil, nil)
+	handler := proxyHandler.Handlers(s.lock, &apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test")

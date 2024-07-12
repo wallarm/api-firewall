@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"os"
 	"runtime/debug"
+	"sync"
 	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+
 	"github.com/wallarm/api-firewall/internal/platform/router"
 )
 
@@ -50,6 +52,7 @@ type App struct {
 	shutdown chan os.Signal
 	mw       []Middleware
 	Options  *AppAdditionalOptions
+	lock     *sync.RWMutex
 }
 
 type AppAdditionalOptions struct {
@@ -60,6 +63,7 @@ type AppAdditionalOptions struct {
 	CustomBlockStatusCode int
 	OptionsHandler        fasthttp.RequestHandler
 	DefaultHandler        router.Handler
+	Lock                  *sync.RWMutex
 }
 
 // NewApp creates an App value that handle a set of routes for the application.
@@ -71,6 +75,7 @@ func NewApp(options *AppAdditionalOptions, shutdown chan os.Signal, logger *logr
 		mw:       mw,
 		Log:      logger,
 		Options:  options,
+		lock:     options.Lock,
 	}
 
 	return &app
@@ -89,8 +94,11 @@ func (a *App) Handle(method string, path string, handler router.Handler, mw ...M
 	// The function to execute for each request.
 	h := func(ctx *fasthttp.RequestCtx) error {
 
-		// Add request ID
-		ctx.SetUserValue(RequestID, uuid.NewString())
+		// read lock for an OAS update in proxy mode
+		if a.lock != nil {
+			a.lock.RLock()
+			defer a.lock.RUnlock()
+		}
 
 		if err := handler(ctx); err != nil {
 			a.SignalShutdown()
@@ -101,7 +109,6 @@ func (a *App) Handle(method string, path string, handler router.Handler, mw ...M
 	}
 
 	// Add this handler for the specified verb and route.
-	//a.Router.Handle(method, path, h)
 	if err := a.Router.AddEndpoint(method, path, h); err != nil {
 		return err
 	}
@@ -134,7 +141,7 @@ func (a *App) MainHandler(ctx *fasthttp.RequestCtx) {
 	if handler == nil {
 
 		// OPTIONS methods are passed if the passOPTIONS is set to true
-		if a.Options.PassOptions == true && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
+		if a.Options.PassOptions && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 
 			ctx.SetUserValue(PassRequestOPTIONS, true)
 
@@ -168,12 +175,20 @@ func (a *App) MainHandler(ctx *fasthttp.RequestCtx) {
 
 		// block request if the GraphQL endpoint not found
 		if a.Options.Mode == GraphQLMode {
-			RespondError(ctx, fasthttp.StatusForbidden, "")
+			if err := RespondError(ctx, fasthttp.StatusForbidden, ""); err != nil {
+				a.Log.WithFields(logrus.Fields{
+					"error":      err,
+					"host":       strconv.B2S(ctx.Request.Header.Host()),
+					"path":       strconv.B2S(ctx.Path()),
+					"method":     strconv.B2S(ctx.Request.Header.Method()),
+					"request_id": ctx.UserValue(RequestID),
+				}).Error("Error in the request handler")
+			}
 			return
 		}
 
 		// handle request by default handler in the endpoint not found in Proxy mode
-		// Default handler is used to handle request and response validation logic
+		// default handler is used to handle request and response validation logic
 		if err := a.Options.DefaultHandler(ctx); err != nil {
 			a.Log.WithFields(logrus.Fields{
 				"error":      err,

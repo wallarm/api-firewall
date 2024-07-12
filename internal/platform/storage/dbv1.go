@@ -1,4 +1,4 @@
-package database
+package storage
 
 import (
 	"database/sql"
@@ -209,9 +209,5 @@ func (s *SQLLiteV1) ShouldUpdate(newStorage DBOpenAPILoader) bool {
 	beforeUpdateSpecs := getSchemaVersions(s)
 	afterUpdateSpecs := getSchemaVersions(newStorage)
 
-	if !reflect.DeepEqual(beforeUpdateSpecs, afterUpdateSpecs) {
-		return true
-	}
-
-	return false
+	return !reflect.DeepEqual(beforeUpdateSpecs, afterUpdateSpecs)
 }

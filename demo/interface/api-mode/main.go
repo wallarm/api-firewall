@@ -139,5 +139,4 @@ func main() {
 		logger.Infof("%s: %v: Completed shutdown", logMainPrefix, sig)
 	}
 
-	return
 }
