@@ -469,12 +469,9 @@ export default function() {
             let params = {headers: apifwHeaders};
             let request = http.request('HEAD', url, undefined, params);
 
-            console.log(request.body);
-
-            // FIXME https://wallarm.atlassian.net/browse/KERBEROS-1470
+            // k6 does not allow to get body of the HEAD requests, so we only verify that status code of the response is correct
             check(request, {
                 "Is response status 200": (r) => r.status === 200,
-                "Is response body status 200 (KERBEROS-1470)": (r) => r.json("summary.0.status_code") === 200
             });
         }
     });
