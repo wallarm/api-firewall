@@ -2,7 +2,7 @@ version: '3.8'
 services:
   graphql-api:
     container_name: graphql-api
-    image: dvga:latest
+    image: dolevf/dvga:latest
     restart: on-failure
     environment:
       WEB_HOST: 0.0.0.0
@@ -17,7 +17,9 @@ services:
       # Mode and schema
       APIFW_MODE: "graphql"
       APIFW_GRAPHQL_SCHEMA: "/opt/resources/schema.graphql"
-      
+
+      APIFW_GRAPHQL_PLAYGROUND: "false"
+
       # API Security features
       APIFW_GRAPHQL_INTROSPECTION: false
       APIFW_GRAPHQL_MAX_QUERY_DEPTH: 5
