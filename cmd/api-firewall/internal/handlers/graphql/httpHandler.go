@@ -41,6 +41,9 @@ var (
 // GraphQLHandle performs complexity checks to the GraphQL query and proxy request to the backend if all checks are passed
 func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 
+	// update the path to the API endpoint (server URL path)
+	ctx.Request.URI().SetPath(h.serverURL.Path)
+
 	// handle WS
 	if websocket.FastHTTPIsWebSocketUpgrade(ctx) {
 		return h.HandleWebSocketProxy(ctx)

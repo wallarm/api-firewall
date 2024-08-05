@@ -1233,7 +1233,7 @@ func (s *ServiceGraphQLTests) testGQLSubscription(t *testing.T) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
-		APIHost: "http://localhost:8080/graphql",
+		APIHost: "http://localhost:8080/test",
 		Server: config.Backend{
 			URL: "http://localhost:19090/graphql",
 		},
@@ -1291,7 +1291,7 @@ func (s *ServiceGraphQLTests) testGQLSubscription(t *testing.T) {
 	headers.Set("Sec-WebSocket-Protocol", "graphql-ws")
 	headers.Set("Origin", "http://localhost:19091")
 
-	wsClientConn, wsClientResp, err := websocket.DefaultDialer.Dial("ws://localhost:19091/graphql", headers)
+	wsClientConn, wsClientResp, err := websocket.DefaultDialer.Dial("ws://localhost:19091/test", headers)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1388,7 +1388,7 @@ func (s *ServiceGraphQLTests) testGQLSubscription(t *testing.T) {
 
 	// check ws connection with wrong origin
 	headers.Set("Origin", "http://wrongOrigin.com")
-	_, wsClientRespE, err := websocket.DefaultDialer.Dial("ws://localhost:19091/graphql", headers)
+	_, wsClientRespE, err := websocket.DefaultDialer.Dial("ws://localhost:19091/test", headers)
 	assert.NotNil(t, err)
 
 	assert.Equal(t, fasthttp.StatusForbidden, wsClientRespE.StatusCode)
