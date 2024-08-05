@@ -33,7 +33,9 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 )
 
-const openAPISpecTest = `
+const (
+	resolvedIP      = "127.0.0.1"
+	openAPISpecTest = `
 openapi: 3.0.1
 info:
   title: Service
@@ -319,6 +321,7 @@ components:
             read: read
             write: write
 `
+)
 
 var testSupportedEncodingSchemas = []string{"gzip", "deflate", "br"}
 
@@ -652,9 +655,9 @@ func (s *ServiceTests) testPathNotExists(t *testing.T) {
 
 	handler = proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -680,9 +683,9 @@ func (s *ServiceTests) testPathNotExists(t *testing.T) {
 
 	handler = proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	reqCtx = fasthttp.RequestCtx{
 		Request: *req,
@@ -738,9 +741,9 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -828,9 +831,9 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -939,9 +942,9 @@ func (s *ServiceTests) testAllowlist(t *testing.T) {
 			Request: *req,
 		}
 
-		s.proxy.EXPECT().Get().Return(s.client, nil)
+		s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 		s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-		s.proxy.EXPECT().Put(s.client).Return(nil)
+		s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 		handler(&reqCtx)
 
@@ -1026,9 +1029,9 @@ func (s *ServiceTests) testAllowlistXForwardedFor(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1044,9 +1047,9 @@ func (s *ServiceTests) testAllowlistXForwardedFor(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1121,9 +1124,9 @@ func (s *ServiceTests) testShadowAPI(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1174,9 +1177,9 @@ func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1225,9 +1228,9 @@ func (s *ServiceTests) testDisableMode(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1278,9 +1281,9 @@ func (s *ServiceTests) testBlockLogOnlyMode(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1330,9 +1333,9 @@ func (s *ServiceTests) testLogOnlyBlockMode(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1368,9 +1371,9 @@ func (s *ServiceTests) testCommonParameters(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1500,9 +1503,9 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1518,9 +1521,9 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1719,9 +1722,9 @@ func (s *ServiceTests) testOauthIntrospectionReadWriteSuccess(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1790,9 +1793,9 @@ func (s *ServiceTests) testOauthIntrospectionContentTypeRequest(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1853,9 +1856,9 @@ func (s *ServiceTests) testOauthJWTRS256(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1930,9 +1933,9 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -1987,9 +1990,9 @@ func (s *ServiceTests) testRequestHeaders(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -2044,9 +2047,9 @@ func (s *ServiceTests) testResponseHeaders(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -2062,9 +2065,9 @@ func (s *ServiceTests) testResponseHeaders(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client)
+	s.proxy.EXPECT().Put(resolvedIP, s.client)
 
 	handler(&reqCtx)
 
@@ -2133,9 +2136,9 @@ func (s *ServiceTests) testRequestBodyCompression(t *testing.T) {
 			Request: *req,
 		}
 
-		s.proxy.EXPECT().Get().Return(s.client, nil)
+		s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 		s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-		s.proxy.EXPECT().Put(s.client).Return(nil)
+		s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 		handler(&reqCtx)
 
@@ -2233,9 +2236,9 @@ func (s *ServiceTests) testResponseBodyCompression(t *testing.T) {
 			Request: *req,
 		}
 
-		s.proxy.EXPECT().Get().Return(s.client, nil)
+		s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 		s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-		s.proxy.EXPECT().Put(s.client).Return(nil)
+		s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 		handler(&reqCtx)
 
@@ -2257,9 +2260,9 @@ func (s *ServiceTests) testResponseBodyCompression(t *testing.T) {
 			Request: *req,
 		}
 
-		s.proxy.EXPECT().Get().Return(s.client, nil)
+		s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 		s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-		s.proxy.EXPECT().Put(s.client)
+		s.proxy.EXPECT().Put(resolvedIP, s.client)
 
 		handler(&reqCtx)
 
@@ -2300,9 +2303,9 @@ func (s *ServiceTests) requestOptionalCookies(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -2318,9 +2321,9 @@ func (s *ServiceTests) requestOptionalCookies(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -2388,9 +2391,9 @@ func (s *ServiceTests) requestOptionalMinMaxCookies(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -2406,9 +2409,9 @@ func (s *ServiceTests) requestOptionalMinMaxCookies(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -2487,9 +2490,9 @@ func (s *ServiceTests) unknownParamQuery(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -2541,9 +2544,9 @@ func (s *ServiceTests) unknownParamPostBody(t *testing.T) {
 	resp.Header.SetContentType("application/json")
 	resp.SetBody([]byte("{\"status\":\"success\"}"))
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -2609,9 +2612,9 @@ func (s *ServiceTests) unknownParamJSONParam(t *testing.T) {
 	resp.Header.SetContentType("application/json")
 	resp.SetBody([]byte("{\"status\":\"success\"}"))
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -2678,9 +2681,9 @@ func (s *ServiceTests) unknownParamUnsupportedMimeType(t *testing.T) {
 	resp.Header.SetContentType("application/json")
 	resp.SetBody([]byte("{\"status\":\"success\"}"))
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	reqCtx := fasthttp.RequestCtx{
 		Request: *req,
@@ -2699,9 +2702,9 @@ func (s *ServiceTests) unknownParamUnsupportedMimeType(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -2739,9 +2742,9 @@ func (s *ServiceTests) testConflictPaths(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -2758,9 +2761,9 @@ func (s *ServiceTests) testConflictPaths(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
