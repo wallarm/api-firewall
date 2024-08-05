@@ -35,7 +35,7 @@ services:
 
       # Log level, listentnig host, port and other parameters
       APIFW_SERVER_URL: "http://graphql-api:5013/graphql"
-      APIFW_URL: "http://0.0.0.0:8080"
+      APIFW_URL: "http://0.0.0.0:8080/graphql"
       APIFW_HEALTH_HOST: "0.0.0.0:9667"
       APIFW_LOG_LEVEL: "debug"
     volumes:
