@@ -21,14 +21,14 @@ func (h Health) Readiness(ctx *fasthttp.RequestCtx) error {
 	status := "ok"
 	statusCode := fasthttp.StatusOK
 
-	reverseProxy, err := h.Pool.Get()
+	reverseProxy, ip, err := h.Pool.Get()
 	if err != nil {
 		status = "not ready"
 		statusCode = fasthttp.StatusInternalServerError
 	}
 
 	if reverseProxy != nil {
-		if err := h.Pool.Put(reverseProxy); err != nil {
+		if err := h.Pool.Put(ip, reverseProxy); err != nil {
 			status = "not ready"
 			statusCode = fasthttp.StatusInternalServerError
 		}
