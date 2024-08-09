@@ -172,9 +172,9 @@ func (s *ServiceTests) testBasicObjJSONFieldValidation(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -219,9 +219,9 @@ func (s *ServiceTests) testBasicArrJSONFieldValidation(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 

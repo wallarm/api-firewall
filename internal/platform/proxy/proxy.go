@@ -8,11 +8,11 @@ import (
 // Perform function proxies the request to the backend server
 func Perform(ctx *fasthttp.RequestCtx, proxyPool Pool, customHostHeader string) error {
 
-	client, err := proxyPool.Get()
+	client, ip, err := proxyPool.Get()
 	if err != nil {
 		return err
 	}
-	defer proxyPool.Put(client)
+	defer proxyPool.Put(ip, client)
 
 	if customHostHeader != "" {
 		ctx.Request.Header.SetHost(customHostHeader)

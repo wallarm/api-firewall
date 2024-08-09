@@ -56,19 +56,22 @@ func NewOpenAPIFromFileOrURL(specPath string, header *config.CustomHeader) (DBOp
 	var err error
 
 	// try to parse path or URL
-	apiSpecURL, _ := url.ParseRequestURI(specPath)
+	apiSpecURL, err := url.ParseRequestURI(specPath)
 
-	switch apiSpecURL.Scheme {
-	case "":
+	// can't parse string as URL. Try to load spec from file
+	if err != nil || apiSpecURL == nil || apiSpecURL.Scheme == "" {
 		specStorage, err = NewOpenAPIFromFile(specPath)
 		if err != nil {
 			return nil, errors.Wrap(err, "loading OpenAPI specification from file")
 		}
-	default:
-		specStorage, err = NewOpenAPIFromURL(specPath, header)
-		if err != nil {
-			return nil, errors.Wrap(err, "loading OpenAPI specification from URL")
-		}
+
+		return specStorage, err
+	}
+
+	// try to load spec from
+	specStorage, err = NewOpenAPIFromURL(specPath, header)
+	if err != nil {
+		return nil, errors.Wrap(err, "loading OpenAPI specification from URL")
 	}
 
 	return specStorage, err

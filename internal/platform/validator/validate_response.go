@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"sort"
 	"strings"
 
@@ -28,15 +27,6 @@ func ValidateResponse(ctx context.Context, input *openapi3filter.ResponseValidat
 	}
 	status := input.Status
 
-	// These status codes will never be validated.
-	// TODO: The list is probably missing some.
-	switch status {
-	case http.StatusNotModified,
-		http.StatusPermanentRedirect,
-		http.StatusTemporaryRedirect,
-		http.StatusMovedPermanently:
-		return nil
-	}
 	route := input.RequestValidationInput.Route
 	options := input.Options
 	if options == nil {
