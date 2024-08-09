@@ -466,6 +466,8 @@ func runGraphQLMode(logger *logrus.Logger) error {
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
+		DNSConfig:           cfg.DNS,
+		Logger:              logger,
 	}
 	pool, err := proxy.NewChanPool(host, &options)
 	if err != nil {
@@ -626,6 +628,9 @@ func runGraphQLMode(logger *logrus.Logger) error {
 			return errors.Wrap(err, "could not stop server gracefully")
 		}
 		logger.Infof("%s: %v: Completed shutdown", logPrefix, sig)
+
+		// Close proxy pool
+		pool.Close()
 	}
 
 	return nil
@@ -782,6 +787,8 @@ func runProxyMode(logger *logrus.Logger) error {
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
+		DNSConfig:           cfg.DNS,
+		Logger:              logger,
 	}
 	pool, err := proxy.NewChanPool(host, &options)
 	if err != nil {
