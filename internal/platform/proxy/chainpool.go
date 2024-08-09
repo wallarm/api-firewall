@@ -12,10 +12,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+
+	"github.com/wallarm/api-firewall/internal/config"
 )
 
 var (
@@ -23,47 +27,68 @@ var (
 	errClosed                 = errors.New("err: chan closed")
 )
 
-func resolveDNS(resolver *net.Resolver, host string) (*string, error) {
-	// TODO: add resolve host
-	// TODO: resolve
+func (p *chanPool) tryResolveAndFetchOneIP(host string) (string, error) {
 
+	var ips []net.IP
 	var resolvedIP string
+	var err error
 
-	addrs, err := resolver.LookupHost(context.Background(), host)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(addrs) > 0 {
-		resolvedIP = addrs[0]
-	}
-
-	if len(addrs) == 0 {
-		ip, err := resolver.LookupIP(context.Background(), "udp", host)
+	if p.dnsCacheResolver != nil {
+		ips, err = p.dnsCacheResolver.Fetch(context.Background(), host)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		resolvedIP = ip[0].String()
+	} else {
+		// resolve host using local resolver
+		ips, err = p.defaultResolver.LookupIP(context.Background(), "ip", host)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	return &resolvedIP, nil
+	for _, ip := range ips {
+		if ip.To4() != nil {
+			resolvedIP = ip.String()
+			return resolvedIP, nil
+		}
+	}
+
+	for _, ip := range ips {
+		if ip.To16() != nil {
+			resolvedIP = ip.String()
+			return resolvedIP, nil
+		}
+	}
+
+	return resolvedIP, nil
 }
 
 type HTTPClient interface {
 	Do(req *fasthttp.Request, resp *fasthttp.Response) error
 }
 
-func factory(host string, port string, options *Options, tlsConfig *tls.Config) HTTPClient {
+func (p *chanPool) factory(connAddr string) HTTPClient {
 
 	proxyClient := fasthttp.Client{
+		NoDefaultUserAgentHeader:      true,
+		DisableHeaderNamesNormalizing: true,
+		DisablePathNormalizing:        true,
 		Dial: func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(host+":"+port, options.DialTimeout)
+			return fasthttp.DialTimeout(connAddr, p.options.DialTimeout)
 		},
-		TLSConfig:       tlsConfig,
-		MaxConnsPerHost: options.MaxConnsPerHost,
-		ReadTimeout:     options.ReadTimeout,
-		WriteTimeout:    options.WriteTimeout,
+		TLSConfig:       p.tlsConfig,
+		MaxConnsPerHost: p.options.MaxConnsPerHost,
+		ReadTimeout:     p.options.ReadTimeout,
+		WriteTimeout:    p.options.WriteTimeout,
 	}
+
+	// use configured NS
+	if p.options.DNSConfig.Nameserver.Host != "" {
+		proxyClient.Dial = (&fasthttp.TCPDialer{
+			Resolver: p.defaultResolver,
+		}).Dial
+	}
+
 	return &proxyClient
 }
 
@@ -87,18 +112,19 @@ type chanPool struct {
 	mutex sync.RWMutex
 
 	// reverseProxyChan chan of getting the *ReverseProxy and putting it back
-	//reverseProxyChan chan HTTPClient
 	reverseProxyChanLB map[string]chan HTTPClient
 
 	// factory is factory method to generate ReverseProxy
-	// this can be customized
-	// factory Factory
 	options *Options
 	host    string
 	port    string
 
-	tlsConfig *tls.Config
-	resolver  *net.Resolver
+	initResolvedIP string
+	initConnAddr   string
+
+	tlsConfig        *tls.Config
+	defaultResolver  *net.Resolver
+	dnsCacheResolver *Resolver
 }
 
 type Options struct {
@@ -107,9 +133,12 @@ type Options struct {
 	InsecureConnection  bool
 	RootCA              string
 	MaxConnsPerHost     int
-	ReadTimeout         time.Duration
-	WriteTimeout        time.Duration
-	DialTimeout         time.Duration
+	DNSConfig           config.DNS
+	Logger              *logrus.Logger
+
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	DialTimeout  time.Duration
 }
 
 // NewChanPool to new a pool with some params
@@ -150,29 +179,78 @@ func NewChanPool(hostAddr string, options *Options) (Pool, error) {
 	// initialize the chanPool
 	pool := &chanPool{
 		mutex:              sync.RWMutex{},
-		reverseProxyChanLB: make(map[string]chan HTTPClient), //, options.ClientPoolCapacity),
+		reverseProxyChanLB: make(map[string]chan HTTPClient),
 		options:            options,
 		host:               host,
 		port:               port,
 		tlsConfig:          tlsConfig,
-		resolver:           &net.Resolver{},
-		//TODO: fix it
+		defaultResolver: &net.Resolver{
+			PreferGo: true,
+		},
 	}
+
+	// init DNS cache
+	if options.DNSConfig.Cache {
+		dnsCacheResolver, err := NewDNSResolver(options.DNSConfig.FetchTimeout, options.DNSConfig.LookupTimeout, pool.defaultResolver, options.Logger)
+		if err != nil {
+			return nil, err
+		}
+
+		pool.dnsCacheResolver = dnsCacheResolver
+	}
+
+	// init NS in the DNS resolver
+	if options.DNSConfig.Nameserver.Host != "" {
+		var builder strings.Builder
+		builder.WriteString(options.DNSConfig.Nameserver.Host)
+		builder.WriteString(":")
+		builder.WriteString(options.DNSConfig.Nameserver.Port)
+
+		pool.defaultResolver.Dial = func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{}
+			return d.DialContext(ctx, options.DNSConfig.Nameserver.Proto, builder.String())
+		}
+	}
+
+	ip, err := pool.tryResolveAndFetchOneIP(host)
+	if err != nil {
+		return nil, err
+	}
+
+	var builder strings.Builder
+
+	builder.WriteString(ip)
+	builder.WriteString(":")
+	builder.WriteString(port)
+
+	pool.initConnAddr = builder.String()
 
 	// create initial connections, if something goes wrong,
 	// just close the pool error out.
 	for i := 0; i < options.InitialPoolCapacity; i++ {
-		ip, err := resolveDNS(pool.resolver, pool.host)
-		if err != nil {
-			continue
+
+		connAddr := pool.initConnAddr
+
+		if options.DNSConfig.Cache {
+			ip, err = pool.tryResolveAndFetchOneIP(pool.host)
+			if err != nil {
+				continue
+			}
+
+			builder.Reset()
+
+			builder.WriteString(ip)
+			builder.WriteString(":")
+			builder.WriteString(port)
+
+			connAddr = builder.String()
 		}
 
-		proxy := factory(*ip, pool.port, options, pool.tlsConfig)
-		reverseProxyChan := pool.reverseProxyChanLB[*ip]
-		if reverseProxyChan == nil {
-			pool.reverseProxyChanLB[*ip] = make(chan HTTPClient)
+		proxy := pool.factory(connAddr)
+		if pool.reverseProxyChanLB[ip] == nil {
+			pool.reverseProxyChanLB[ip] = make(chan HTTPClient, options.ClientPoolCapacity)
 		}
-		pool.reverseProxyChanLB[*ip] <- proxy
+		pool.reverseProxyChanLB[ip] <- proxy
 	}
 
 	return pool, nil
@@ -199,29 +277,45 @@ func (p *chanPool) Close() {
 // reverseProxyChan is nil or pool has been closed
 func (p *chanPool) Get() (HTTPClient, string, error) {
 
-	ip, err := resolveDNS(p.resolver, p.host)
-	if err != nil {
-		return nil, "", err
+	var resolvedIP, connAddr string
+
+	connAddr = p.initConnAddr
+	resolvedIP = p.initResolvedIP
+
+	if p.options.DNSConfig.Cache {
+		ip, err := p.tryResolveAndFetchOneIP(p.host)
+		if err != nil {
+			return nil, "", err
+		}
+		resolvedIP = ip
+
+		var builder strings.Builder
+
+		builder.WriteString(ip)
+		builder.WriteString(":")
+		builder.WriteString(p.port)
+
+		connAddr = builder.String()
 	}
 
-	reverseProxyChan := p.reverseProxyChanLB[*ip]
+	reverseProxyChan := p.reverseProxyChanLB[resolvedIP]
 
 	if reverseProxyChan == nil {
-		return nil, *ip, errClosed
+		p.reverseProxyChanLB[resolvedIP] = make(chan HTTPClient, p.options.ClientPoolCapacity)
+		reverseProxyChan = p.reverseProxyChanLB[resolvedIP]
 	}
 
 	// wrap our connections with out custom net.Conn implementation (wrapConn
 	// method) that puts the connection back to the pool if it's closed.
-
 	select {
 	case proxy := <-reverseProxyChan:
 		if proxy == nil {
-			return nil, *ip, errClosed
+			return nil, resolvedIP, errClosed
 		}
-		return proxy, *ip, nil
+		return proxy, resolvedIP, nil
 	default:
-		proxy := factory(*ip, p.port, p.options, p.tlsConfig)
-		return proxy, *ip, nil
+		proxy := p.factory(connAddr)
+		return proxy, resolvedIP, nil
 	}
 }
 

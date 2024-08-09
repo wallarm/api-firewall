@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/valyala/fasthttp"
+
 	graphqlHandler "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
