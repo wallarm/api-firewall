@@ -466,7 +466,6 @@ func runGraphQLMode(logger *logrus.Logger) error {
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
-		DNSConfig:           cfg.DNS,
 		Logger:              logger,
 	}
 	pool, err := proxy.NewChanPool(host, &options)

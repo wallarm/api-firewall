@@ -79,7 +79,6 @@ type GraphQLMode struct {
 	Server   Backend
 	Denylist Denylist
 	AllowIP  AllowIP
-	DNS      DNS
 
 	APIHost       string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
 	HealthAPIHost string        `conf:"default:0.0.0.0:9667,env:HEALTH_HOST" validate:"required"`
@@ -117,7 +116,7 @@ type Backend struct {
 type DNS struct {
 	Nameserver    Nameserver
 	Cache         bool          `conf:"default:false"`
-	FetchTimeout  time.Duration `conf:"default:10s"`
+	FetchTimeout  time.Duration `conf:"default:1m"`
 	LookupTimeout time.Duration `conf:"default:1s"`
 }
 
