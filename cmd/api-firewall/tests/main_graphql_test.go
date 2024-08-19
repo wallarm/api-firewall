@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/valyala/fasthttp"
+
 	graphqlHandler "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
@@ -211,9 +212,9 @@ func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil).Times(1)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil).Times(1)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp).Times(1)
-	s.proxy.EXPECT().Put(s.client).Return(nil).Times(1)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil).Times(1)
 
 	handler(&reqCtx)
 
@@ -384,9 +385,9 @@ func (s *ServiceGraphQLTests) testGQLGETSuccess(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil).Times(1)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil).Times(1)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp).Times(1)
-	s.proxy.EXPECT().Put(s.client).Return(nil).Times(1)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil).Times(1)
 
 	handler(&reqCtx)
 
@@ -1715,9 +1716,9 @@ func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil).AnyTimes()
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil).AnyTimes()
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp).AnyTimes()
-	s.proxy.EXPECT().Put(s.client).Return(nil).AnyTimes()
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil).AnyTimes()
 
 	handler(&reqCtx)
 

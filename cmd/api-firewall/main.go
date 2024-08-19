@@ -4,6 +4,7 @@ import (
 	"expvar" // Register the expvar handlers
 	"fmt"
 	"mime"
+	"net"
 	"net/url"
 	"os"
 	"os/signal"
@@ -467,7 +468,7 @@ func runGraphQLMode(logger *logrus.Logger) error {
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
 	}
-	pool, err := proxy.NewChanPool(host, &options)
+	pool, err := proxy.NewChanPool(host, &options, nil)
 	if err != nil {
 		return errors.Wrap(err, "proxy pool init")
 	}
@@ -626,6 +627,9 @@ func runGraphQLMode(logger *logrus.Logger) error {
 			return errors.Wrap(err, "could not stop server gracefully")
 		}
 		logger.Infof("%s: %v: Completed shutdown", logPrefix, sig)
+
+		// Close proxy pool
+		pool.Close()
 	}
 
 	return nil
@@ -773,6 +777,16 @@ func runProxyMode(logger *logrus.Logger) error {
 		initialCap = 1
 	}
 
+	var dnsCacheResolver proxy.DNSCache
+
+	// init DNS resolver
+	if cfg.DNS.Cache {
+		dnsCacheResolver, err = proxy.NewDNSResolver(cfg.DNS.FetchTimeout, cfg.DNS.LookupTimeout, &net.Resolver{PreferGo: true}, logger)
+		if err != nil {
+			return errors.Wrap(err, "DNS cache resolver init")
+		}
+	}
+
 	options := proxy.Options{
 		InitialPoolCapacity: initialCap,
 		ClientPoolCapacity:  cfg.Server.ClientPoolCapacity,
@@ -782,8 +796,9 @@ func runProxyMode(logger *logrus.Logger) error {
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
+		DNSConfig:           cfg.DNS,
 	}
-	pool, err := proxy.NewChanPool(host, &options)
+	pool, err := proxy.NewChanPool(host, &options, dnsCacheResolver)
 	if err != nil {
 		return errors.Wrap(err, "proxy pool init")
 	}

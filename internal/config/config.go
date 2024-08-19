@@ -15,6 +15,12 @@ type CustomHeader struct {
 	Value string
 }
 
+type Nameserver struct {
+	Host  string `conf:""`
+	Port  string `conf:"default:53"`
+	Proto string `conf:"default:udp"`
+}
+
 type ProxyMode struct {
 	conf.Version
 	APIFWMode
@@ -24,6 +30,7 @@ type ProxyMode struct {
 	Denylist  Denylist
 	Server    Server
 	AllowIP   AllowIP
+	DNS       DNS
 
 	APIHost       string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
 	HealthAPIHost string        `conf:"default:0.0.0.0:9667,env:HEALTH_HOST" validate:"required"`
@@ -103,6 +110,14 @@ type Backend struct {
 	WriteTimeout         time.Duration `conf:"default:5s"`
 	DialTimeout          time.Duration `conf:"default:200ms"`
 	DeleteAcceptEncoding bool          `conf:"default:false"`
+	DNSLoadBalancing     bool          `conf:"default:false"`
+}
+
+type DNS struct {
+	Nameserver    Nameserver
+	Cache         bool          `conf:"default:false"`
+	FetchTimeout  time.Duration `conf:"default:1m"`
+	LookupTimeout time.Duration `conf:"default:1s"`
 }
 
 type JWT struct {

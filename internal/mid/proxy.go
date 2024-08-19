@@ -70,10 +70,12 @@ func Proxy(options *ProxyOptions) web.Middleware {
 				ctx.Request.Header.Add(apifwHeaderName, ctx.UserValue(web.RequestID).(string))
 			}
 
+			// update the request Schema to the server Schema value
 			if !bytes.Equal([]byte(options.ServerURL.Scheme), ctx.Request.URI().Scheme()) {
 				ctx.Request.URI().SetSchemeBytes([]byte(options.ServerURL.Scheme))
 			}
 
+			// update the request Host header to the server Host value
 			if !bytes.Equal([]byte(options.ServerURL.Host), ctx.Request.URI().Host()) {
 				ctx.Request.URI().SetHostBytes([]byte(options.ServerURL.Host))
 			}

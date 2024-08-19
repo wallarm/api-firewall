@@ -229,9 +229,9 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestBlockMode(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -283,9 +283,9 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestLogOnlyMode(t *testing.T) 
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -301,9 +301,9 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestLogOnlyMode(t *testing.T) 
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -350,9 +350,9 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestDisableMode(t *testing.T) 
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -368,9 +368,9 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestDisableMode(t *testing.T) 
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -411,9 +411,9 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseBlockMode(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -433,9 +433,9 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseBlockMode(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -473,9 +473,9 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseLogOnlyMode(t *testing.T)
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -495,9 +495,9 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseLogOnlyMode(t *testing.T)
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -544,9 +544,9 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseDisableMode(t *testing.T)
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -566,9 +566,9 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseDisableMode(t *testing.T)
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -612,9 +612,9 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestBody(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -668,9 +668,9 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestHeader(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -732,9 +732,9 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestCookie(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -796,9 +796,9 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestPath(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 
@@ -859,9 +859,9 @@ func (s *ModSecIntegrationTests) basicResponseActionRedirect(t *testing.T) {
 		Request: *req,
 	}
 
-	s.proxy.EXPECT().Get().Return(s.client, nil)
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
 	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
-	s.proxy.EXPECT().Put(s.client).Return(nil)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
 
 	handler(&reqCtx)
 

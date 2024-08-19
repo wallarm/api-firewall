@@ -134,7 +134,7 @@ func BenchmarkGraphQL(b *testing.B) {
 		WriteTimeout:        5 * time.Second,
 		DialTimeout:         5 * time.Second,
 	}
-	pool, err := proxy.NewChanPool(host, &options)
+	pool, err := proxy.NewChanPool(host, &options, nil)
 	if err != nil {
 		b.Fatalf("proxy pool init: %v", err)
 	}

@@ -84,12 +84,13 @@ func (mr *MockPoolMockRecorder) Close() *gomock.Call {
 }
 
 // Get mocks base method.
-func (m *MockPool) Get() (HTTPClient, error) {
+func (m *MockPool) Get() (HTTPClient, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get")
 	ret0, _ := ret[0].(HTTPClient)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Get indicates an expected call of Get.
@@ -98,30 +99,16 @@ func (mr *MockPoolMockRecorder) Get() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockPool)(nil).Get))
 }
 
-// Len mocks base method.
-func (m *MockPool) Len() int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Len")
-	ret0, _ := ret[0].(int)
-	return ret0
-}
-
-// Len indicates an expected call of Len.
-func (mr *MockPoolMockRecorder) Len() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Len", reflect.TypeOf((*MockPool)(nil).Len))
-}
-
 // Put mocks base method.
-func (m *MockPool) Put(arg0 HTTPClient) error {
+func (m *MockPool) Put(arg0 string, arg1 HTTPClient) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Put", arg0)
+	ret := m.ctrl.Call(m, "Put", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Put indicates an expected call of Put.
-func (mr *MockPoolMockRecorder) Put(arg0 interface{}) *gomock.Call {
+func (mr *MockPoolMockRecorder) Put(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockPool)(nil).Put), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockPool)(nil).Put), arg0, arg1)
 }
