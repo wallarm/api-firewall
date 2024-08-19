@@ -357,6 +357,7 @@ type ServiceTests struct {
 	client    *proxy.MockHTTPClient
 	lock      *sync.RWMutex
 	dbSpec    *storage.MockDBOpenAPILoader
+	dnsCache  *proxy.MockDNSCache
 }
 
 func compressFlate(data []byte) ([]byte, error) {
@@ -431,6 +432,7 @@ func TestBasic(t *testing.T) {
 
 	pool := proxy.NewMockPool(mockCtrl)
 	client := proxy.NewMockHTTPClient(mockCtrl)
+	dnsCache := proxy.NewMockDNSCache(mockCtrl)
 
 	swagger, err := openapi3.NewLoader().LoadFromData([]byte(openAPISpecTest))
 	if err != nil {
@@ -454,6 +456,7 @@ func TestBasic(t *testing.T) {
 		client:    client,
 		lock:      &lock,
 		dbSpec:    dbSpec,
+		dnsCache:  dnsCache,
 	}
 
 	// basic test
@@ -501,6 +504,9 @@ func TestBasic(t *testing.T) {
 
 	t.Run("testCustomHostHeader", apifwTests.testCustomHostHeader)
 	t.Run("testCustomHeaderOASviaURL", apifwTests.testCustomHeaderOASviaURL)
+
+	// dns cache
+	t.Run("testDNSCacheFetch", apifwTests.testDNSCacheFetch)
 }
 
 func (s *ServiceTests) testCustomBlockStatusCode(t *testing.T) {
@@ -2791,6 +2797,10 @@ func checkCustomHeaderEndpoint(ctx *fasthttp.RequestCtx) {
 	}
 }
 
+func alwaysSuccessResponse(ctx *fasthttp.RequestCtx) {
+	ctx.SetStatusCode(fasthttp.StatusOK)
+}
+
 func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 
 	req := fasthttp.AcquireRequest()
@@ -2836,7 +2846,7 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
 	}
-	pool, err := proxy.NewChanPool("localhost:28290", &options)
+	pool, err := proxy.NewChanPool("localhost:28290", &options, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2878,6 +2888,82 @@ func (s *ServiceTests) testCustomHeaderOASviaURL(t *testing.T) {
 
 	if !bytes.Equal(specStorage.SpecificationRawContent(-1), strconv.S2B(openAPISpecTest)) {
 		t.Error("Incorrect spec raw bytes")
+	}
+
+}
+
+func (s *ServiceTests) testDNSCacheFetch(t *testing.T) {
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/get/test")
+	req.Header.SetMethod("GET")
+	req.Header.SetHost("wrongHost")
+
+	port := 28290
+	defer startServerOnPort(t, port, alwaysSuccessResponse).Close()
+
+	serverConf := config.Server{
+		Backend: config.Backend{
+			URL:                "http://localhost:28290",
+			RequestHostHeader:  "testCustomHost",
+			ClientPoolCapacity: 1,
+			InsecureConnection: false,
+			RootCA:             "",
+			MaxConnsPerHost:    512,
+			ReadTimeout:        time.Second * 5,
+			WriteTimeout:       time.Second * 5,
+			DialTimeout:        time.Second * 5,
+		},
+	}
+
+	var cfg = config.ProxyMode{
+		RequestValidation:         "BLOCK",
+		ResponseValidation:        "BLOCK",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+		Server: serverConf,
+		DNS: config.DNS{
+			Cache:        true,
+			FetchTimeout: 200 * time.Millisecond,
+		},
+	}
+
+	options := proxy.Options{
+		InitialPoolCapacity: 1,
+		ClientPoolCapacity:  cfg.Server.ClientPoolCapacity,
+		InsecureConnection:  cfg.Server.InsecureConnection,
+		RootCA:              cfg.Server.RootCA,
+		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
+		ReadTimeout:         cfg.Server.ReadTimeout,
+		WriteTimeout:        cfg.Server.WriteTimeout,
+		DialTimeout:         cfg.Server.DialTimeout,
+		DNSConfig:           cfg.DNS,
+	}
+
+	localIP := net.ParseIP("127.0.0.1")
+	ips := []net.IP{localIP}
+
+	s.dnsCache.EXPECT().Fetch(gomock.Any(), gomock.Any()).Return(ips, nil).Times(3)
+
+	pool, err := proxy.NewChanPool("localhost:28290", &options, s.dnsCache)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	if err := proxy.Perform(&reqCtx, pool, cfg.Server.RequestHostHeader); err != nil {
+		t.Fatal(err)
+	}
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
 	}
 
 }

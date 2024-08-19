@@ -20,7 +20,8 @@ bench:
 	GOMAXPROCS=4 go test -v -bench=. -benchtime=1000x -count 5 -benchmem -run BenchmarkWSGraphQL ./cmd/api-firewall/tests
 
 genmocks:
-	mockgen -source ./internal/platform/proxy/chainpool.go -destination ./internal/platform/proxy/httppool_mock.go -package proxy
+	mockgen -source ./internal/platform/proxy/chainpool.go -destination ./internal/platform/proxy/chainpool_mock.go -package proxy
+	mockgen -source ./internal/platform/proxy/dnscache.go -destination ./internal/platform/proxy/dnscache_mock.go -package proxy
 	mockgen -source ./internal/platform/storage/storage.go -destination ./internal/platform/storage/storage_mock.go -package storage
 	mockgen -source ./internal/platform/storage/updater/updater.go -destination ./internal/platform/storage/updater/updater_mock.go -package updater
 	mockgen -source ./internal/platform/proxy/ws.go -destination ./internal/platform/proxy/ws_mock.go -package proxy

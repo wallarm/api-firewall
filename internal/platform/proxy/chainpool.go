@@ -124,7 +124,7 @@ type chanPool struct {
 
 	tlsConfig        *tls.Config
 	defaultResolver  *net.Resolver
-	dnsCacheResolver *Resolver
+	dnsCacheResolver DNSCache
 }
 
 type Options struct {
@@ -142,7 +142,7 @@ type Options struct {
 }
 
 // NewChanPool to new a pool with some params
-func NewChanPool(hostAddr string, options *Options) (Pool, error) {
+func NewChanPool(hostAddr string, options *Options, dnsCacheResolver DNSCache) (Pool, error) {
 	if options.InitialPoolCapacity < 0 || options.ClientPoolCapacity <= 0 || options.InitialPoolCapacity > options.ClientPoolCapacity {
 		return nil, errInvalidCapacitySetting
 	}
@@ -187,16 +187,7 @@ func NewChanPool(hostAddr string, options *Options) (Pool, error) {
 		defaultResolver: &net.Resolver{
 			PreferGo: true,
 		},
-	}
-
-	// init DNS cache
-	if options.DNSConfig.Cache {
-		dnsCacheResolver, err := NewDNSResolver(options.DNSConfig.FetchTimeout, options.DNSConfig.LookupTimeout, pool.defaultResolver, options.Logger)
-		if err != nil {
-			return nil, err
-		}
-
-		pool.dnsCacheResolver = dnsCacheResolver
+		dnsCacheResolver: dnsCacheResolver,
 	}
 
 	// init NS in the DNS resolver
@@ -231,7 +222,7 @@ func NewChanPool(hostAddr string, options *Options) (Pool, error) {
 
 		connAddr := pool.initConnAddr
 
-		if options.DNSConfig.Cache {
+		if pool.dnsCacheResolver != nil {
 			ip, err = pool.tryResolveAndFetchOneIP(pool.host)
 			if err != nil {
 				continue
@@ -271,6 +262,11 @@ func (p *chanPool) Close() {
 
 		close(reverseProxyChan)
 	}
+
+	if p.dnsCacheResolver != nil {
+		p.dnsCacheResolver.Stop()
+	}
+
 }
 
 // Get a *ReverseProxy from pool, it will get an error while

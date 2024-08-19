@@ -23,6 +23,13 @@ var (
 // onRefreshed is called when DNS are refreshed.
 var onRefreshed = func() {}
 
+type DNSCache interface {
+	LookupIP(ctx context.Context, addr string) ([]net.IP, error)
+	Fetch(ctx context.Context, addr string) ([]net.IP, error)
+	Refresh()
+	Stop()
+}
+
 // Resolver is DNS cache resolver which cache DNS resolve results in memory.
 type Resolver struct {
 	lookupIPFn    func(ctx context.Context, host string) ([]net.IP, error)
@@ -37,7 +44,7 @@ type Resolver struct {
 
 // NewDNSResolver initializes DNS cache resolver and starts auto refreshing in a new goroutine.
 // To stop refreshing, call `Stop()` function.
-func NewDNSResolver(freq time.Duration, lookupTimeout time.Duration, resolver *net.Resolver, logger *logrus.Logger) (*Resolver, error) {
+func NewDNSResolver(freq time.Duration, lookupTimeout time.Duration, resolver *net.Resolver, logger *logrus.Logger) (DNSCache, error) {
 	if freq <= 0 {
 		freq = defaultFreq
 	}
