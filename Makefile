@@ -13,7 +13,8 @@ tidy:
 	go mod vendor
 
 test:
-	go test ./... -count=1 -race -cover
+	go test ./... -count=1 -race -cover -run '^Test[^W]'
+	go test ./cmd/api-firewall/tests/main_dns_test.go
 
 bench:
 	GOMAXPROCS=1 go test -v -bench=. -benchtime=1000x -count 5 -benchmem -run BenchmarkWSGraphQL ./cmd/api-firewall/tests

@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/savsgio/gotils/strconv"
 	"io"
 	"net"
 	"net/url"
@@ -20,8 +18,10 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 

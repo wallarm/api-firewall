@@ -16,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 
 	"github.com/wallarm/api-firewall/internal/config"
@@ -134,7 +133,6 @@ type Options struct {
 	RootCA              string
 	MaxConnsPerHost     int
 	DNSConfig           config.DNS
-	Logger              *logrus.Logger
 
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
