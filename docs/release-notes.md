@@ -13,7 +13,7 @@ This page describes new releases of Wallarm API Firewall.
 
 ## v0.7.4 (2024-07-12)
 
-* Added `API_SPECS_CUSTOM_HEADER_NAME` and `API_SPECS_CUSTOM_HEADER_VALUE` environment variables. These allow adding a custom header to requests for your OpenAPI specification URL (defined in `APIFW_API_SPECS`).
+* Added `APIFW_API_SPECS_CUSTOM_HEADER_NAME` and `APIFW_API_SPECS_CUSTOM_HEADER_VALUE` environment variables. These allow adding a custom header to requests for your OpenAPI specification URL (defined in `APIFW_API_SPECS`).
 
     For example, this can be used to specify the authentication data for API Firewall to reach the specification URL.
 * Added the `APIFW_SPECIFICATION_UPDATE_PERIOD` environment variable to specify the interval for updating the OpenAPI specification from the hosted URL (defined in `APIFW_API_SPECS`).

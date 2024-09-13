@@ -33,6 +33,8 @@ const (
 	currentURLVersion = 0
 	readTimeout       = 10 * time.Second
 	writeTimeout      = 5 * time.Second
+
+	userAgent = "Wallarm/API-Firewall"
 )
 
 var _ DBOpenAPILoader = (*URL)(nil)
@@ -70,7 +72,11 @@ func (u *URL) Load(url string) (bool, error) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(url)
 	req.Header.SetMethod(fasthttp.MethodGet)
-	req.Header.Set(u.customHeader.Name, u.customHeader.Value)
+	req.Header.SetUserAgent(userAgent)
+
+	if u.customHeader.Name != "" && u.customHeader.Value != "" {
+		req.Header.Set(u.customHeader.Name, u.customHeader.Value)
+	}
 
 	resp := fasthttp.AcquireResponse()
 
