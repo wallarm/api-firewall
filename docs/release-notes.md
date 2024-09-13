@@ -2,6 +2,12 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.8.1 (2024-09-13)
+
+* Fixed incorrect request to get API specification structure issue
+* Dependency upgrade
+* Bump Go version to 1.22.7
+
 ## v0.8.0 (2024-08-19)
 
 * Added [DNS cache update](configuration-guides/dns-cache-update.md) feature
