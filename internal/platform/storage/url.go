@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
 
@@ -33,6 +33,8 @@ const (
 	currentURLVersion = 0
 	readTimeout       = 10 * time.Second
 	writeTimeout      = 5 * time.Second
+
+	userAgent = "Wallarm/API-Firewall"
 )
 
 var _ DBOpenAPILoader = (*URL)(nil)
@@ -70,7 +72,14 @@ func (u *URL) Load(url string) (bool, error) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(url)
 	req.Header.SetMethod(fasthttp.MethodGet)
-	req.Header.Set(u.customHeader.Name, u.customHeader.Value)
+	req.Header.SetUserAgent(userAgent)
+
+	// add custom header to request
+	customHeaderName := strings.TrimSpace(u.customHeader.Name)
+	customHeaderValue := strings.TrimSpace(u.customHeader.Value)
+	if customHeaderName != "" && customHeaderValue != "" {
+		req.Header.Set(customHeaderName, customHeaderValue)
+	}
 
 	resp := fasthttp.AcquireResponse()
 
