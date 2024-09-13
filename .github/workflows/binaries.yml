@@ -165,10 +165,10 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            distro: alpine
+            distro: alpine3.20
             artifact: amd64-musl
           - arch: "386"
-            distro: alpine
+            distro: alpine3.20
             artifact: 386-musl
     steps:
       - uses: actions/checkout@v2
@@ -274,10 +274,10 @@ jobs:
             go_distribution: https://go.dev/dl/go1.22.7.linux-arm64.tar.gz
             artifact: arm64-libc
           - arch: armv6
-            distro: alpine_latest
+            distro: alpine3.20
             artifact: armv6-musl
           - arch: aarch64
-            distro: alpine_latest
+            distro: alpine3.20
             artifact: arm64-musl
     steps:
       - uses: actions/checkout@v2.1.0

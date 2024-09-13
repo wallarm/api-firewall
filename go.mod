@@ -2,6 +2,8 @@ module github.com/wallarm/api-firewall
 
 go 1.22
 
+toolchain go1.22.7
+
 require (
 	github.com/andybalholm/brotli v1.1.0
 	github.com/ardanlabs/conf v1.5.0
