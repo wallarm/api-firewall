@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
 
@@ -74,8 +74,11 @@ func (u *URL) Load(url string) (bool, error) {
 	req.Header.SetMethod(fasthttp.MethodGet)
 	req.Header.SetUserAgent(userAgent)
 
-	if u.customHeader.Name != "" && u.customHeader.Value != "" {
-		req.Header.Set(u.customHeader.Name, u.customHeader.Value)
+	// add custom header to request
+	customHeaderName := strings.TrimSpace(u.customHeader.Name)
+	customHeaderValue := strings.TrimSpace(u.customHeader.Value)
+	if customHeaderName != "" && customHeaderValue != "" {
+		req.Header.Set(customHeaderName, customHeaderValue)
 	}
 
 	resp := fasthttp.AcquireResponse()
