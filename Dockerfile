@@ -1,5 +1,6 @@
 FROM golang:1.22-alpine3.20 AS build
 
+ARG APIFIREWALL_NAMESPACE
 ARG APIFIREWALL_VERSION
 ENV APIFIREWALL_VERSION=${APIFIREWALL_VERSION}
 
@@ -14,7 +15,7 @@ COPY . .
 
 RUN go mod download -x                    && \
     go build                                 \
-        -ldflags="-X main.build=${APIFIREWALL_VERSION} -s -w" \
+        -ldflags="-X ${APIFIREWALL_NAMESPACE}/main.version=${APIFIREWALL_VERSION} -X main.build=${APIFIREWALL_VERSION} -s -w" \
         -buildvcs=false                      \
         -o ./api-firewall                    \
         ./cmd/api-firewall
