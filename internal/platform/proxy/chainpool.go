@@ -23,37 +23,28 @@ import (
 
 var (
 	errInvalidCapacitySetting = errors.New("invalid capacity settings")
-	errClosed                 = errors.New("err: chan closed")
+	errClosed                 = errors.New("chan closed")
+	errInvalidDNSResolver     = errors.New("invalid DNS resolver")
 )
 
 func (p *chanPool) tryResolveAndFetchOneIP(host string) (string, error) {
 
-	var ips []net.IP
 	var resolvedIP string
-	var err error
 
-	if p.dnsCacheResolver != nil {
-		ips, err = p.dnsCacheResolver.Fetch(context.Background(), host)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		// resolve host using local resolver
-		ips, err = p.defaultResolver.LookupIP(context.Background(), "ip", host)
-		if err != nil {
-			return "", err
-		}
+	ipAddrs, err := p.dnsResolver.LookupIPAddr(context.Background(), host)
+	if err != nil {
+		return "", err
 	}
 
-	for _, ip := range ips {
-		if ip.To4() != nil {
+	for _, ip := range ipAddrs {
+		if ip.IP.To4() != nil {
 			resolvedIP = ip.String()
 			return resolvedIP, nil
 		}
 	}
 
-	for _, ip := range ips {
-		if ip.To16() != nil {
+	for _, ip := range ipAddrs {
+		if ip.IP.To16() != nil {
 			resolvedIP = ip.String()
 			return resolvedIP, nil
 		}
@@ -73,19 +64,17 @@ func (p *chanPool) factory(connAddr string) HTTPClient {
 		DisableHeaderNamesNormalizing: true,
 		DisablePathNormalizing:        true,
 		Dial: func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(connAddr, p.options.DialTimeout)
+			tcpDialer := &fasthttp.TCPDialer{
+				Concurrency:          1000,
+				Resolver:             p.dnsResolver,
+				DisableDNSResolution: p.options.DNSConfig.Cache,
+			}
+			return tcpDialer.DialTimeout(connAddr, p.options.DialTimeout)
 		},
 		TLSConfig:       p.tlsConfig,
 		MaxConnsPerHost: p.options.MaxConnsPerHost,
 		ReadTimeout:     p.options.ReadTimeout,
 		WriteTimeout:    p.options.WriteTimeout,
-	}
-
-	// use configured NS
-	if p.options.DNSConfig.Nameserver.Host != "" {
-		proxyClient.Dial = (&fasthttp.TCPDialer{
-			Resolver: p.defaultResolver,
-		}).Dial
 	}
 
 	return &proxyClient
@@ -121,9 +110,8 @@ type chanPool struct {
 	initResolvedIP string
 	initConnAddr   string
 
-	tlsConfig        *tls.Config
-	defaultResolver  *net.Resolver
-	dnsCacheResolver DNSCache
+	tlsConfig   *tls.Config
+	dnsResolver DNSCache
 }
 
 type Options struct {
@@ -140,9 +128,13 @@ type Options struct {
 }
 
 // NewChanPool to new a pool with some params
-func NewChanPool(hostAddr string, options *Options, dnsCacheResolver DNSCache) (Pool, error) {
+func NewChanPool(hostAddr string, options *Options, dnsResolver DNSCache) (Pool, error) {
 	if options.InitialPoolCapacity < 0 || options.ClientPoolCapacity <= 0 || options.InitialPoolCapacity > options.ClientPoolCapacity {
 		return nil, errInvalidCapacitySetting
+	}
+
+	if dnsResolver == nil {
+		return nil, errInvalidDNSResolver
 	}
 
 	// Get the SystemCertPool, continue with an empty pool on error
@@ -182,23 +174,7 @@ func NewChanPool(hostAddr string, options *Options, dnsCacheResolver DNSCache) (
 		host:               host,
 		port:               port,
 		tlsConfig:          tlsConfig,
-		defaultResolver: &net.Resolver{
-			PreferGo: true,
-		},
-		dnsCacheResolver: dnsCacheResolver,
-	}
-
-	// init NS in the DNS resolver
-	if options.DNSConfig.Nameserver.Host != "" {
-		var builder strings.Builder
-		builder.WriteString(options.DNSConfig.Nameserver.Host)
-		builder.WriteString(":")
-		builder.WriteString(options.DNSConfig.Nameserver.Port)
-
-		pool.defaultResolver.Dial = func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := net.Dialer{}
-			return d.DialContext(ctx, options.DNSConfig.Nameserver.Proto, builder.String())
-		}
+		dnsResolver:        dnsResolver,
 	}
 
 	ip, err := pool.tryResolveAndFetchOneIP(host)
@@ -220,20 +196,18 @@ func NewChanPool(hostAddr string, options *Options, dnsCacheResolver DNSCache) (
 
 		connAddr := pool.initConnAddr
 
-		if pool.dnsCacheResolver != nil {
-			ip, err = pool.tryResolveAndFetchOneIP(pool.host)
-			if err != nil {
-				continue
-			}
-
-			builder.Reset()
-
-			builder.WriteString(ip)
-			builder.WriteString(":")
-			builder.WriteString(port)
-
-			connAddr = builder.String()
+		ip, err = pool.tryResolveAndFetchOneIP(pool.host)
+		if err != nil {
+			continue
 		}
+
+		builder.Reset()
+
+		builder.WriteString(ip)
+		builder.WriteString(":")
+		builder.WriteString(port)
+
+		connAddr = builder.String()
 
 		proxy := pool.factory(connAddr)
 		if pool.reverseProxyChanLB[ip] == nil {
@@ -261,9 +235,7 @@ func (p *chanPool) Close() {
 		close(reverseProxyChan)
 	}
 
-	if p.dnsCacheResolver != nil {
-		p.dnsCacheResolver.Stop()
-	}
+	p.dnsResolver.Stop()
 
 }
 

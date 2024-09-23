@@ -35,34 +35,19 @@ func (m *MockDNSCache) EXPECT() *MockDNSCacheMockRecorder {
 	return m.recorder
 }
 
-// Fetch mocks base method.
-func (m *MockDNSCache) Fetch(ctx context.Context, addr string) ([]net.IP, error) {
+// LookupIPAddr mocks base method.
+func (m *MockDNSCache) LookupIPAddr(arg0 context.Context, arg1 string) ([]net.IPAddr, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Fetch", ctx, addr)
-	ret0, _ := ret[0].([]net.IP)
+	ret := m.ctrl.Call(m, "LookupIPAddr", arg0, arg1)
+	ret0, _ := ret[0].([]net.IPAddr)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Fetch indicates an expected call of Fetch.
-func (mr *MockDNSCacheMockRecorder) Fetch(ctx, addr interface{}) *gomock.Call {
+// LookupIPAddr indicates an expected call of LookupIPAddr.
+func (mr *MockDNSCacheMockRecorder) LookupIPAddr(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fetch", reflect.TypeOf((*MockDNSCache)(nil).Fetch), ctx, addr)
-}
-
-// LookupIP mocks base method.
-func (m *MockDNSCache) LookupIP(ctx context.Context, addr string) ([]net.IP, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LookupIP", ctx, addr)
-	ret0, _ := ret[0].([]net.IP)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LookupIP indicates an expected call of LookupIP.
-func (mr *MockDNSCacheMockRecorder) LookupIP(ctx, addr interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupIP", reflect.TypeOf((*MockDNSCache)(nil).LookupIP), ctx, addr)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupIPAddr", reflect.TypeOf((*MockDNSCache)(nil).LookupIPAddr), arg0, arg1)
 }
 
 // Refresh mocks base method.

@@ -8,6 +8,7 @@ import (
 
 	"github.com/foxcpp/go-mockdns"
 	"github.com/sirupsen/logrus"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 )
@@ -49,13 +50,20 @@ func TestWithoutRCCDNSCacheBasic(t *testing.T) {
 	r := &net.Resolver{}
 	srv.PatchNet(r)
 
-	dnsCache, err := proxy.NewDNSResolver(cfg.DNS.FetchTimeout, cfg.DNS.LookupTimeout, r, logger)
+	dnsResolverOptions := proxy.DNSCacheOptions{
+		UseCache:      true,
+		Logger:        logger,
+		FetchTimeout:  cfg.DNS.FetchTimeout,
+		LookupTimeout: cfg.DNS.LookupTimeout,
+	}
+
+	dnsCache, err := proxy.NewDNSResolver(r, &dnsResolverOptions)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer dnsCache.Stop()
 
-	addr, err := dnsCache.Fetch(context.Background(), "example.org")
+	addr, err := dnsCache.LookupIPAddr(context.Background(), "example.org")
 	if err != nil {
 		t.Error(err)
 	}
@@ -69,7 +77,7 @@ func TestWithoutRCCDNSCacheBasic(t *testing.T) {
 
 	time.Sleep(600 * time.Millisecond)
 
-	addr, err = dnsCache.Fetch(context.Background(), "example.org")
+	addr, err = dnsCache.LookupIPAddr(context.Background(), "example.org")
 	if err != nil {
 		t.Error(err)
 	}
@@ -81,7 +89,7 @@ func TestWithoutRCCDNSCacheBasic(t *testing.T) {
 
 	time.Sleep(800 * time.Millisecond)
 
-	addr, err = dnsCache.Fetch(context.Background(), "example.org")
+	addr, err = dnsCache.LookupIPAddr(context.Background(), "example.org")
 	if err != nil {
 		t.Error(err)
 	}
