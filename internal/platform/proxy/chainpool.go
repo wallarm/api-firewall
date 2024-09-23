@@ -21,6 +21,8 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 )
 
+const defaultConcurrency = 1000
+
 var (
 	errInvalidCapacitySetting = errors.New("invalid capacity settings")
 	errClosed                 = errors.New("chan closed")
@@ -65,7 +67,7 @@ func (p *chanPool) factory(connAddr string) HTTPClient {
 		DisablePathNormalizing:        true,
 		Dial: func(addr string) (net.Conn, error) {
 			tcpDialer := &fasthttp.TCPDialer{
-				Concurrency:          1000,
+				Concurrency:          defaultConcurrency,
 				Resolver:             p.dnsResolver,
 				DisableDNSResolution: p.options.DNSConfig.Cache,
 			}
