@@ -2836,8 +2836,13 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 		Server: serverConf,
 	}
 
+	ipAddrs := []net.IPAddr{}
+	ipAddrs = append(ipAddrs, net.IPAddr{IP: net.IPv4(127, 0, 0, 1), Zone: ""})
+
+	s.dnsCache.EXPECT().LookupIPAddr(gomock.Any(), gomock.Any()).Return(ipAddrs, nil).Times(3)
+
 	options := proxy.Options{
-		InitialPoolCapacity: 100,
+		InitialPoolCapacity: 1,
 		ClientPoolCapacity:  cfg.Server.ClientPoolCapacity,
 		InsecureConnection:  cfg.Server.InsecureConnection,
 		RootCA:              cfg.Server.RootCA,
@@ -2846,7 +2851,7 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
 	}
-	pool, err := proxy.NewChanPool("localhost:28290", &options, nil)
+	pool, err := proxy.NewChanPool("localhost:28290", &options, s.dnsCache)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2944,9 +2949,10 @@ func (s *ServiceTests) testDNSCacheFetch(t *testing.T) {
 	}
 
 	localIP := net.ParseIP("127.0.0.1")
-	ips := []net.IP{localIP}
+	ipAddrs := []net.IPAddr{}
+	ipAddrs = append(ipAddrs, net.IPAddr{IP: localIP, Zone: ""})
 
-	s.dnsCache.EXPECT().Fetch(gomock.Any(), gomock.Any()).Return(ips, nil).Times(3)
+	s.dnsCache.EXPECT().LookupIPAddr(gomock.Any(), gomock.Any()).Return(ipAddrs, nil).Times(3)
 
 	pool, err := proxy.NewChanPool("localhost:28290", &options, s.dnsCache)
 	if err != nil {

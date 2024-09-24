@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"expvar" // Register the expvar handlers
 	"fmt"
 	"mime"
@@ -777,14 +778,38 @@ func runProxyMode(logger *logrus.Logger) error {
 		initialCap = 1
 	}
 
-	var dnsCacheResolver proxy.DNSCache
+	// default DNS resolver
+	resolver := &net.Resolver{
+		PreferGo:     true,
+		StrictErrors: false,
+	}
+
+	// configuration of the custom DNS server
+	if cfg.DNS.Nameserver.Host != "" {
+		var builder strings.Builder
+		builder.WriteString(cfg.DNS.Nameserver.Host)
+		builder.WriteString(":")
+		builder.WriteString(cfg.DNS.Nameserver.Port)
+
+		resolver.Dial = func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{
+				Timeout: cfg.DNS.LookupTimeout,
+			}
+			return d.DialContext(ctx, cfg.DNS.Nameserver.Proto, builder.String())
+		}
+	}
 
 	// init DNS resolver
-	if cfg.DNS.Cache {
-		dnsCacheResolver, err = proxy.NewDNSResolver(cfg.DNS.FetchTimeout, cfg.DNS.LookupTimeout, &net.Resolver{PreferGo: true}, logger)
-		if err != nil {
-			return errors.Wrap(err, "DNS cache resolver init")
-		}
+	dnsCacheOptions := proxy.DNSCacheOptions{
+		UseCache:      cfg.DNS.Cache,
+		Logger:        logger,
+		FetchTimeout:  cfg.DNS.FetchTimeout,
+		LookupTimeout: cfg.DNS.LookupTimeout,
+	}
+
+	dnsResolver, err := proxy.NewDNSResolver(resolver, &dnsCacheOptions)
+	if err != nil {
+		return errors.Wrap(err, "DNS cache resolver init")
 	}
 
 	options := proxy.Options{
@@ -798,7 +823,7 @@ func runProxyMode(logger *logrus.Logger) error {
 		DialTimeout:         cfg.Server.DialTimeout,
 		DNSConfig:           cfg.DNS,
 	}
-	pool, err := proxy.NewChanPool(host, &options, dnsCacheResolver)
+	pool, err := proxy.NewChanPool(host, &options, dnsResolver)
 	if err != nil {
 		return errors.Wrap(err, "proxy pool init")
 	}
