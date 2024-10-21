@@ -1,4 +1,4 @@
-VERSION := 0.8.1
+VERSION := 0.8.2
 NAMESPACE := github.com/wallarm/api-firewall
 
 .DEFAULT_GOAL := build
