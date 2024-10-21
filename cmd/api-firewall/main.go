@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"expvar" // Register the expvar handlers
 	"fmt"
 	"mime"
 	"net"
@@ -32,7 +31,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-var build = "develop"
+var version = "develop"
 
 const (
 	namespace   = "apifw"
@@ -95,7 +94,7 @@ func runAPIMode(logger *logrus.Logger) error {
 	// Configuration
 
 	var cfg config.APIMode
-	cfg.Version.SVN = build
+	cfg.Version.SVN = version
 	cfg.Version.Desc = projectName
 
 	if err := conf.Parse(os.Args[1:], namespace, &cfg); err != nil {
@@ -140,10 +139,7 @@ func runAPIMode(logger *logrus.Logger) error {
 		return errors.New("invalid log level")
 	}
 
-	// print the build version for our logs. Also expose it under /debug/vars
-	expvar.NewString("build").Set(build)
-
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
+	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version)
 	defer logger.Infof("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
@@ -211,7 +207,7 @@ func runAPIMode(logger *logrus.Logger) error {
 	// Start Health API Service
 
 	healthData := handlersAPI.Health{
-		Build:     build,
+		Version:   version,
 		Logger:    logger,
 		OpenAPIDB: specStorage,
 	}
@@ -343,7 +339,7 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	// Configuration
 
 	var cfg config.GraphQLMode
-	cfg.Version.SVN = build
+	cfg.Version.SVN = version
 	cfg.Version.Desc = projectName
 
 	if err := conf.Parse(os.Args[1:], namespace, &cfg); err != nil {
@@ -388,10 +384,7 @@ func runGraphQLMode(logger *logrus.Logger) error {
 		return errors.New("invalid log level")
 	}
 
-	// Print the build version for our logs. Also expose it under /debug/vars.
-	expvar.NewString("build").Set(build)
-
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
+	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version)
 	defer logger.Infof("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
@@ -547,9 +540,9 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	// Start Health API Service
 
 	healthData := handlersProxy.Health{
-		Build:  build,
-		Logger: logger,
-		Pool:   pool,
+		Version: version,
+		Logger:  logger,
+		Pool:    pool,
 	}
 
 	// health service handler
@@ -658,7 +651,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// Configuration
 
 	var cfg config.ProxyMode
-	cfg.Version.SVN = build
+	cfg.Version.SVN = version
 	cfg.Version.Desc = projectName
 
 	if err := conf.Parse(os.Args[1:], namespace, &cfg); err != nil {
@@ -736,10 +729,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// App Starting
 
-	// print the build version for our logs. Also expose it under /debug/vars
-	expvar.NewString("build").Set(build)
-
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
+	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version)
 	defer logger.Infof("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
@@ -902,9 +892,9 @@ func runProxyMode(logger *logrus.Logger) error {
 	// Start Health API Service
 
 	healthData := handlersProxy.Health{
-		Build:  build,
-		Logger: logger,
-		Pool:   pool,
+		Version: version,
+		Logger:  logger,
+		Pool:    pool,
 	}
 
 	// health service handler

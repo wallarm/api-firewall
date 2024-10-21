@@ -10,9 +10,9 @@ import (
 )
 
 type Health struct {
-	Build  string
-	Logger *logrus.Logger
-	Pool   proxy.Pool
+	Version string
+	Logger  *logrus.Logger
+	Pool    proxy.Pool
 }
 
 // Readiness checks if the Fasthttp connection pool is ready to handle new requests.
@@ -63,7 +63,7 @@ func (h Health) Liveness(ctx *fasthttp.RequestCtx) error {
 		Namespace string `json:"namespace,omitempty"`
 	}{
 		Status:    "up",
-		Build:     h.Build,
+		Build:     h.Version,
 		Host:      host,
 		Pod:       os.Getenv("KUBERNETES_PODNAME"),
 		PodIP:     os.Getenv("KUBERNETES_NAMESPACE_POD_IP"),
