@@ -29,9 +29,8 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/internal/version"
 )
-
-var version = "develop"
 
 const (
 	namespace   = "apifw"
@@ -94,7 +93,7 @@ func runAPIMode(logger *logrus.Logger) error {
 	// Configuration
 
 	var cfg config.APIMode
-	cfg.Version.SVN = version
+	cfg.Version.SVN = version.Version
 	cfg.Version.Desc = projectName
 
 	if err := conf.Parse(os.Args[1:], namespace, &cfg); err != nil {
@@ -139,7 +138,7 @@ func runAPIMode(logger *logrus.Logger) error {
 		return errors.New("invalid log level")
 	}
 
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version)
+	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version.Version)
 	defer logger.Infof("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
@@ -207,7 +206,6 @@ func runAPIMode(logger *logrus.Logger) error {
 	// Start Health API Service
 
 	healthData := handlersAPI.Health{
-		Version:   version,
 		Logger:    logger,
 		OpenAPIDB: specStorage,
 	}
@@ -339,7 +337,7 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	// Configuration
 
 	var cfg config.GraphQLMode
-	cfg.Version.SVN = version
+	cfg.Version.SVN = version.Version
 	cfg.Version.Desc = projectName
 
 	if err := conf.Parse(os.Args[1:], namespace, &cfg); err != nil {
@@ -384,7 +382,7 @@ func runGraphQLMode(logger *logrus.Logger) error {
 		return errors.New("invalid log level")
 	}
 
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version)
+	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version.Version)
 	defer logger.Infof("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
@@ -540,9 +538,8 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	// Start Health API Service
 
 	healthData := handlersProxy.Health{
-		Version: version,
-		Logger:  logger,
-		Pool:    pool,
+		Logger: logger,
+		Pool:   pool,
 	}
 
 	// health service handler
@@ -651,7 +648,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// Configuration
 
 	var cfg config.ProxyMode
-	cfg.Version.SVN = version
+	cfg.Version.SVN = version.Version
 	cfg.Version.Desc = projectName
 
 	if err := conf.Parse(os.Args[1:], namespace, &cfg); err != nil {
@@ -729,7 +726,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// App Starting
 
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version)
+	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version.Version)
 	defer logger.Infof("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
@@ -892,9 +889,8 @@ func runProxyMode(logger *logrus.Logger) error {
 	// Start Health API Service
 
 	healthData := handlersProxy.Health{
-		Version: version,
-		Logger:  logger,
-		Pool:    pool,
+		Logger: logger,
+		Pool:   pool,
 	}
 
 	// health service handler

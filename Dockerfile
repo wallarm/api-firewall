@@ -2,6 +2,7 @@ FROM golang:1.22-alpine3.20 AS build
 
 ARG APIFIREWALL_NAMESPACE
 ARG APIFIREWALL_VERSION
+ENV APIFIREWALL_NAMESPACE=${APIFIREWALL_NAMESPACE}
 ENV APIFIREWALL_VERSION=${APIFIREWALL_VERSION}
 
 RUN apk add --no-cache                       \
@@ -15,7 +16,7 @@ COPY . .
 
 RUN go mod download -x                    && \
     go build                                 \
-        -ldflags="-X ${APIFIREWALL_NAMESPACE}/main.version=${APIFIREWALL_VERSION} -X main.build=${APIFIREWALL_VERSION} -s -w" \
+        -ldflags="-X ${APIFIREWALL_NAMESPACE}/internal/version.Version=${APIFIREWALL_VERSION} -s -w" \
         -buildvcs=false                      \
         -o ./api-firewall                    \
         ./cmd/api-firewall
