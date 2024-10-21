@@ -1,9 +1,10 @@
 VERSION := 0.8.2
+NAMESPACE := github.com/wallarm/api-firewall
 
 .DEFAULT_GOAL := build
 
 build:
-	docker build --no-cache --build-arg APIFIREWALL_VERSION=$(VERSION) --force-rm -t api-firewall .
+	docker build --no-cache --build-arg APIFIREWALL_NAMESPACE=$(NAMESPACE) --build-arg APIFIREWALL_VERSION=$(VERSION) --force-rm -t api-firewall .
 
 lint:
 	golangci-lint -v run ./...
