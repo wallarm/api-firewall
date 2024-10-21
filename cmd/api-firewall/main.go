@@ -269,6 +269,12 @@ func runAPIMode(logger *logrus.Logger) error {
 		Handler:               requestHandlers,
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
+		ReadBufferSize:        cfg.ReadBufferSize,
+		WriteBufferSize:       cfg.WriteBufferSize,
+		MaxRequestBodySize:    cfg.MaxRequestBodySize,
+		DisableKeepalive:      cfg.DisableKeepalive,
+		MaxConnsPerIP:         cfg.MaxConnsPerIP,
+		MaxRequestsPerConn:    cfg.MaxRequestsPerConn,
 		Logger:                logger,
 		NoDefaultServerHeader: true,
 	}
@@ -467,6 +473,9 @@ func runGraphQLMode(logger *logrus.Logger) error {
 		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
+		ReadBufferSize:      cfg.Server.ReadBufferSize,
+		WriteBufferSize:     cfg.Server.WriteBufferSize,
+		MaxResponseBodySize: cfg.Server.MaxResponseBodySize,
 		DialTimeout:         cfg.Server.DialTimeout,
 	}
 	pool, err := proxy.NewChanPool(host, &options, nil)
@@ -596,6 +605,12 @@ func runGraphQLMode(logger *logrus.Logger) error {
 		Handler:               requestHandlers,
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
+		ReadBufferSize:        cfg.ReadBufferSize,
+		WriteBufferSize:       cfg.WriteBufferSize,
+		MaxRequestBodySize:    cfg.MaxRequestBodySize,
+		DisableKeepalive:      cfg.DisableKeepalive,
+		MaxConnsPerIP:         cfg.MaxConnsPerIP,
+		MaxRequestsPerConn:    cfg.MaxRequestsPerConn,
 		Logger:                logger,
 		NoDefaultServerHeader: true,
 	}
@@ -820,6 +835,9 @@ func runProxyMode(logger *logrus.Logger) error {
 		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
+		ReadBufferSize:      cfg.Server.ReadBufferSize,
+		WriteBufferSize:     cfg.Server.WriteBufferSize,
+		MaxResponseBodySize: cfg.Server.MaxResponseBodySize,
 		DialTimeout:         cfg.Server.DialTimeout,
 		DNSConfig:           cfg.DNS,
 	}
@@ -942,6 +960,12 @@ func runProxyMode(logger *logrus.Logger) error {
 		Handler:               requestHandlers,
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
+		ReadBufferSize:        cfg.ReadBufferSize,
+		WriteBufferSize:       cfg.WriteBufferSize,
+		MaxRequestBodySize:    cfg.MaxRequestBodySize,
+		DisableKeepalive:      cfg.DisableKeepalive,
+		MaxConnsPerIP:         cfg.MaxConnsPerIP,
+		MaxRequestsPerConn:    cfg.MaxRequestsPerConn,
 		Logger:                logger,
 		NoDefaultServerHeader: true,
 	}

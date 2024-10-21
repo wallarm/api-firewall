@@ -10,6 +10,19 @@ type APIFWMode struct {
 	Mode string `conf:"default:PROXY" validate:"oneof=PROXY API GRAPHQL"`
 }
 
+type APIFWServer struct {
+	APIHost            string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
+	HealthAPIHost      string        `conf:"default:0.0.0.0:9667,env:HEALTH_HOST" validate:"required"`
+	ReadTimeout        time.Duration `conf:"default:5s"`
+	WriteTimeout       time.Duration `conf:"default:5s"`
+	ReadBufferSize     int           `conf:"default:8192"`
+	WriteBufferSize    int           `conf:"default:8192"`
+	MaxRequestBodySize int           `conf:"default:4194304"`
+	DisableKeepalive   bool          `conf:"default:false"`
+	MaxConnsPerIP      int           `conf:"default:0"`
+	MaxRequestsPerConn int           `conf:"default:0"`
+}
+
 type CustomHeader struct {
 	Name  string
 	Value string
@@ -24,20 +37,17 @@ type Nameserver struct {
 type ProxyMode struct {
 	conf.Version
 	APIFWMode
+	APIFWServer
 	ModSecurity
 	TLS       TLS
 	ShadowAPI ShadowAPI
 	Denylist  Denylist
-	Server    Server
+	Server    Backend
 	AllowIP   AllowIP
 	DNS       DNS
 
-	APIHost       string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
-	HealthAPIHost string        `conf:"default:0.0.0.0:9667,env:HEALTH_HOST" validate:"required"`
-	ReadTimeout   time.Duration `conf:"default:5s"`
-	WriteTimeout  time.Duration `conf:"default:5s"`
-	LogLevel      string        `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
-	LogFormat     string        `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
+	LogLevel  string `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
+	LogFormat string `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
 
 	RequestValidation         string       `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
 	ResponseValidation        string       `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
@@ -53,6 +63,7 @@ type ProxyMode struct {
 type APIMode struct {
 	conf.Version
 	APIFWMode
+	APIFWServer
 	ModSecurity
 	AllowIP AllowIP
 	TLS     TLS
@@ -62,30 +73,23 @@ type APIMode struct {
 	DBVersion                  int           `conf:"default:0,env:API_MODE_DB_VERSION"`
 	UnknownParametersDetection bool          `conf:"default:true,env:API_MODE_UNKNOWN_PARAMETERS_DETECTION"`
 
-	APIHost             string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
-	HealthAPIHost       string        `conf:"default:0.0.0.0:9667,env:HEALTH_HOST" validate:"required"`
-	ReadTimeout         time.Duration `conf:"default:5s"`
-	WriteTimeout        time.Duration `conf:"default:5s"`
-	LogLevel            string        `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
-	LogFormat           string        `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
-	PassOptionsRequests bool          `conf:"default:false,env:PASS_OPTIONS"`
+	LogLevel            string `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
+	LogFormat           string `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
+	PassOptionsRequests bool   `conf:"default:false,env:PASS_OPTIONS"`
 }
 
 type GraphQLMode struct {
 	conf.Version
 	APIFWMode
+	APIFWServer
 	Graphql  GraphQL
 	TLS      TLS
-	Server   Backend
+	Server   ProtectedAPI
 	Denylist Denylist
 	AllowIP  AllowIP
 
-	APIHost       string        `conf:"default:http://0.0.0.0:8282,env:URL" validate:"required,url"`
-	HealthAPIHost string        `conf:"default:0.0.0.0:9667,env:HEALTH_HOST" validate:"required"`
-	ReadTimeout   time.Duration `conf:"default:5s"`
-	WriteTimeout  time.Duration `conf:"default:5s"`
-	LogLevel      string        `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
-	LogFormat     string        `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
+	LogLevel  string `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
+	LogFormat string `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
 }
 
 type TLS struct {
@@ -94,12 +98,12 @@ type TLS struct {
 	CertKey   string `conf:"default:localhost.key"`
 }
 
-type Server struct {
-	Backend
+type Backend struct {
+	ProtectedAPI
 	Oauth Oauth
 }
 
-type Backend struct {
+type ProtectedAPI struct {
 	URL                  string        `conf:"default:http://localhost:3000/v1/" validate:"required,url"`
 	RequestHostHeader    string        `conf:""`
 	ClientPoolCapacity   int           `conf:"default:1000" validate:"gt=0"`
@@ -109,6 +113,9 @@ type Backend struct {
 	ReadTimeout          time.Duration `conf:"default:5s"`
 	WriteTimeout         time.Duration `conf:"default:5s"`
 	DialTimeout          time.Duration `conf:"default:200ms"`
+	ReadBufferSize       int           `conf:"default:0"`
+	WriteBufferSize      int           `conf:"default:0"`
+	MaxResponseBodySize  int           `conf:"default:0"`
 	DeleteAcceptEncoding bool          `conf:"default:false"`
 	DNSLoadBalancing     bool          `conf:"default:false"`
 }

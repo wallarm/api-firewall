@@ -1475,8 +1475,8 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 		},
 	}
 
-	serverConf := config.Server{
-		Backend: config.Backend{
+	serverConf := config.Backend{
+		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
 			ClientPoolCapacity: 1000,
 			InsecureConnection: false,
@@ -1562,8 +1562,8 @@ func (s *ServiceTests) testOauthIntrospectionReadUnsuccessful(t *testing.T) {
 		},
 	}
 
-	serverConf := config.Server{
-		Backend: config.Backend{
+	serverConf := config.Backend{
+		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
 			ClientPoolCapacity: 1000,
 			InsecureConnection: false,
@@ -1628,8 +1628,8 @@ func (s *ServiceTests) testOauthIntrospectionInvalidResponse(t *testing.T) {
 		},
 	}
 
-	serverConf := config.Server{
-		Backend: config.Backend{
+	serverConf := config.Backend{
+		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
 			ClientPoolCapacity: 1000,
 			InsecureConnection: false,
@@ -1694,8 +1694,8 @@ func (s *ServiceTests) testOauthIntrospectionReadWriteSuccess(t *testing.T) {
 		},
 	}
 
-	serverConf := config.Server{
-		Backend: config.Backend{
+	serverConf := config.Backend{
+		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
 			ClientPoolCapacity: 1000,
 			InsecureConnection: false,
@@ -1765,8 +1765,8 @@ func (s *ServiceTests) testOauthIntrospectionContentTypeRequest(t *testing.T) {
 		},
 	}
 
-	serverConf := config.Server{
-		Backend: config.Backend{
+	serverConf := config.Backend{
+		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
 			ClientPoolCapacity: 1000,
 			InsecureConnection: false,
@@ -1828,8 +1828,8 @@ func (s *ServiceTests) testOauthJWTRS256(t *testing.T) {
 		Introspection: config.Introspection{},
 	}
 
-	serverConf := config.Server{
-		Backend: config.Backend{
+	serverConf := config.Backend{
+		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
 			ClientPoolCapacity: 1000,
 			InsecureConnection: false,
@@ -1905,8 +1905,8 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 		Introspection: config.Introspection{},
 	}
 
-	serverConf := config.Server{
-		Backend: config.Backend{
+	serverConf := config.Backend{
+		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
 			ClientPoolCapacity: 1000,
 			InsecureConnection: false,
@@ -2811,8 +2811,8 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 	port := 28290
 	defer startServerOnPort(t, port, checkHostHeaderEndpoint).Close()
 
-	serverConf := config.Server{
-		Backend: config.Backend{
+	serverConf := config.Backend{
+		ProtectedAPI: config.ProtectedAPI{
 			URL:                "http://localhost:28290",
 			RequestHostHeader:  "testCustomHost",
 			ClientPoolCapacity: 1000,
@@ -2907,8 +2907,8 @@ func (s *ServiceTests) testDNSCacheFetch(t *testing.T) {
 	port := 28290
 	defer startServerOnPort(t, port, alwaysSuccessResponse).Close()
 
-	serverConf := config.Server{
-		Backend: config.Backend{
+	serverConf := config.Backend{
+		ProtectedAPI: config.ProtectedAPI{
 			URL:                "http://localhost:28290",
 			RequestHostHeader:  "testCustomHost",
 			ClientPoolCapacity: 1,

@@ -51,7 +51,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.22.7.linux-amd64.tar.gz"
+      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.22.8.linux-amd64.tar.gz"
     strategy:
       matrix:
         include:
@@ -160,7 +160,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_VERSION: "1.22.7"
+      X_GO_VERSION: "1.22.8"
     strategy:
       matrix:
         include:
@@ -267,19 +267,19 @@ jobs:
         include:
           - arch: armv6
             distro: bullseye
-            go_distribution: https://go.dev/dl/go1.22.7.linux-armv6l.tar.gz
+            go_distribution: https://go.dev/dl/go1.22.8.linux-armv6l.tar.gz
             artifact: armv6-libc
           - arch: aarch64
             distro: bullseye
-            go_distribution: https://go.dev/dl/go1.22.7.linux-arm64.tar.gz
+            go_distribution: https://go.dev/dl/go1.22.8.linux-arm64.tar.gz
             artifact: arm64-libc
           - arch: armv6
             distro: alpine_latest
-            go_distribution: https://go.dev/dl/go1.22.7.linux-armv6l.tar.gz
+            go_distribution: https://go.dev/dl/go1.22.8.linux-armv6l.tar.gz
             artifact: armv6-musl
           - arch: aarch64
             distro: alpine_latest
-            go_distribution: https://go.dev/dl/go1.22.7.linux-arm64.tar.gz
+            go_distribution: https://go.dev/dl/go1.22.8.linux-arm64.tar.gz
             artifact: arm64-musl
     steps:
       - uses: actions/checkout@v2.1.0

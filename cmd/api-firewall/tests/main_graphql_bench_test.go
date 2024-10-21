@@ -174,10 +174,12 @@ func BenchmarkGraphQL(b *testing.B) {
 	}
 	var cfg = config.GraphQLMode{
 		Graphql: gqlCfg,
-		Server: config.Backend{
+		Server: config.ProtectedAPI{
 			URL: benchBackendURL,
 		},
-		APIHost: benchHandlerURL,
+		APIFWServer: config.APIFWServer{
+			APIHost: benchHandlerURL,
+		},
 	}
 
 	handler := graphqlHandler.Handlers(&cfg, schema, serverURL, shutdown, logger, pool, wsPool, nil, nil)
