@@ -113,8 +113,8 @@ type ProtectedAPI struct {
 	ReadTimeout          time.Duration `conf:"default:5s"`
 	WriteTimeout         time.Duration `conf:"default:5s"`
 	DialTimeout          time.Duration `conf:"default:200ms"`
-	ReadBufferSize       int           `conf:"default:0"`
-	WriteBufferSize      int           `conf:"default:0"`
+	ReadBufferSize       int           `conf:"default:8192"`
+	WriteBufferSize      int           `conf:"default:8192"`
 	MaxResponseBodySize  int           `conf:"default:0"`
 	DeleteAcceptEncoding bool          `conf:"default:false"`
 	DNSLoadBalancing     bool          `conf:"default:false"`
