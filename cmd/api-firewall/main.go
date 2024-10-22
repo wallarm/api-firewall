@@ -16,6 +16,7 @@ import (
 	"github.com/ardanlabs/conf"
 	"github.com/go-playground/validator"
 	"github.com/pkg/errors"
+	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
@@ -260,15 +261,25 @@ func runAPIMode(logger *logrus.Logger) error {
 	}
 
 	api := fasthttp.Server{
-		Handler:               requestHandlers,
-		ReadTimeout:           cfg.ReadTimeout,
-		WriteTimeout:          cfg.WriteTimeout,
-		ReadBufferSize:        cfg.ReadBufferSize,
-		WriteBufferSize:       cfg.WriteBufferSize,
-		MaxRequestBodySize:    cfg.MaxRequestBodySize,
-		DisableKeepalive:      cfg.DisableKeepalive,
-		MaxConnsPerIP:         cfg.MaxConnsPerIP,
-		MaxRequestsPerConn:    cfg.MaxRequestsPerConn,
+		Handler:            requestHandlers,
+		ReadTimeout:        cfg.ReadTimeout,
+		WriteTimeout:       cfg.WriteTimeout,
+		ReadBufferSize:     cfg.ReadBufferSize,
+		WriteBufferSize:    cfg.WriteBufferSize,
+		MaxRequestBodySize: cfg.MaxRequestBodySize,
+		DisableKeepalive:   cfg.DisableKeepalive,
+		MaxConnsPerIP:      cfg.MaxConnsPerIP,
+		MaxRequestsPerConn: cfg.MaxRequestsPerConn,
+		ErrorHandler: func(ctx *fasthttp.RequestCtx, err error) {
+			logger.WithFields(logrus.Fields{
+				"error":  err,
+				"host":   strconv.B2S(ctx.Request.Header.Host()),
+				"path":   strconv.B2S(ctx.Path()),
+				"method": strconv.B2S(ctx.Request.Header.Method()),
+			}).Error("request processing error")
+
+			ctx.Error("", fasthttp.StatusInternalServerError)
+		},
 		Logger:                logger,
 		NoDefaultServerHeader: true,
 	}
@@ -592,15 +603,22 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	}
 
 	api := fasthttp.Server{
-		Handler:               requestHandlers,
-		ReadTimeout:           cfg.ReadTimeout,
-		WriteTimeout:          cfg.WriteTimeout,
-		ReadBufferSize:        cfg.ReadBufferSize,
-		WriteBufferSize:       cfg.WriteBufferSize,
-		MaxRequestBodySize:    cfg.MaxRequestBodySize,
-		DisableKeepalive:      cfg.DisableKeepalive,
-		MaxConnsPerIP:         cfg.MaxConnsPerIP,
-		MaxRequestsPerConn:    cfg.MaxRequestsPerConn,
+		Handler:            requestHandlers,
+		ReadTimeout:        cfg.ReadTimeout,
+		WriteTimeout:       cfg.WriteTimeout,
+		ReadBufferSize:     cfg.ReadBufferSize,
+		WriteBufferSize:    cfg.WriteBufferSize,
+		MaxRequestBodySize: cfg.MaxRequestBodySize,
+		DisableKeepalive:   cfg.DisableKeepalive,
+		MaxConnsPerIP:      cfg.MaxConnsPerIP,
+		MaxRequestsPerConn: cfg.MaxRequestsPerConn,
+		ErrorHandler: func(ctx *fasthttp.RequestCtx, err error) {
+			logger.WithFields(logrus.Fields{
+				"error": err,
+			}).Error("request processing error")
+
+			ctx.Error("", fasthttp.StatusForbidden)
+		},
 		Logger:                logger,
 		NoDefaultServerHeader: true,
 	}
@@ -943,15 +961,22 @@ func runProxyMode(logger *logrus.Logger) error {
 	}
 
 	api := fasthttp.Server{
-		Handler:               requestHandlers,
-		ReadTimeout:           cfg.ReadTimeout,
-		WriteTimeout:          cfg.WriteTimeout,
-		ReadBufferSize:        cfg.ReadBufferSize,
-		WriteBufferSize:       cfg.WriteBufferSize,
-		MaxRequestBodySize:    cfg.MaxRequestBodySize,
-		DisableKeepalive:      cfg.DisableKeepalive,
-		MaxConnsPerIP:         cfg.MaxConnsPerIP,
-		MaxRequestsPerConn:    cfg.MaxRequestsPerConn,
+		Handler:            requestHandlers,
+		ReadTimeout:        cfg.ReadTimeout,
+		WriteTimeout:       cfg.WriteTimeout,
+		ReadBufferSize:     cfg.ReadBufferSize,
+		WriteBufferSize:    cfg.WriteBufferSize,
+		MaxRequestBodySize: cfg.MaxRequestBodySize,
+		DisableKeepalive:   cfg.DisableKeepalive,
+		MaxConnsPerIP:      cfg.MaxConnsPerIP,
+		MaxRequestsPerConn: cfg.MaxRequestsPerConn,
+		ErrorHandler: func(ctx *fasthttp.RequestCtx, err error) {
+			logger.WithFields(logrus.Fields{
+				"error": err,
+			}).Error("request processing error")
+
+			ctx.Error("", cfg.CustomBlockStatusCode)
+		},
 		Logger:                logger,
 		NoDefaultServerHeader: true,
 	}
