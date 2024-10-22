@@ -73,10 +73,13 @@ func (p *chanPool) factory(connAddr string) HTTPClient {
 			}
 			return tcpDialer.DialTimeout(connAddr, p.options.DialTimeout)
 		},
-		TLSConfig:       p.tlsConfig,
-		MaxConnsPerHost: p.options.MaxConnsPerHost,
-		ReadTimeout:     p.options.ReadTimeout,
-		WriteTimeout:    p.options.WriteTimeout,
+		TLSConfig:           p.tlsConfig,
+		MaxConnsPerHost:     p.options.MaxConnsPerHost,
+		ReadTimeout:         p.options.ReadTimeout,
+		WriteTimeout:        p.options.WriteTimeout,
+		ReadBufferSize:      p.options.ReadBufferSize,
+		WriteBufferSize:     p.options.WriteBufferSize,
+		MaxResponseBodySize: p.options.MaxResponseBodySize,
 	}
 
 	return &proxyClient
@@ -127,6 +130,10 @@ type Options struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	DialTimeout  time.Duration
+
+	ReadBufferSize      int
+	WriteBufferSize     int
+	MaxResponseBodySize int
 }
 
 // NewChanPool to new a pool with some params

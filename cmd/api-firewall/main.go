@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"expvar" // Register the expvar handlers
 	"fmt"
 	"mime"
 	"net"
@@ -17,6 +16,7 @@ import (
 	"github.com/ardanlabs/conf"
 	"github.com/go-playground/validator"
 	"github.com/pkg/errors"
+	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
@@ -30,9 +30,8 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/internal/version"
 )
-
-var build = "develop"
 
 const (
 	namespace   = "apifw"
@@ -95,7 +94,7 @@ func runAPIMode(logger *logrus.Logger) error {
 	// Configuration
 
 	var cfg config.APIMode
-	cfg.Version.SVN = build
+	cfg.Version.SVN = version.Version
 	cfg.Version.Desc = projectName
 
 	if err := conf.Parse(os.Args[1:], namespace, &cfg); err != nil {
@@ -140,10 +139,7 @@ func runAPIMode(logger *logrus.Logger) error {
 		return errors.New("invalid log level")
 	}
 
-	// print the build version for our logs. Also expose it under /debug/vars
-	expvar.NewString("build").Set(build)
-
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
+	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version.Version)
 	defer logger.Infof("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
@@ -211,7 +207,6 @@ func runAPIMode(logger *logrus.Logger) error {
 	// Start Health API Service
 
 	healthData := handlersAPI.Health{
-		Build:     build,
 		Logger:    logger,
 		OpenAPIDB: specStorage,
 	}
@@ -266,9 +261,25 @@ func runAPIMode(logger *logrus.Logger) error {
 	}
 
 	api := fasthttp.Server{
-		Handler:               requestHandlers,
-		ReadTimeout:           cfg.ReadTimeout,
-		WriteTimeout:          cfg.WriteTimeout,
+		Handler:            requestHandlers,
+		ReadTimeout:        cfg.ReadTimeout,
+		WriteTimeout:       cfg.WriteTimeout,
+		ReadBufferSize:     cfg.ReadBufferSize,
+		WriteBufferSize:    cfg.WriteBufferSize,
+		MaxRequestBodySize: cfg.MaxRequestBodySize,
+		DisableKeepalive:   cfg.DisableKeepalive,
+		MaxConnsPerIP:      cfg.MaxConnsPerIP,
+		MaxRequestsPerConn: cfg.MaxRequestsPerConn,
+		ErrorHandler: func(ctx *fasthttp.RequestCtx, err error) {
+			logger.WithFields(logrus.Fields{
+				"error":  err,
+				"host":   strconv.B2S(ctx.Request.Header.Host()),
+				"path":   strconv.B2S(ctx.Path()),
+				"method": strconv.B2S(ctx.Request.Header.Method()),
+			}).Error("request processing error")
+
+			ctx.Error("", fasthttp.StatusInternalServerError)
+		},
 		Logger:                logger,
 		NoDefaultServerHeader: true,
 	}
@@ -337,7 +348,7 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	// Configuration
 
 	var cfg config.GraphQLMode
-	cfg.Version.SVN = build
+	cfg.Version.SVN = version.Version
 	cfg.Version.Desc = projectName
 
 	if err := conf.Parse(os.Args[1:], namespace, &cfg); err != nil {
@@ -382,10 +393,7 @@ func runGraphQLMode(logger *logrus.Logger) error {
 		return errors.New("invalid log level")
 	}
 
-	// Print the build version for our logs. Also expose it under /debug/vars.
-	expvar.NewString("build").Set(build)
-
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
+	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version.Version)
 	defer logger.Infof("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
@@ -467,6 +475,9 @@ func runGraphQLMode(logger *logrus.Logger) error {
 		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
+		ReadBufferSize:      cfg.Server.ReadBufferSize,
+		WriteBufferSize:     cfg.Server.WriteBufferSize,
+		MaxResponseBodySize: cfg.Server.MaxResponseBodySize,
 		DialTimeout:         cfg.Server.DialTimeout,
 	}
 	pool, err := proxy.NewChanPool(host, &options, nil)
@@ -538,7 +549,6 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	// Start Health API Service
 
 	healthData := handlersProxy.Health{
-		Build:  build,
 		Logger: logger,
 		Pool:   pool,
 	}
@@ -593,9 +603,22 @@ func runGraphQLMode(logger *logrus.Logger) error {
 	}
 
 	api := fasthttp.Server{
-		Handler:               requestHandlers,
-		ReadTimeout:           cfg.ReadTimeout,
-		WriteTimeout:          cfg.WriteTimeout,
+		Handler:            requestHandlers,
+		ReadTimeout:        cfg.ReadTimeout,
+		WriteTimeout:       cfg.WriteTimeout,
+		ReadBufferSize:     cfg.ReadBufferSize,
+		WriteBufferSize:    cfg.WriteBufferSize,
+		MaxRequestBodySize: cfg.MaxRequestBodySize,
+		DisableKeepalive:   cfg.DisableKeepalive,
+		MaxConnsPerIP:      cfg.MaxConnsPerIP,
+		MaxRequestsPerConn: cfg.MaxRequestsPerConn,
+		ErrorHandler: func(ctx *fasthttp.RequestCtx, err error) {
+			logger.WithFields(logrus.Fields{
+				"error": err,
+			}).Error("request processing error")
+
+			ctx.Error("", fasthttp.StatusForbidden)
+		},
 		Logger:                logger,
 		NoDefaultServerHeader: true,
 	}
@@ -643,7 +666,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// Configuration
 
 	var cfg config.ProxyMode
-	cfg.Version.SVN = build
+	cfg.Version.SVN = version.Version
 	cfg.Version.Desc = projectName
 
 	if err := conf.Parse(os.Args[1:], namespace, &cfg); err != nil {
@@ -721,10 +744,7 @@ func runProxyMode(logger *logrus.Logger) error {
 	// =========================================================================
 	// App Starting
 
-	// print the build version for our logs. Also expose it under /debug/vars
-	expvar.NewString("build").Set(build)
-
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, build)
+	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version.Version)
 	defer logger.Infof("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
@@ -820,6 +840,9 @@ func runProxyMode(logger *logrus.Logger) error {
 		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
+		ReadBufferSize:      cfg.Server.ReadBufferSize,
+		WriteBufferSize:     cfg.Server.WriteBufferSize,
+		MaxResponseBodySize: cfg.Server.MaxResponseBodySize,
 		DialTimeout:         cfg.Server.DialTimeout,
 		DNSConfig:           cfg.DNS,
 	}
@@ -884,7 +907,6 @@ func runProxyMode(logger *logrus.Logger) error {
 	// Start Health API Service
 
 	healthData := handlersProxy.Health{
-		Build:  build,
 		Logger: logger,
 		Pool:   pool,
 	}
@@ -939,9 +961,22 @@ func runProxyMode(logger *logrus.Logger) error {
 	}
 
 	api := fasthttp.Server{
-		Handler:               requestHandlers,
-		ReadTimeout:           cfg.ReadTimeout,
-		WriteTimeout:          cfg.WriteTimeout,
+		Handler:            requestHandlers,
+		ReadTimeout:        cfg.ReadTimeout,
+		WriteTimeout:       cfg.WriteTimeout,
+		ReadBufferSize:     cfg.ReadBufferSize,
+		WriteBufferSize:    cfg.WriteBufferSize,
+		MaxRequestBodySize: cfg.MaxRequestBodySize,
+		DisableKeepalive:   cfg.DisableKeepalive,
+		MaxConnsPerIP:      cfg.MaxConnsPerIP,
+		MaxRequestsPerConn: cfg.MaxRequestsPerConn,
+		ErrorHandler: func(ctx *fasthttp.RequestCtx, err error) {
+			logger.WithFields(logrus.Fields{
+				"error": err,
+			}).Error("request processing error")
+
+			ctx.Error("", cfg.CustomBlockStatusCode)
+		},
 		Logger:                logger,
 		NoDefaultServerHeader: true,
 	}

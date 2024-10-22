@@ -7,16 +7,16 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/internal/version"
 )
 
 type Health struct {
-	Build  string
 	Logger *logrus.Logger
 	Pool   proxy.Pool
 }
 
 // Readiness checks if the Fasthttp connection pool is ready to handle new requests.
-func (h Health) Readiness(ctx *fasthttp.RequestCtx) error {
+func (h *Health) Readiness(ctx *fasthttp.RequestCtx) error {
 
 	status := "ok"
 	statusCode := fasthttp.StatusOK
@@ -47,7 +47,7 @@ func (h Health) Readiness(ctx *fasthttp.RequestCtx) error {
 // app is deployed to a Kubernetes cluster, it will also return pod, node, and
 // namespace details via the Downward API. The Kubernetes environment variables
 // need to be set within your Pod/Deployment manifest.
-func (h Health) Liveness(ctx *fasthttp.RequestCtx) error {
+func (h *Health) Liveness(ctx *fasthttp.RequestCtx) error {
 	host, err := os.Hostname()
 	if err != nil {
 		host = "unavailable"
@@ -63,7 +63,7 @@ func (h Health) Liveness(ctx *fasthttp.RequestCtx) error {
 		Namespace string `json:"namespace,omitempty"`
 	}{
 		Status:    "up",
-		Build:     h.Build,
+		Build:     version.Version,
 		Host:      host,
 		Pod:       os.Getenv("KUBERNETES_PODNAME"),
 		PodIP:     os.Getenv("KUBERNETES_NAMESPACE_POD_IP"),

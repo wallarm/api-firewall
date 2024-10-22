@@ -7,10 +7,10 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
+	"github.com/wallarm/api-firewall/internal/version"
 )
 
 type Health struct {
-	Build     string
 	Logger    *logrus.Logger
 	OpenAPIDB storage.DBOpenAPILoader
 }
@@ -55,7 +55,7 @@ func (h *Health) Liveness(ctx *fasthttp.RequestCtx) error {
 		Namespace string `json:"namespace,omitempty"`
 	}{
 		Status:    "up",
-		Build:     h.Build,
+		Build:     version.Version,
 		Host:      host,
 		Pod:       os.Getenv("KUBERNETES_PODNAME"),
 		PodIP:     os.Getenv("KUBERNETES_NAMESPACE_POD_IP"),
