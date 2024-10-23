@@ -4,7 +4,7 @@ This page describes new releases of Wallarm API Firewall.
 
 ## v0.8.3 (2024-10-22)
 
-* Add additional API-Firewall server configuration parameters
+* Add additional API-Firewall server [configuration parameters](configuration-guides/system-settings.md)
 * Bump Go version to 1.22.8
 
 ## v0.8.2 (2024-09-24)
