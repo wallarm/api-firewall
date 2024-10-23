@@ -20,4 +20,4 @@ To fine-tune system API Firewall settings, use the following optional environmen
 | `APIFW_MAX_REQUESTS_PER_CONN`<br>(for APIFW server) | Maximum number of requests served per connection. The server closes the connection after the last request. The `Connection: close` header is added to the last response. The default value is `0` (means "unlimited"). |
 | `APIFW_SERVER_READ_BUFFER_SIZE`<br>(for HTTP client sending requests) | Per-connection buffer size for request reading. This also limits the maximum header size. The default value is `8192`. |
 | `APIFW_SERVER_WRITE_BUFFER_SIZE`<br>(for HTTP client sending requests) | Per-connection buffer size for response writing.  The default value is `8192`. |
-| `APIFW_SERVER_MAX_RESPONSE_BODY_SIZE`<br>(for HTTP client sending requests) | Maximum response body size. The client returns ErrBodyTooLarge if this limit is greater than 0 and the response body is greater than the limit. The default value is `0` (means "unlimited").  |
+| `APIFW_SERVER_MAX_RESPONSE_BODY_SIZE`<br>(for HTTP client sending requests) | Maximum response body size. The default value is `0` (means "unlimited").  |
