@@ -47,13 +47,6 @@ type DNSCacheOptions struct {
 // To stop refreshing, call `Stop()` function.
 func NewDNSResolver(resolver *net.Resolver, options *DNSCacheOptions) (DNSCache, error) {
 
-	ticker := time.NewTicker(options.FetchTimeout)
-	ch := make(chan struct{})
-	closer := func() {
-		ticker.Stop()
-		close(ch)
-	}
-
 	// copy handler function to avoid race
 	onRefreshedFn := onRefreshed
 	lookupIPAddrFn := func(ctx context.Context, host string) ([]net.IPAddr, error) {
@@ -69,12 +62,20 @@ func NewDNSResolver(resolver *net.Resolver, options *DNSCacheOptions) (DNSCache,
 	r := &Resolver{
 		lookupIPAddrFn: lookupIPAddrFn,
 		lookupTimeout:  options.LookupTimeout,
-		closer:         closer,
 		logger:         options.Logger,
 		useCache:       options.UseCache,
 	}
 
 	if options.UseCache {
+
+		ticker := time.NewTicker(options.FetchTimeout)
+
+		ch := make(chan struct{})
+		r.closer = func() {
+			ticker.Stop()
+			close(ch)
+		}
+
 		r.cache = make(map[string][]net.IPAddr, cacheSize)
 
 		go func() {

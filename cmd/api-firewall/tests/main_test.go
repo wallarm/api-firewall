@@ -2850,8 +2850,10 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
+		DNSResolver:         s.dnsCache,
+		Logger:              s.logger,
 	}
-	pool, err := proxy.NewChanPool("localhost:28290", &options, s.dnsCache)
+	pool, err := proxy.NewChanPool("localhost:28290", &options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2946,6 +2948,8 @@ func (s *ServiceTests) testDNSCacheFetch(t *testing.T) {
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
 		DNSConfig:           cfg.DNS,
+		DNSResolver:         s.dnsCache,
+		Logger:              s.logger,
 	}
 
 	localIP := net.ParseIP("127.0.0.1")
@@ -2954,7 +2958,7 @@ func (s *ServiceTests) testDNSCacheFetch(t *testing.T) {
 
 	s.dnsCache.EXPECT().LookupIPAddr(gomock.Any(), gomock.Any()).Return(ipAddrs, nil).Times(3)
 
-	pool, err := proxy.NewChanPool("localhost:28290", &options, s.dnsCache)
+	pool, err := proxy.NewChanPool("localhost:28290", &options)
 	if err != nil {
 		t.Fatal(err)
 	}

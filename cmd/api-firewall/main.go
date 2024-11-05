@@ -3,6 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/ardanlabs/conf"
+	"github.com/go-playground/validator"
+	"github.com/pkg/errors"
+	"github.com/savsgio/gotils/strconv"
+	"github.com/sirupsen/logrus"
+	"github.com/valyala/fasthttp"
+	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 	"mime"
 	"net"
 	"net/url"
@@ -12,14 +19,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-
-	"github.com/ardanlabs/conf"
-	"github.com/go-playground/validator"
-	"github.com/pkg/errors"
-	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
-	"github.com/valyala/fasthttp"
-	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	handlersGQL "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
@@ -479,8 +478,10 @@ func runGraphQLMode(logger *logrus.Logger) error {
 		WriteBufferSize:     cfg.Server.WriteBufferSize,
 		MaxResponseBodySize: cfg.Server.MaxResponseBodySize,
 		DialTimeout:         cfg.Server.DialTimeout,
+		Logger:              logger,
 	}
-	pool, err := proxy.NewChanPool(host, &options, nil)
+
+	pool, err := proxy.NewChanPool(host, &options)
 	if err != nil {
 		return errors.Wrap(err, "proxy pool init")
 	}
@@ -845,8 +846,10 @@ func runProxyMode(logger *logrus.Logger) error {
 		MaxResponseBodySize: cfg.Server.MaxResponseBodySize,
 		DialTimeout:         cfg.Server.DialTimeout,
 		DNSConfig:           cfg.DNS,
+		Logger:              logger,
+		DNSResolver:         dnsResolver,
 	}
-	pool, err := proxy.NewChanPool(host, &options, dnsResolver)
+	pool, err := proxy.NewChanPool(host, &options)
 	if err != nil {
 		return errors.Wrap(err, "proxy pool init")
 	}

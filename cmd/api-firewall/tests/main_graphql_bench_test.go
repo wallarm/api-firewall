@@ -3,6 +3,7 @@ package tests
 import (
 	"bytes"
 	"errors"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -125,6 +126,24 @@ func BenchmarkGraphQL(b *testing.B) {
 
 	initialCap := 100
 
+	// default DNS resolver
+	resolver := &net.Resolver{
+		PreferGo:     true,
+		StrictErrors: false,
+	}
+
+	// init DNS resolver
+	dnsCacheOptions := proxy.DNSCacheOptions{
+		UseCache:      false,
+		Logger:        logger,
+		LookupTimeout: 1000 * time.Millisecond,
+	}
+
+	dnsResolver, err := proxy.NewDNSResolver(resolver, &dnsCacheOptions)
+	if err != nil {
+		b.Fatal(err, "DNS cache resolver init")
+	}
+
 	options := proxy.Options{
 		InitialPoolCapacity: initialCap,
 		ClientPoolCapacity:  1000,
@@ -133,8 +152,10 @@ func BenchmarkGraphQL(b *testing.B) {
 		ReadTimeout:         5 * time.Second,
 		WriteTimeout:        5 * time.Second,
 		DialTimeout:         5 * time.Second,
+		DNSResolver:         dnsResolver,
+		Logger:              logger,
 	}
-	pool, err := proxy.NewChanPool(host, &options, nil)
+	pool, err := proxy.NewChanPool(host, &options)
 	if err != nil {
 		b.Fatalf("proxy pool init: %v", err)
 	}
