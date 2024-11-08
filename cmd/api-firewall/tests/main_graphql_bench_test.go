@@ -16,10 +16,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/valyala/fasthttp"
+	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
+
 	graphqlHandler "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
-	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 )
 
 var (
