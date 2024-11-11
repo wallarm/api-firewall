@@ -397,44 +397,6 @@ apiFirewall:
     ##
     annotations: {}
 
-  ## Pod Security Policy settings
-  ## https://kubernetes.io/docs/concepts/policy/pod-security-policy/
-  ##
-  podSecurityPolicy:
-    enabled: false
-    allowedCapabilities: []
-    privileged: false
-    allowPrivilegeEscalation: false
-    volumes:
-    - 'configMap'
-    - 'emptyDir'
-    - 'downwardAPI'
-    - 'secret'
-    hostNetwork: false
-    hostIPC: false
-    hostPID: false
-    runAsUser:
-      rule: 'MustRunAsNonRoot'
-    supplementalGroups:
-      rule: 'MustRunAs'
-      ranges:
-      - min: 1000
-        max: 65535
-    fsGroup:
-      rule: 'MustRunAs'
-      ranges:
-      - min: 1000
-        max: 65535
-    seLinux:
-      rule: RunAsAny
-    
-    ## Just for additional entries in ".spec" if PodSecurityPolicy
-    ##
-    additionalRestrictions: {}
-    # requiredDropCapabilities:
-    #   - ALL
-    # readOnlyRootFilesystem: false
-
   ## Pod Disturion Budget settings
   ## https://kubernetes.io/docs/tasks/run-application/configure-pdb/
   ##
