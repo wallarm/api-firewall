@@ -292,12 +292,13 @@ jobs:
         name: Extract tag name
         run: echo "X_TAG=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
       -
-        uses: uraimo/run-on-arch-action@v2.1.1
+        uses: uraimo/run-on-arch-action@v2
         name: Build artifact
         id: build
         with:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
+          base_image: ${{ matrix.base_image }}
           githubToken: ${{ github.token }}
           setup: |-
             mkdir -p "${PWD}/artifacts"
