@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -47,11 +48,8 @@ type DNSCacheOptions struct {
 // To stop refreshing, call `Stop()` function.
 func NewDNSResolver(resolver *net.Resolver, options *DNSCacheOptions) (DNSCache, error) {
 
-	ticker := time.NewTicker(options.FetchTimeout)
-	ch := make(chan struct{})
-	closer := func() {
-		ticker.Stop()
-		close(ch)
+	if options == nil {
+		return nil, errors.New("options cannot be nil")
 	}
 
 	// copy handler function to avoid race
@@ -69,12 +67,20 @@ func NewDNSResolver(resolver *net.Resolver, options *DNSCacheOptions) (DNSCache,
 	r := &Resolver{
 		lookupIPAddrFn: lookupIPAddrFn,
 		lookupTimeout:  options.LookupTimeout,
-		closer:         closer,
 		logger:         options.Logger,
 		useCache:       options.UseCache,
 	}
 
 	if options.UseCache {
+
+		ticker := time.NewTicker(options.FetchTimeout)
+
+		ch := make(chan struct{})
+		r.closer = func() {
+			ticker.Stop()
+			close(ch)
+		}
+
 		r.cache = make(map[string][]net.IPAddr, cacheSize)
 
 		go func() {

@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 
 	"github.com/wallarm/api-firewall/internal/config"
@@ -23,10 +24,13 @@ import (
 
 const defaultConcurrency = 1000
 
+var defaultLookUpTimeout = 1 * time.Second
+
 var (
-	errInvalidCapacitySetting = errors.New("invalid capacity settings")
-	errClosed                 = errors.New("chan closed")
-	errInvalidDNSResolver     = errors.New("invalid DNS resolver")
+	errInvalidCapacitySetting     = errors.New("invalid capacity settings")
+	errInvalidOptions             = errors.New("invalid settings")
+	errClosed                     = errors.New("chan closed")
+	errFailedDNSCacheResolverInit = errors.New("DNS cache resolver init failed")
 )
 
 func (p *chanPool) tryResolveAndFetchOneIP(host string) (string, error) {
@@ -134,16 +138,45 @@ type Options struct {
 	ReadBufferSize      int
 	WriteBufferSize     int
 	MaxResponseBodySize int
+
+	Logger *logrus.Logger
+
+	DNSResolver DNSCache
 }
 
 // NewChanPool to new a pool with some params
-func NewChanPool(hostAddr string, options *Options, dnsResolver DNSCache) (Pool, error) {
+func NewChanPool(hostAddr string, options *Options) (Pool, error) {
+
+	if options == nil {
+		return nil, errInvalidOptions
+	}
+
 	if options.InitialPoolCapacity < 0 || options.ClientPoolCapacity <= 0 || options.InitialPoolCapacity > options.ClientPoolCapacity {
 		return nil, errInvalidCapacitySetting
 	}
 
-	if dnsResolver == nil {
-		return nil, errInvalidDNSResolver
+	dnsResolver := options.DNSResolver
+
+	if options.DNSResolver == nil {
+		// default DNS resolver
+		resolver := &net.Resolver{
+			PreferGo:     true,
+			StrictErrors: false,
+		}
+
+		// init DNS resolver
+		dnsCacheOptions := DNSCacheOptions{
+			UseCache:      false,
+			Logger:        options.Logger,
+			LookupTimeout: defaultLookUpTimeout,
+		}
+
+		newDnsResolver, err := NewDNSResolver(resolver, &dnsCacheOptions)
+		if err != nil {
+			return nil, errFailedDNSCacheResolverInit
+		}
+
+		dnsResolver = newDnsResolver
 	}
 
 	// Get the SystemCertPool, continue with an empty pool on error
@@ -203,8 +236,6 @@ func NewChanPool(hostAddr string, options *Options, dnsResolver DNSCache) (Pool,
 	// just close the pool error out.
 	for i := 0; i < options.InitialPoolCapacity; i++ {
 
-		connAddr := pool.initConnAddr
-
 		ip, err = pool.tryResolveAndFetchOneIP(pool.host)
 		if err != nil {
 			continue
@@ -216,7 +247,7 @@ func NewChanPool(hostAddr string, options *Options, dnsResolver DNSCache) (Pool,
 		builder.WriteString(":")
 		builder.WriteString(port)
 
-		connAddr = builder.String()
+		connAddr := builder.String()
 
 		proxy := pool.factory(connAddr)
 		if pool.reverseProxyChanLB[ip] == nil {

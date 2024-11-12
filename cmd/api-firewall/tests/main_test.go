@@ -459,6 +459,9 @@ func TestBasic(t *testing.T) {
 		dnsCache:  dnsCache,
 	}
 
+	// basic run test
+	t.Run("basicRunProxyModeService", apifwTests.testProxyRunBasic)
+
 	// basic test
 	t.Run("basicCustomBlockStatusCode", apifwTests.testCustomBlockStatusCode)
 	t.Run("basicPathNotExists", apifwTests.testPathNotExists)
@@ -507,6 +510,28 @@ func TestBasic(t *testing.T) {
 
 	// dns cache
 	t.Run("testDNSCacheFetch", apifwTests.testDNSCacheFetch)
+}
+
+func (s *ServiceTests) testProxyRunBasic(t *testing.T) {
+
+	t.Setenv("APIFW_MODE", "proxy")
+	t.Setenv("APIFW_REQUEST_VALIDATION", "BLOCK")
+	t.Setenv("APIFW_RESPONSE_VALIDATION", "BLOCK")
+	t.Setenv("APIFW_SERVER_URL", "http://127.0.0.1:80")
+
+	t.Setenv("APIFW_URL", "http://0.0.0.0:25867")
+	t.Setenv("APIFW_HEALTH_HOST", "127.0.0.1:10667")
+	t.Setenv("APIFW_API_SPECS", "../../../resources/test/specification/openapi_for_tests.json")
+
+	// start GQL handler
+	go func() {
+		if err := proxy2.Run(s.logger); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// wait for 3 secs to init the handler
+	time.Sleep(3 * time.Second)
 }
 
 func (s *ServiceTests) testCustomBlockStatusCode(t *testing.T) {
@@ -2850,8 +2875,10 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
+		DNSResolver:         s.dnsCache,
+		Logger:              s.logger,
 	}
-	pool, err := proxy.NewChanPool("localhost:28290", &options, s.dnsCache)
+	pool, err := proxy.NewChanPool("localhost:28290", &options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2946,6 +2973,8 @@ func (s *ServiceTests) testDNSCacheFetch(t *testing.T) {
 		WriteTimeout:        cfg.Server.WriteTimeout,
 		DialTimeout:         cfg.Server.DialTimeout,
 		DNSConfig:           cfg.DNS,
+		DNSResolver:         s.dnsCache,
+		Logger:              s.logger,
 	}
 
 	localIP := net.ParseIP("127.0.0.1")
@@ -2954,7 +2983,7 @@ func (s *ServiceTests) testDNSCacheFetch(t *testing.T) {
 
 	s.dnsCache.EXPECT().LookupIPAddr(gomock.Any(), gomock.Any()).Return(ipAddrs, nil).Times(3)
 
-	pool, err := proxy.NewChanPool("localhost:28290", &options, s.dnsCache)
+	pool, err := proxy.NewChanPool("localhost:28290", &options)
 	if err != nil {
 		t.Fatal(err)
 	}
