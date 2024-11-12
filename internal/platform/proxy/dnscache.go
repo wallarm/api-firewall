@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -46,6 +47,10 @@ type DNSCacheOptions struct {
 // NewDNSResolver initializes DNS cache resolver and starts auto refreshing in a new goroutine.
 // To stop refreshing, call `Stop()` function.
 func NewDNSResolver(resolver *net.Resolver, options *DNSCacheOptions) (DNSCache, error) {
+
+	if options == nil {
+		return nil, errors.New("options cannot be nil")
+	}
 
 	// copy handler function to avoid race
 	onRefreshedFn := onRefreshed

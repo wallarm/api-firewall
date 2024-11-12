@@ -28,6 +28,7 @@ var defaultLookUpTimeout = 1 * time.Second
 
 var (
 	errInvalidCapacitySetting     = errors.New("invalid capacity settings")
+	errInvalidOptions             = errors.New("invalid settings")
 	errClosed                     = errors.New("chan closed")
 	errFailedDNSCacheResolverInit = errors.New("DNS cache resolver init failed")
 )
@@ -145,6 +146,10 @@ type Options struct {
 
 // NewChanPool to new a pool with some params
 func NewChanPool(hostAddr string, options *Options) (Pool, error) {
+
+	if options == nil {
+		return nil, errInvalidOptions
+	}
 
 	if options.InitialPoolCapacity < 0 || options.ClientPoolCapacity <= 0 || options.InitialPoolCapacity > options.ClientPoolCapacity {
 		return nil, errInvalidCapacitySetting
