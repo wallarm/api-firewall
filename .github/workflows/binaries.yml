@@ -266,26 +266,22 @@ jobs:
     strategy:
       matrix:
         include:
-          - arch: none
-            distro: none
+          - arch: armv6
+            distro: bullseye
             go_distribution: https://go.dev/dl/go1.22.9.linux-armv6l.tar.gz
             artifact: armv6-libc
-            base_image: '--platform=linux/armv6 bullseye:latest'
-          - arch: none
-            distro: none
+          - arch: aarch64
+            distro: bullseye
             go_distribution: https://go.dev/dl/go1.22.9.linux-arm64.tar.gz
             artifact: arm64-libc
-            base_image: '--platform=linux/aarch64 bullseye:latest'
-          - arch: none
-            distro: none
+          - arch: armv6
+            distro: alpine_latest
             go_distribution: https://go.dev/dl/go1.22.9.linux-armv6l.tar.gz
             artifact: armv6-musl
-            base_image: '--platform=linux/armv6 alpine:latest'
-          - arch: none
-            distro: none
+          - arch: aarch64
+            distro: alpine_latest
             go_distribution: https://go.dev/dl/go1.22.9.linux-arm64.tar.gz
             artifact: arm64-musl
-            base_image: '--platform=linux/aarch64 alpine:latest'
     steps:
       - uses: actions/checkout@v2.1.0
       -
@@ -298,7 +294,6 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
-          base_image: ${{ matrix.base_image }}
           githubToken: ${{ github.token }}
           setup: |-
             mkdir -p "${PWD}/artifacts"
