@@ -114,6 +114,9 @@ func TestGraphQLBasic(t *testing.T) {
 		backendWSClient: backendWSClient,
 	}
 
+	// basic run test
+	t.Run("basicRunGraphQLService", apifwTests.testGQLRunBasic)
+
 	// basic test
 	t.Run("basicGraphQLQuerySuccess", apifwTests.testGQLSuccess)
 	t.Run("basicGraphQLEndpointNotExists", apifwTests.testGQLEndpointNotExists)
@@ -135,6 +138,37 @@ func TestGraphQLBasic(t *testing.T) {
 
 	t.Run("basicGraphQLMaxAliasesNum", apifwTests.testGQLMaxAliasesNum)
 	t.Run("basicGraphQLDuplicateFields", apifwTests.testGQLDuplicateFields)
+}
+
+func (s *ServiceGraphQLTests) testGQLRunBasic(t *testing.T) {
+
+	t.Setenv("APIFW_MODE", "graphql")
+	t.Setenv("APIFW_GRAPHQL_REQUEST_VALIDATION", "BLOCK")
+
+	t.Setenv("APIFW_GRAPHQL_INTROSPECTION", "false")
+	t.Setenv("APIFW_GRAPHQL_MAX_QUERY_DEPTH", "0")
+	t.Setenv("APIFW_GRAPHQL_MAX_ALIASES_NUM", "0")
+	t.Setenv("APIFW_GRAPHQL_BATCH_QUERY_LIMIT", "0")
+	t.Setenv("APIFW_GRAPHQL_NODE_COUNT_LIMIT", "0")
+	t.Setenv("APIFW_GRAPHQL_MAX_QUERY_COMPLEXITY", "0")
+	t.Setenv("APIFW_GRAPHQL_PLAYGROUND", "false")
+
+	t.Setenv("APIFW_URL", "http://0.0.0.0:25868")
+	t.Setenv("APIFW_HEALTH_HOST", "127.0.0.1:10668")
+	t.Setenv("APIFW_GRAPHQL_SCHEMA", "../../../resources/test/gql/schema.graphql")
+
+	// start GQL handler
+	go func() {
+		logger := logrus.New()
+		logger.SetLevel(logrus.ErrorLevel)
+
+		if err := graphqlHandler.Run(logger); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// wait for 3 secs to init the handler
+	time.Sleep(3 * time.Second)
 }
 
 func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {

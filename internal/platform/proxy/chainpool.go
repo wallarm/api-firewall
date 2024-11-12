@@ -231,8 +231,6 @@ func NewChanPool(hostAddr string, options *Options) (Pool, error) {
 	// just close the pool error out.
 	for i := 0; i < options.InitialPoolCapacity; i++ {
 
-		connAddr := pool.initConnAddr
-
 		ip, err = pool.tryResolveAndFetchOneIP(pool.host)
 		if err != nil {
 			continue
@@ -244,7 +242,7 @@ func NewChanPool(hostAddr string, options *Options) (Pool, error) {
 		builder.WriteString(":")
 		builder.WriteString(port)
 
-		connAddr = builder.String()
+		connAddr := builder.String()
 
 		proxy := pool.factory(connAddr)
 		if pool.reverseProxyChanLB[ip] == nil {

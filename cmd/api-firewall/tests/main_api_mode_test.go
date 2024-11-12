@@ -555,6 +555,9 @@ func TestAPIModeBasic(t *testing.T) {
 		lock:      &lock,
 	}
 
+	// basic run test
+	t.Run("basicRunAPIService", apifwTests.testAPIRunBasic)
+
 	// basic test
 	t.Run("testAPIModeSuccess", apifwTests.testAPIModeSuccess)
 	t.Run("testAPIModeMissedMultipleReqParams", apifwTests.testAPIModeMissedMultipleReqParams)
@@ -716,6 +719,26 @@ func checkResponseForbiddenStatusCode(t *testing.T, reqCtx *fasthttp.RequestCtx,
 		}
 	}
 
+}
+
+func (s *APIModeServiceTests) testAPIRunBasic(t *testing.T) {
+
+	t.Setenv("APIFW_MODE", "api")
+	t.Setenv("APIFW_API_MODE_UNKNOWN_PARAMETERS_DETECTION", "false")
+
+	t.Setenv("APIFW_URL", "http://0.0.0.0:25869")
+	t.Setenv("APIFW_HEALTH_HOST", "127.0.0.1:10669")
+	t.Setenv("APIFW_API_MODE_DEBUG_PATH_DB", "../../../resources/test/database/wallarm_api.db")
+
+	// start GQL handler
+	go func() {
+		if err := handlersAPI.Run(s.logger); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// wait for 3 secs to init the handler
+	time.Sleep(3 * time.Second)
 }
 
 func (s *APIModeServiceTests) testAPIModeSuccess(t *testing.T) {

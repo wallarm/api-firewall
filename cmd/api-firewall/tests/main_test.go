@@ -459,6 +459,9 @@ func TestBasic(t *testing.T) {
 		dnsCache:  dnsCache,
 	}
 
+	// basic run test
+	t.Run("basicRunProxyModeService", apifwTests.testProxyRunBasic)
+
 	// basic test
 	t.Run("basicCustomBlockStatusCode", apifwTests.testCustomBlockStatusCode)
 	t.Run("basicPathNotExists", apifwTests.testPathNotExists)
@@ -507,6 +510,28 @@ func TestBasic(t *testing.T) {
 
 	// dns cache
 	t.Run("testDNSCacheFetch", apifwTests.testDNSCacheFetch)
+}
+
+func (s *ServiceTests) testProxyRunBasic(t *testing.T) {
+
+	t.Setenv("APIFW_MODE", "proxy")
+	t.Setenv("APIFW_REQUEST_VALIDATION", "BLOCK")
+	t.Setenv("APIFW_RESPONSE_VALIDATION", "BLOCK")
+	t.Setenv("APIFW_SERVER_URL", "http://127.0.0.1:80")
+
+	t.Setenv("APIFW_URL", "http://0.0.0.0:25867")
+	t.Setenv("APIFW_HEALTH_HOST", "127.0.0.1:10667")
+	t.Setenv("APIFW_API_SPECS", "../../../resources/test/specification/openapi_for_tests.json")
+
+	// start GQL handler
+	go func() {
+		if err := proxy2.Run(s.logger); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// wait for 3 secs to init the handler
+	time.Sleep(3 * time.Second)
 }
 
 func (s *ServiceTests) testCustomBlockStatusCode(t *testing.T) {
