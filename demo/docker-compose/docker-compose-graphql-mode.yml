@@ -2,7 +2,7 @@ version: '3.8'
 services:
   api-firewall:
     container_name: api-firewall
-    image: wallarm/api-firewall:v0.8.4
+    image: wallarm/api-firewall:v0.8.5
     restart: on-failure
     environment:
       APIFW_MODE: "graphql"
