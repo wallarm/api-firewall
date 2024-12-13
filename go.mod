@@ -1,6 +1,6 @@
 module github.com/wallarm/api-firewall
 
-go 1.22.9
+go 1.22.10
 
 require (
 	github.com/andybalholm/brotli v1.1.1
@@ -8,7 +8,7 @@ require (
 	github.com/clbanning/mxj/v2 v2.7.0
 	github.com/corazawaf/coraza/v3 v3.2.1
 	github.com/dgraph-io/ristretto v0.2.0
-	github.com/fasthttp/websocket v1.5.10
+	github.com/fasthttp/websocket v1.5.11
 	github.com/foxcpp/go-mockdns v1.1.0
 	github.com/gabriel-vasile/mimetype v1.4.5
 	github.com/getkin/kin-openapi v0.124.0
@@ -23,7 +23,7 @@ require (
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
-	github.com/valyala/fasthttp v1.57.0
+	github.com/valyala/fasthttp v1.58.0
 	github.com/valyala/fastjson v1.6.4
 	github.com/wundergraph/graphql-go-tools v1.67.4
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
@@ -78,10 +78,10 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/crypto v0.28.0 // indirect
+	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/mod v0.21.0 // indirect
-	golang.org/x/net v0.30.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
+	golang.org/x/net v0.31.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/tools v0.25.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
