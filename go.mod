@@ -10,7 +10,7 @@ require (
 	github.com/dgraph-io/ristretto v0.2.0
 	github.com/fasthttp/websocket v1.5.11
 	github.com/foxcpp/go-mockdns v1.1.0
-	github.com/gabriel-vasile/mimetype v1.4.5
+	github.com/gabriel-vasile/mimetype v1.4.7
 	github.com/getkin/kin-openapi v0.124.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/golang-jwt/jwt v3.2.2+incompatible
@@ -27,7 +27,7 @@ require (
 	github.com/valyala/fastjson v1.6.4
 	github.com/wundergraph/graphql-go-tools v1.67.4
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
-	golang.org/x/sync v0.8.0
+	golang.org/x/sync v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

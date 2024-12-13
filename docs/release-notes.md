@@ -2,6 +2,11 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.8.5 (2024-12-13)
+
+* Dependency upgrade
+* Bump Go version to 1.22.10
+
 ## v0.8.4 (2024-11-12)
 
 * Fixed the DNS resolver issue in the GraphQL mode
