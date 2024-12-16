@@ -209,7 +209,7 @@ jobs:
             mkdir -p /tmp/api-firewall-${{ matrix.artifact }} && \
             go mod download -x                                && \
             go build                                             \
-                -ldflags="-X main.build=${{ env.X_TAG }} -extldflags=-static -s -w" \
+                -ldflags="-X main.build=${{ env.X_TAG }} -X ${APIFIREWALL_NAMESPACE}/internal/version.Version=${{ env.X_TAG }} -extldflags=-static -s -w" \
                 -o /tmp/api-firewall-${{ matrix.artifact }}/api-firewall \
                 -buildvcs=false ./cmd/api-firewall            && \
             /tmp/api-firewall-${{ matrix.artifact }}/api-firewall -v && \
@@ -347,7 +347,7 @@ jobs:
             mkdir -p /tmp/api-firewall-${{ matrix.artifact }} && \
             go mod download -x                                && \
             go build                                             \
-                -ldflags="-X main.build=${{ env.X_TAG }} -extldflags=-static -s -w" \
+                -ldflags="-X main.build=${{ env.X_TAG }} -X ${APIFIREWALL_NAMESPACE}/internal/version.Version=${{ env.X_TAG }} -extldflags=-static -s -w" \
                 -o /tmp/api-firewall-${{ matrix.artifact }}/api-firewall \
                 -buildvcs=false ./cmd/api-firewall            && \
             /tmp/api-firewall-${{ matrix.artifact }}/api-firewall -v && \
