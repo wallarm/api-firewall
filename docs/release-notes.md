@@ -2,6 +2,11 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.8.6 (2024-12-20)
+
+* Dependency upgrade
+* Make the release binaries version detectable by Syft
+
 ## v0.8.5 (2024-12-13)
 
 * Dependency upgrade
