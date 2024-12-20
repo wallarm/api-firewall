@@ -22,11 +22,11 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38
 	github.com/sirupsen/logrus v1.9.3
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/valyala/fasthttp v1.58.0
 	github.com/valyala/fastjson v1.6.4
 	github.com/wundergraph/graphql-go-tools v1.67.4
-	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
+	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
 	golang.org/x/sync v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -78,7 +78,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/net v0.32.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/tools v0.28.0 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
