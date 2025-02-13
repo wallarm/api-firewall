@@ -2864,7 +2864,7 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 	ipAddrs := []net.IPAddr{}
 	ipAddrs = append(ipAddrs, net.IPAddr{IP: net.IPv4(127, 0, 0, 1), Zone: ""})
 
-	s.dnsCache.EXPECT().LookupIPAddr(gomock.Any(), gomock.Any()).Return(ipAddrs, nil).Times(3)
+	s.dnsCache.EXPECT().LookupIPAddr(gomock.Any(), gomock.Any()).Return(ipAddrs, nil).Times(2)
 
 	options := proxy.Options{
 		InitialPoolCapacity: 1,
