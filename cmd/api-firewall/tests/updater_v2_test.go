@@ -62,7 +62,7 @@ type EntryV2 struct {
 	Status        string `db:"status"`
 }
 
-func insertSpecV2(dbFilePath, newSpec string) (*EntryV2, error) {
+func insertSpecV2(dbFilePath, newSpec, state string) (*EntryV2, error) {
 
 	db, err := sql.Open("sqlite3", dbFilePath)
 	if err != nil {
@@ -70,7 +70,7 @@ func insertSpecV2(dbFilePath, newSpec string) (*EntryV2, error) {
 	}
 	defer db.Close()
 
-	q := fmt.Sprintf("INSERT INTO openapi_schemas(schema_version,schema_format,schema_content,status) VALUES ('1', 'yaml', '%s', 'new')", newSpec)
+	q := fmt.Sprintf("INSERT INTO openapi_schemas(schema_version,schema_format,schema_content,status) VALUES ('1', 'yaml', '%s', '%s')", newSpec, state)
 	_, err = db.Exec(q)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func TestLoadBasicV2(t *testing.T) {
 	var lock sync.RWMutex
 
 	// create DB entry with spec and status = 'new'
-	entry, err := insertSpecV2(currentDBPath, testYamlSpecification)
+	entry, err := insertSpecV2(currentDBPath, testYamlSpecification, "new")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestUpdaterBasicV2(t *testing.T) {
 	}
 
 	// create DB entry with spec and status = 'new'
-	entry, err := insertSpecV2(currentDBPath, testYamlSpecification)
+	entry, err := insertSpecV2(currentDBPath, testYamlSpecification, "new")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1096,7 +1096,7 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 
 	// prepare spec with status = 'new'
 	// create DB entry with spec and status = 'new'
-	entry, err := insertSpecV2(currentDBPath, testYamlSpecification)
+	entry, err := insertSpecV2(currentDBPath, testYamlSpecification, "new")
 	if err != nil {
 		t.Fatal(err)
 	}

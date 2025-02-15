@@ -12,6 +12,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	_ "github.com/mattn/go-sqlite3"
+
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 )
 

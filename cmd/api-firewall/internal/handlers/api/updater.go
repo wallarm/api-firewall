@@ -9,6 +9,7 @@ import (
 	"github.com/corazawaf/coraza/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/router"
