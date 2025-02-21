@@ -22,8 +22,6 @@ import (
 	"github.com/wallarm/api-firewall/internal/config"
 )
 
-const defaultConcurrency = 1000
-
 var defaultLookUpTimeout = 1 * time.Second
 
 var (
@@ -70,12 +68,7 @@ func (p *chanPool) factory(connAddr string) HTTPClient {
 		DisableHeaderNamesNormalizing: true,
 		DisablePathNormalizing:        true,
 		Dial: func(addr string) (net.Conn, error) {
-			tcpDialer := &fasthttp.TCPDialer{
-				Concurrency:          defaultConcurrency,
-				Resolver:             p.dnsResolver,
-				DisableDNSResolution: p.options.DNSConfig.Cache,
-			}
-			return tcpDialer.DialTimeout(connAddr, p.options.DialTimeout)
+			return fasthttp.DialTimeout(connAddr, p.options.DialTimeout)
 		},
 		TLSConfig:           p.tlsConfig,
 		MaxConnsPerHost:     p.options.MaxConnsPerHost,
