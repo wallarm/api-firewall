@@ -2,12 +2,12 @@ package storage
 
 import (
 	"bytes"
-	"github.com/pkg/errors"
-	"github.com/wallarm/api-firewall/internal/config"
 	"net/url"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
+	"github.com/wallarm/api-firewall/internal/config"
 )
 
 type DBOpenAPILoader interface {
@@ -28,17 +28,26 @@ func getSpecBytes(spec string) []byte {
 	return bytes.NewBufferString(spec).Bytes()
 }
 
-// NewOpenAPIDB loads OAS specs from the database and returns the struct with the parsed specs
+// NewOpenAPIDB loads OAS specs from the database and returns the struct with the parsed specs WITH database entry status update
 func NewOpenAPIDB(dbStoragePath string, version int) (DBOpenAPILoader, error) {
+	return loadOpenAPIDBVersion(dbStoragePath, version, true)
+}
 
+// LoadOpenAPIDB loads OAS specs from the database and returns the struct with the parsed specs WITHOUT database entry status update
+func LoadOpenAPIDB(dbStoragePath string, version int) (DBOpenAPILoader, error) {
+	return loadOpenAPIDBVersion(dbStoragePath, version, false)
+}
+
+// loadOpenAPIDBVersion chooses the right database schema version and then loads OAS specs from the database
+func loadOpenAPIDBVersion(dbStoragePath string, version int, applyAfterLoad bool) (DBOpenAPILoader, error) {
 	switch version {
 	case 1:
 		return NewOpenAPIDBV1(dbStoragePath)
 	case 2:
-		return NewOpenAPIDBV2(dbStoragePath)
+		return NewOpenAPIDBV2(dbStoragePath, applyAfterLoad)
 	default:
 		// first trying to load db v2
-		storageV2, errV2 := NewOpenAPIDBV2(dbStoragePath)
+		storageV2, errV2 := NewOpenAPIDBV2(dbStoragePath, applyAfterLoad)
 		if errV2 == nil {
 			return storageV2, errV2
 		}
@@ -46,7 +55,6 @@ func NewOpenAPIDB(dbStoragePath string, version int) (DBOpenAPILoader, error) {
 		return NewOpenAPIDBV1(dbStoragePath)
 
 	}
-
 }
 
 // NewOpenAPIFromFileOrURL loads OAS specs from the file or URL and returns the struct with the parsed specs
