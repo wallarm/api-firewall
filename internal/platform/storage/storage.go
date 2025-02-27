@@ -39,15 +39,15 @@ func LoadOpenAPIDB(dbStoragePath string, version int) (DBOpenAPILoader, error) {
 }
 
 // loadOpenAPIDBVersion chooses the right database schema version and then loads OAS specs from the database
-func loadOpenAPIDBVersion(dbStoragePath string, version int, applyAfterLoad bool) (DBOpenAPILoader, error) {
+func loadOpenAPIDBVersion(dbStoragePath string, version int, execAfterLoad bool) (DBOpenAPILoader, error) {
 	switch version {
 	case 1:
 		return NewOpenAPIDBV1(dbStoragePath)
 	case 2:
-		return NewOpenAPIDBV2(dbStoragePath, applyAfterLoad)
+		return NewOpenAPIDBV2(dbStoragePath, execAfterLoad)
 	default:
 		// first trying to load db v2
-		storageV2, errV2 := NewOpenAPIDBV2(dbStoragePath, applyAfterLoad)
+		storageV2, errV2 := NewOpenAPIDBV2(dbStoragePath, execAfterLoad)
 		if errV2 == nil {
 			return storageV2, errV2
 		}

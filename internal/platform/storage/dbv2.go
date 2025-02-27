@@ -35,7 +35,7 @@ type SQLLiteV2 struct {
 	lock        *sync.RWMutex
 }
 
-func NewOpenAPIDBV2(dbStoragePath string, applyAfterLoad bool) (DBOpenAPILoader, error) {
+func NewOpenAPIDBV2(dbStoragePath string, execAfterLoad bool) (DBOpenAPILoader, error) {
 
 	sqlObj := SQLLiteV2{
 		lock:        &sync.RWMutex{},
@@ -47,7 +47,7 @@ func NewOpenAPIDBV2(dbStoragePath string, applyAfterLoad bool) (DBOpenAPILoader,
 	var err error
 	sqlObj.isReady, err = sqlObj.Load(dbStoragePath)
 
-	if applyAfterLoad {
+	if execAfterLoad {
 		if errAfterLoad := sqlObj.AfterLoad(dbStoragePath); errAfterLoad != nil {
 			if sqlObj.isReady {
 				sqlObj.isReady = false
