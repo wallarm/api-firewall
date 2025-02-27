@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	strconv2 "strconv"
 	"strings"
@@ -34,7 +35,7 @@ type SQLLiteV2 struct {
 	lock        *sync.RWMutex
 }
 
-func NewOpenAPIDBV2(dbStoragePath string) (DBOpenAPILoader, error) {
+func NewOpenAPIDBV2(dbStoragePath string, execAfterLoad bool) (DBOpenAPILoader, error) {
 
 	sqlObj := SQLLiteV2{
 		lock:        &sync.RWMutex{},
@@ -46,11 +47,13 @@ func NewOpenAPIDBV2(dbStoragePath string) (DBOpenAPILoader, error) {
 	var err error
 	sqlObj.isReady, err = sqlObj.Load(dbStoragePath)
 
-	if errAfterLoad := sqlObj.AfterLoad(dbStoragePath); errAfterLoad != nil {
-		if sqlObj.isReady {
-			sqlObj.isReady = false
+	if execAfterLoad {
+		if errAfterLoad := sqlObj.AfterLoad(dbStoragePath); errAfterLoad != nil {
+			if sqlObj.isReady {
+				sqlObj.isReady = false
+			}
+			err = errors.Join(err, errAfterLoad)
 		}
-		err = errors.Join(err, errAfterLoad)
 	}
 
 	return &sqlObj, err
@@ -252,15 +255,28 @@ func (s *SQLLiteV2) AfterLoad(dbStoragePath string) error {
 
 func (s *SQLLiteV2) ShouldUpdate(newStorage DBOpenAPILoader) bool {
 
-	schemaIDs := newStorage.SchemaIDs()
+	newSchemaIDs := newStorage.SchemaIDs()
+	currentSchemaIDs := s.SchemaIDs()
 
-	if len(s.SchemaIDs()) != len(schemaIDs) {
+	// check if number of API spec in the database has changed
+	if len(currentSchemaIDs) != len(newSchemaIDs) {
 		return true
 	}
 
-	for _, id := range schemaIDs {
-		if rawSpec, ok := newStorage.SpecificationRaw(id).(*SpecificationEntryV2); ok && rawSpec.Status == "new" {
+	// check if schema ID of API specs in the database has changed
+	for _, sid := range newSchemaIDs {
+		if !slices.Contains(currentSchemaIDs, sid) {
 			return true
+		}
+	}
+
+	// check if status OR schema version of API spec in the database has changed
+	for _, id := range newSchemaIDs {
+		if rawSpec, ok := newStorage.SpecificationRaw(id).(*SpecificationEntryV2); ok {
+			if rawSpec.Status == "new" ||
+				rawSpec.SchemaVersion != s.SpecificationVersion(id) {
+				return true
+			}
 		}
 	}
 

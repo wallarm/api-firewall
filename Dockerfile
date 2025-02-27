@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine3.21 AS build
+FROM golang:1.23-alpine3.21 AS build
 
 ARG APIFIREWALL_NAMESPACE
 ARG APIFIREWALL_VERSION

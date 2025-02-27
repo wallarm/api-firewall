@@ -106,6 +106,8 @@ func (s *Specification) Run() {
 				}
 				s.lock.Unlock()
 
+				s.logger.Debugf("%s: OpenAPI specifications have been updated", logPrefix)
+
 				continue
 			}
 
@@ -140,8 +142,8 @@ func (s *Specification) Shutdown() error {
 // Load function reads DB file and returns it
 func (s *Specification) Load() (storage.DBOpenAPILoader, error) {
 
-	// Load specification
-	return storage.NewOpenAPIDB(s.cfg.PathToSpecDB, s.cfg.DBVersion)
+	// Load specification only (without after load actions)
+	return storage.LoadOpenAPIDB(s.cfg.PathToSpecDB, s.cfg.DBVersion)
 }
 
 // Find function searches for the handler by path and method

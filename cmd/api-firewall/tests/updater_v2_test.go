@@ -44,6 +44,24 @@ paths:
           content: {}
 `
 
+const testUpdatedYamlSpecification = `openapi: 3.0.1
+info:
+  title: Service
+  version: 1.1.1
+servers:
+  - url: /
+paths:
+  /test/updated:
+    get:
+      tags:
+        - Redirects
+      summary: Absolutely 302 Redirects n times.
+      responses:
+        ''200'':
+          description: A redirection.
+          content: {}
+`
+
 var currentDBPath = "./wallarm_api2_update.db"
 
 var cfgV2 = config.APIMode{
@@ -80,6 +98,39 @@ func insertSpecV2(dbFilePath, newSpec, state string) (*EntryV2, error) {
 	entry := EntryV2{}
 
 	rows, err := db.Query("SELECT * FROM openapi_schemas ORDER BY schema_id DESC LIMIT 1")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err = rows.Scan(&entry.SchemaID, &entry.SchemaVersion, &entry.SchemaFormat, &entry.SchemaContent, &entry.Status)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &entry, nil
+}
+
+func updateSpecV2(dbFilePath string, schemaID int, newState string, newSchema string) (*EntryV2, error) {
+
+	db, err := sql.Open("sqlite3", dbFilePath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	q := fmt.Sprintf("UPDATE openapi_schemas SET status = '%s', schema_content='%s' WHERE schema_id == %d", newState, newSchema, schemaID)
+	_, err = db.Exec(q)
+	if err != nil {
+		return nil, err
+	}
+
+	// entry of the V2
+	entry := EntryV2{}
+
+	rows, err := db.Query(fmt.Sprintf("SELECT * FROM openapi_schemas WHERE schema_id == %d", schemaID))
 	if err != nil {
 		return nil, err
 	}
@@ -356,6 +407,61 @@ func TestUpdaterBasicV2(t *testing.T) {
 	// valid route in the new spec
 	req = fasthttp.AcquireRequest()
 	req.SetRequestURI("/")
+	req.Header.SetMethod("GET")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", entry.SchemaID))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	lock.RLock()
+	api.Handler(&reqCtx)
+	lock.RUnlock()
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	apifwResponse = validator.ValidationResponse{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
+		t.Errorf("Error while JSON response parsing: %v", err)
+	}
+
+	if len(apifwResponse.Summary) > 0 {
+		if *apifwResponse.Summary[0].SchemaID != entry.SchemaID {
+			t.Errorf("Incorrect error code. Expected: %d and got %d",
+				entry.SchemaID, *apifwResponse.Summary[0].SchemaID)
+		}
+		if *apifwResponse.Summary[0].StatusCode != fasthttp.StatusOK {
+			t.Errorf("Incorrect result status. Expected: %d and got %d",
+				fasthttp.StatusOK, *apifwResponse.Summary[0].StatusCode)
+		}
+	}
+
+	// update the current entry state
+	_, err = updateSpecV2(currentDBPath, entry.SchemaID, "new", testUpdatedYamlSpecification)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// start updater second time.
+	updNewSpecErrors := make(chan error, 1)
+	updater = handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgV2, &api, shutdown, &health, nil, nil)
+	go func() {
+		t.Logf("starting specification regular update process every %.0f seconds", cfg.SpecificationUpdatePeriod.Seconds())
+		updNewSpecErrors <- updater.Start()
+	}()
+
+	time.Sleep(3 * time.Second)
+
+	if err := updater.Shutdown(); err != nil {
+		t.Fatal(err)
+	}
+
+	// valid route in the updated spec
+	req = fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/updated")
 	req.Header.SetMethod("GET")
 	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", entry.SchemaID))
 
