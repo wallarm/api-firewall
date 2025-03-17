@@ -6,22 +6,23 @@ import (
 	"sync"
 
 	"github.com/fasthttp/websocket"
+	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/savsgio/gotils/strings"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
+	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
+	"github.com/wundergraph/graphql-go-tools/pkg/playground"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/web"
-	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
-	"github.com/wundergraph/graphql-go-tools/pkg/playground"
 )
 
-func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, proxy proxy.Pool, wsClient proxy.WebSocketClient, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType) fasthttp.RequestHandler {
+func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.URL, shutdown chan os.Signal, logger zerolog.Logger, proxy proxy.Pool, wsClient proxy.WebSocketClient, deniedTokens *denylist.DeniedTokens, AllowedIPCache *allowiplist.AllowedIPsType) fasthttp.RequestHandler {
 
 	// Construct the web.App which holds all routes as well as common Middleware.
 	appOptions := web.AppAdditionalOptions{
@@ -82,7 +83,7 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 	// use API Host env var to take path
 	apiHost, err := url.ParseRequestURI(cfg.APIHost)
 	if err != nil {
-		logger.Fatalf("parsing API Host URL: %v", err)
+		logger.Fatal().Msgf("parsing API Host URL: %v", err)
 		return nil
 	}
 
@@ -92,10 +93,10 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 	}
 
 	if err := app.Handle(fasthttp.MethodGet, graphqlPath, s.GraphQLHandle); err != nil {
-		logger.WithFields(logrus.Fields{"error": err}).Error("GraphQL GET endpoint registration failed")
+		logger.Error().Err(err).Msg("GraphQL GET endpoint registration failed")
 	}
 	if err := app.Handle(fasthttp.MethodPost, graphqlPath, s.GraphQLHandle); err != nil {
-		logger.WithFields(logrus.Fields{"error": err}).Error("GraphQL POST endpoint registration failed")
+		logger.Error().Err(err).Msg("GraphQL POST endpoint registration failed")
 	}
 
 	// enable playground
@@ -109,13 +110,13 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 
 		handlers, err := p.Handlers()
 		if err != nil {
-			logger.Fatalf("playground handlers error: %v", err)
+			logger.Fatal().Msgf("playground handlers error: %v", err)
 			return nil
 		}
 
 		for i := range handlers {
 			if err := app.Handle(fasthttp.MethodGet, handlers[i].Path, web.NewFastHTTPHandler(handlers[i].Handler, true)); err != nil {
-				logger.WithFields(logrus.Fields{"error": err}).Error("GraphQL Playground endpoint registration failed")
+				logger.Error().Err(err).Msg("GraphQL Playground endpoint registration failed")
 			}
 		}
 	}

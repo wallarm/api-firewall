@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/corazawaf/coraza/v3"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 
 	"github.com/wallarm/api-firewall/internal/config"
@@ -23,7 +24,7 @@ const (
 )
 
 type Specification struct {
-	logger         *logrus.Logger
+	logger         zerolog.Logger
 	waf            coraza.WAF
 	sqlLiteStorage storage.DBOpenAPILoader
 	stop           chan struct{}
@@ -37,7 +38,7 @@ type Specification struct {
 }
 
 // NewHandlerUpdater function defines configuration updater controller
-func NewHandlerUpdater(lock *sync.RWMutex, logger *logrus.Logger, sqlLiteStorage storage.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *Health, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
+func NewHandlerUpdater(lock *sync.RWMutex, logger zerolog.Logger, sqlLiteStorage storage.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *Health, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
 	return &Specification{
 		logger:         logger,
 		waf:            waf,
@@ -59,10 +60,10 @@ func (s *Specification) Run() {
 	// handle panic
 	defer func() {
 		if r := recover(); r != nil {
-			s.logger.Errorf("panic: %v", r)
+			s.logger.Error().Msgf("panic: %v", r)
 
 			// Log the Go stack trace for this panic'd goroutine.
-			s.logger.Debugf("%s", debug.Stack())
+			s.logger.Debug().Msgf("%s", debug.Stack())
 			return
 		}
 	}()
@@ -75,25 +76,25 @@ func (s *Specification) Run() {
 			// load new schemes
 			newSpecDB, err := s.Load()
 			if err != nil {
-				s.logger.WithFields(logrus.Fields{"error": err}).Errorf("%s: loading specifications", logPrefix)
+				s.logger.Error().Err(err).Msgf("%s: loading specifications failed", logPrefix)
 				continue
 			}
 
 			// do not downgrade the db version
 			if s.sqlLiteStorage.Version() > newSpecDB.Version() {
-				s.logger.Errorf("%s: version of the new DB structure is lower then current one (V2)", logPrefix)
+				s.logger.Error().Msgf("%s: version of the new DB structure is lower then current one (V2)", logPrefix)
 				continue
 			}
 
 			if s.sqlLiteStorage.ShouldUpdate(newSpecDB) {
-				s.logger.Debugf("%s: OpenAPI specifications with the following IDs were updated: %v", logPrefix, newSpecDB.SchemaIDs())
+				s.logger.Debug().Msgf("%s: openAPI specifications with the following IDs were updated: %v", logPrefix, newSpecDB.SchemaIDs())
 
 				// find new IDs and log them
 				newScemaIDs := newSpecDB.SchemaIDs()
 				oldSchemaIDs := s.sqlLiteStorage.SchemaIDs()
 				for _, ns := range newScemaIDs {
 					if !validator.Contains(oldSchemaIDs, ns) {
-						s.logger.Infof("%s: fetched new OpenAPI specification from the database with id: %d", logPrefix, ns)
+						s.logger.Info().Msgf("%s: fetched OpenAPI specification from the database with id: %d", logPrefix, ns)
 					}
 				}
 
@@ -102,16 +103,15 @@ func (s *Specification) Run() {
 				s.api.Handler = Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache, s.waf)
 				s.health.OpenAPIDB = s.sqlLiteStorage
 				if err := s.sqlLiteStorage.AfterLoad(s.cfg.PathToSpecDB); err != nil {
-					s.logger.WithFields(logrus.Fields{"error": err}).Errorf("%s: error in after specification loading function", logPrefix)
+					s.logger.Error().Err(err).Msgf("%s: error in after specification loading function", logPrefix)
 				}
 				s.lock.Unlock()
 
-				s.logger.Debugf("%s: OpenAPI specifications have been updated", logPrefix)
-
+				s.logger.Debug().Msgf("%s: OpenAPI specifications have been updated", logPrefix)
 				continue
 			}
 
-			s.logger.Debugf("%s: new OpenAPI specifications not found", logPrefix)
+			s.logger.Debug().Msgf("%s: new OpenAPI specifications not found", logPrefix)
 		case <-s.stop:
 			updateTicker.Stop()
 			return
@@ -129,7 +129,7 @@ func (s *Specification) Start() error {
 
 // Shutdown function stops update process
 func (s *Specification) Shutdown() error {
-	defer s.logger.Infof("%s: stopped", logPrefix)
+	defer log.Info().Msgf("%s: stopped", logPrefix)
 
 	// close worker and finish Start function
 	for i := 0; i < 2; i++ {

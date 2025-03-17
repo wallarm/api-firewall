@@ -7,8 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/fasthttp/websocket"
-	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
@@ -29,7 +28,7 @@ type WebSocketConn interface {
 // FastHTTPWebSocketConn implements the WebSocketConn interface
 type FastHTTPWebSocketConn struct {
 	Conn   *websocket.Conn
-	Logger *logrus.Logger
+	Logger zerolog.Logger
 	Ctx    *fasthttp.RequestCtx
 	mu     sync.Mutex
 }
@@ -41,29 +40,30 @@ type GqlWSErrorMessage struct {
 }
 
 func (f *FastHTTPWebSocketConn) ReadMessage() (messageType int, p []byte, err error) {
-	if f.Logger != nil && f.Ctx != nil && f.Logger.Level == logrus.TraceLevel {
-		f.Logger.WithFields(logrus.Fields{
-			"protocol":     "websocket",
-			"local_addr":   f.Conn.LocalAddr().String(),
-			"remote_addr":  f.Conn.RemoteAddr().String(),
-			"message":      strconv.B2S(p),
-			"message_type": messageType,
-			"request_id":   f.Ctx.UserValue(web.RequestID),
-		}).Trace("read message")
+	if f.Ctx != nil && f.Logger.GetLevel() == zerolog.TraceLevel {
+		f.Logger.Trace().
+			Str("protocol", "websocket").
+			Str("local_addr", f.Conn.LocalAddr().String()).
+			Str("remote_addr", f.Conn.RemoteAddr().String()).
+			Bytes("message", p).
+			Int("message_type", messageType).
+			Interface("request_id", f.Ctx.UserValue(web.RequestID)).
+			Msg("read message")
+
 	}
 	return f.Conn.ReadMessage()
 }
 
 func (f *FastHTTPWebSocketConn) WriteMessage(messageType int, data []byte) error {
-	if f.Logger != nil && f.Ctx != nil && f.Logger.Level == logrus.TraceLevel {
-		f.Logger.WithFields(logrus.Fields{
-			"protocol":     "websocket",
-			"local_addr":   f.Conn.LocalAddr().String(),
-			"remote_addr":  f.Conn.RemoteAddr().String(),
-			"message":      strconv.B2S(data),
-			"message_type": messageType,
-			"request_id":   f.Ctx.UserValue(web.RequestID),
-		}).Trace("write message")
+	if f.Ctx != nil && f.Logger.GetLevel() == zerolog.TraceLevel {
+		f.Logger.Trace().
+			Str("protocol", "websocket").
+			Str("local_addr", f.Conn.LocalAddr().String()).
+			Str("remote_addr", f.Conn.RemoteAddr().String()).
+			Bytes("message", data).
+			Int("message_type", messageType).
+			Interface("request_id", f.Ctx.UserValue(web.RequestID)).
+			Msg("write message")
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()

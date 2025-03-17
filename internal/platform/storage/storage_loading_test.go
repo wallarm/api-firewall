@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"sort"
 	"testing"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -103,9 +101,6 @@ paths:
 
 func TestBasicDBSpecsLoading(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
-
 	dbSpec, err := NewOpenAPIDB("../../../resources/test/database/wallarm_api.db", dbVersion)
 	if err != nil {
 		t.Fatal(err)
@@ -152,9 +147,6 @@ func TestBasicDBSpecsLoading(t *testing.T) {
 }
 
 func TestBasicDBSpecsLoadingV2(t *testing.T) {
-
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
 
 	dbSpec, err := NewOpenAPIDB("../../../resources/test/database/wallarm_api_v2.db", dbVersion2)
 	if err != nil {

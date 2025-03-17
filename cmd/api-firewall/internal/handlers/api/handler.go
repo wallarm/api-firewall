@@ -4,8 +4,7 @@ import (
 	"runtime/debug"
 	strconv2 "strconv"
 
-	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
 
@@ -19,7 +18,7 @@ import (
 type RequestValidator struct {
 	CustomRoute   *loader.CustomRoute
 	OpenAPIRouter *loader.Router
-	Log           *logrus.Logger
+	Log           zerolog.Logger
 	Cfg           *config.APIMode
 	ParserPool    *fastjson.ParserPool
 	SchemaID      int
@@ -31,10 +30,10 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 	// handle panic
 	defer func() {
 		if r := recover(); r != nil {
-			s.Log.Errorf("panic: %v", r)
+			s.Log.Error().Msgf("panic: %v", r)
 
 			// Log the Go stack trace for this panic'd goroutine.
-			s.Log.Debugf("%s", debug.Stack())
+			s.Log.Debug().Msgf("%s", debug.Stack())
 			return
 		}
 	}()
@@ -44,12 +43,13 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 
 	// Route not found
 	if s.CustomRoute == nil {
-		s.Log.WithFields(logrus.Fields{
-			"host":       strconv.B2S(ctx.Request.Header.Host()),
-			"path":       strconv.B2S(ctx.Path()),
-			"method":     strconv.B2S(ctx.Request.Header.Method()),
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Debug("Method or path were not found")
+		s.Log.Debug().
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Bytes("host", ctx.Request.Header.Host()).
+			Bytes("path", ctx.Path()).
+			Bytes("method", ctx.Request.Header.Method()).
+			Msg("method or path were not found")
+
 		ctx.SetUserValue(keyValidationErrors, []*validator.ValidationError{{Message: validator.ErrMethodAndPathNotFound.Error(), Code: validator.ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
 		return nil
@@ -57,13 +57,14 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 
 	validationErrors, err := apiMode.APIModeValidateRequest(ctx, s.ParserPool, s.CustomRoute, s.Cfg.UnknownParametersDetection)
 	if err != nil {
-		s.Log.WithFields(logrus.Fields{
-			"error":      err,
-			"host":       strconv.B2S(ctx.Request.Header.Host()),
-			"path":       strconv.B2S(ctx.Path()),
-			"method":     strconv.B2S(ctx.Request.Header.Method()),
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("request validation error")
+		s.Log.Error().
+			Err(err).
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Bytes("host", ctx.Request.Header.Host()).
+			Bytes("path", ctx.Path()).
+			Bytes("method", ctx.Request.Header.Method()).
+			Msg("request validation error")
+
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusInternalServerError)
 		return nil
 	}
@@ -76,13 +77,13 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 			r.SchemaVersion = s.OpenAPIRouter.SchemaVersion
 		}
 
-		s.Log.WithFields(logrus.Fields{
-			"error":      validationErrors,
-			"host":       strconv.B2S(ctx.Request.Header.Host()),
-			"path":       strconv.B2S(ctx.Path()),
-			"method":     strconv.B2S(ctx.Request.Header.Method()),
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Debug("request validation error")
+		s.Log.Debug().
+			Interface("error", validationErrors).
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Bytes("host", ctx.Request.Header.Host()).
+			Bytes("path", ctx.Path()).
+			Bytes("method", ctx.Request.Header.Method()).
+			Msg("request validation error")
 
 		ctx.SetUserValue(keyValidationErrors, validationErrors)
 		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)

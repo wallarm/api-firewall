@@ -1,19 +1,18 @@
 package mid
 
 import (
-	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
+	"golang.org/x/exp/slices"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
-	"golang.org/x/exp/slices"
 )
 
 // ShadowAPIMonitor check each request for the params, methods or paths that are not specified
 // in the OpenAPI specification and log each violation
-func ShadowAPIMonitor(logger *logrus.Logger, cfg *config.ShadowAPI) web.Middleware {
+func ShadowAPIMonitor(logger zerolog.Logger, cfg *config.ShadowAPI) web.Middleware {
 
 	// This is the actual middleware function to be executed.
 	m := func(before router.Handler) router.Handler {
@@ -52,15 +51,15 @@ func ShadowAPIMonitor(logger *logrus.Logger, cfg *config.ShadowAPI) web.Middlewa
 
 			// if response status code not found in the OpenAPI spec AND the code not in the exclude list
 			if isProxyStatusCodeNotFound && idx < 0 {
-				logger.WithFields(logrus.Fields{
-					"request_id":      ctx.UserValue(web.RequestID),
-					"status_code":     ctx.Response.StatusCode(),
-					"response_length": fmt.Sprintf("%d", ctx.Response.Header.ContentLength()),
-					"method":          currentMethod,
-					"path":            currentPath,
-					"client_address":  ctx.RemoteAddr(),
-					"violation":       "shadow_api",
-				}).Error("Shadow API detected: response status code not found in the OpenAPI specification")
+				logger.Error().
+					Interface("request_id", ctx.UserValue(web.RequestID)).
+					Int("status_code", ctx.Response.StatusCode()).
+					Int("response_length", ctx.Response.Header.ContentLength()).
+					Str("method", currentMethod).
+					Str("path", currentPath).
+					Str("client_address", ctx.RemoteAddr().String()).
+					Str("violation", "shadow_api").
+					Msg("Shadow API detected: response status code not found in the OpenAPI specification")
 			}
 
 			// Return the error, so it can be handled further up the chain.

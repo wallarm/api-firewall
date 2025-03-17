@@ -2,7 +2,7 @@ version: '3.8'
 services:
   api-firewall:
     container_name: api-firewall
-    image: wallarm/api-firewall:v0.8.0
+    image: wallarm/api-firewall:v0.8.8
     build:
       context: ../../
       dockerfile: Dockerfile
@@ -17,6 +17,11 @@ services:
       APIFW_READ_TIMEOUT: "5s"
       APIFW_WRITE_TIMEOUT: "5s"
       APIFW_LOG_LEVEL: "info"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
     volumes:
       - ./database/wallarm_api.db:/var/lib/wallarm-api/1/wallarm_api.db:ro
     ports:

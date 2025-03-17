@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	"github.com/fasthttp/websocket"
+	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
 	"golang.org/x/sync/errgroup"
@@ -25,7 +25,7 @@ type Handler struct {
 	cfg        *config.GraphQLMode
 	serverURL  *url.URL
 	proxyPool  proxy.Pool
-	logger     *logrus.Logger
+	logger     zerolog.Logger
 	schema     *graphql.Schema
 	parserPool *fastjson.ParserPool
 	wsClient   proxy.WebSocketClient
@@ -52,10 +52,10 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 	// respond with 403 status code in case of content-type of POST request is not application/json
 	if strconv.B2S(ctx.Request.Header.Method()) == fasthttp.MethodPost &&
 		!strings.EqualFold(strconv.B2S(ctx.Request.Header.ContentType()), "application/json") {
-		h.logger.WithFields(logrus.Fields{
-			"protocol":   "HTTP",
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Debug("POST request without application/json content-type is received")
+		h.logger.Debug().
+			Str("protocol", "HTTP").
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("POST request without application/json content-type is received")
 
 		return web.RespondError(ctx, fasthttp.StatusForbidden, "")
 	}
@@ -63,10 +63,10 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 	// respond with 403 status code in case of lack of "query" query parameter in GET request
 	if strconv.B2S(ctx.Request.Header.Method()) == fasthttp.MethodGet &&
 		len(ctx.Request.URI().QueryArgs().Peek("query")) == 0 {
-		h.logger.WithFields(logrus.Fields{
-			"protocol":   "HTTP",
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Debug("GET request without \"query\" query parameter is received")
+		h.logger.Debug().
+			Str("protocol", "HTTP").
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("GET request without \"query\" query parameter is received")
 
 		ctx.Response.SetStatusCode(fasthttp.StatusBadRequest)
 		return web.RespondGraphQLErrors(&ctx.Response, ErrInvalidQuery)
@@ -75,11 +75,11 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 	// Proxy request if the validation is disabled
 	if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationDisable) {
 		if err := proxy.Perform(ctx, h.proxyPool, h.cfg.Server.RequestHostHeader); err != nil {
-			h.logger.WithFields(logrus.Fields{
-				"error":      err,
-				"protocol":   "HTTP",
-				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("request proxying")
+			h.logger.Error().
+				Err(err).
+				Str("protocol", "HTTP").
+				Interface("request_id", ctx.UserValue(web.RequestID)).
+				Msg("request proxying")
 
 			ctx.Response.SetStatusCode(fasthttp.StatusInternalServerError)
 			return web.RespondGraphQLErrors(&ctx.Response, ErrNetworkConnection)
@@ -89,11 +89,11 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 
 	gqlRequest, err := validator.ParseGraphQLRequest(ctx, h.parserPool)
 	if err != nil {
-		h.logger.WithFields(logrus.Fields{
-			"error":      err,
-			"protocol":   "HTTP",
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("GraphQL request unmarshal")
+		h.logger.Error().
+			Err(err).
+			Str("protocol", "HTTP").
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("GraphQL request unmarshal")
 
 		if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
 			return web.RespondGraphQLErrors(&ctx.Response, ErrInvalidQuery)
@@ -102,11 +102,11 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 
 	// batch query limit
 	if h.cfg.Graphql.BatchQueryLimit > 0 && h.cfg.Graphql.BatchQueryLimit < len(gqlRequest) {
-		h.logger.WithFields(logrus.Fields{
-			"error":      fmt.Errorf("the batch query limit has been exceeded. The number of queries in the batch is %d. The current batch query limit is %d", len(gqlRequest), h.cfg.Graphql.BatchQueryLimit),
-			"protocol":   "HTTP",
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("GraphQL query validation")
+		h.logger.Error().
+			Err(fmt.Errorf("the batch query limit has been exceeded. The number of queries in the batch is %d. The current batch query limit is %d", len(gqlRequest), h.cfg.Graphql.BatchQueryLimit)).
+			Str("protocol", "HTTP").
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("GraphQL query validation")
 
 		if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
 			return web.RespondGraphQLErrors(&ctx.Response, ErrInvalidQuery)
@@ -122,21 +122,21 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 				validationResult, err := validator.ValidateGraphQLRequest(&h.cfg.Graphql, h.schema, &req)
 				// internal errors
 				if err != nil {
-					h.logger.WithFields(logrus.Fields{
-						"error":      err,
-						"protocol":   "HTTP",
-						"request_id": ctx.UserValue(web.RequestID),
-					}).Error("GraphQL query validation")
+					h.logger.Error().
+						Err(err).
+						Str("protocol", "HTTP").
+						Interface("request_id", ctx.UserValue(web.RequestID)).
+						Msg("GraphQL query validation")
 					return err
 				}
 
 				// validation failed
 				if !validationResult.Valid && validationResult.Errors != nil {
-					h.logger.WithFields(logrus.Fields{
-						"error":      validationResult.Errors,
-						"protocol":   "HTTP",
-						"request_id": ctx.UserValue(web.RequestID),
-					}).Error("GraphQL query validation")
+					h.logger.Error().
+						Err(validationResult.Errors).
+						Str("protocol", "HTTP").
+						Interface("request_id", ctx.UserValue(web.RequestID)).
+						Msg("GraphQL query validation")
 
 					return validationResult.Errors
 				}
@@ -152,11 +152,11 @@ func (h *Handler) GraphQLHandle(ctx *fasthttp.RequestCtx) error {
 	}
 
 	if err := proxy.Perform(ctx, h.proxyPool, h.cfg.Server.RequestHostHeader); err != nil {
-		h.logger.WithFields(logrus.Fields{
-			"error":      err,
-			"protocol":   "HTTP",
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("request proxying")
+		h.logger.Error().
+			Err(err).
+			Str("protocol", "HTTP").
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("request proxying")
 
 		ctx.Response.SetStatusCode(fasthttp.StatusInternalServerError)
 		return web.RespondGraphQLErrors(&ctx.Response, ErrNetworkConnection)

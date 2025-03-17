@@ -1,8 +1,9 @@
 package mid
 
 import (
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
+
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
@@ -10,7 +11,7 @@ import (
 // Errors handles errors coming out of the call chain. It detects normal
 // application errors which are used to respond to the client in a uniform way.
 // Unexpected errors (status >= 500) are logged.
-func Errors(logger *logrus.Logger) web.Middleware {
+func Errors(logger zerolog.Logger) web.Middleware {
 
 	// This is the actual middleware function to be executed.
 	m := func(before router.Handler) router.Handler {
@@ -22,13 +23,12 @@ func Errors(logger *logrus.Logger) web.Middleware {
 			if err := before(ctx); err != nil {
 
 				// Log the error.
-				logger.WithFields(logrus.Fields{
-					"request_id": ctx.UserValue(web.RequestID),
-					"host":       string(ctx.Request.Header.Host()),
-					"path":       string(ctx.Path()),
-					"method":     string(ctx.Request.Header.Method()),
-					"error":      err,
-				}).Error("Common error")
+				logger.Error().Err(err).
+					Interface("request_id", ctx.UserValue(web.RequestID)).
+					Bytes("host", ctx.Request.Header.Host()).
+					Bytes("path", ctx.Path()).
+					Bytes("method", ctx.Request.Header.Method()).
+					Msg("common error")
 
 				// Respond to the error.
 				if err := web.RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {

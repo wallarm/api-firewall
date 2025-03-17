@@ -9,14 +9,14 @@ import (
 
 	"github.com/karlseguin/ccache/v2"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/config"
 )
 
 type Introspection struct {
 	Cfg    *config.Oauth
-	Logger *logrus.Logger
+	Logger zerolog.Logger
 	Cache  *ccache.Cache
 }
 

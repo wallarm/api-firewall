@@ -14,8 +14,8 @@ import (
 
 	"github.com/fasthttp/websocket"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 )
 
@@ -39,7 +39,7 @@ type WebSocketClient interface {
 type FastHTTPWebSocketClient struct {
 	Dialer  *websocket.Dialer
 	ConnStr string
-	Logger  *logrus.Logger
+	Logger  zerolog.Logger
 }
 
 var bufferPool = sync.Pool{
@@ -90,7 +90,7 @@ func builtinForwardHeaderHandler(ctx *fasthttp.RequestCtx) (forwardHeader http.H
 	return
 }
 
-func NewWSClient(logger *logrus.Logger, options *WSClientOptions) (WebSocketClient, error) {
+func NewWSClient(logger zerolog.Logger, options *WSClientOptions) (WebSocketClient, error) {
 
 	// get the SystemCertPool, continue with an empty pool on error
 	rootCAs, err := x509.SystemCertPool()

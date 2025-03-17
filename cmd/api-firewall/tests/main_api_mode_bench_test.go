@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
@@ -21,8 +21,8 @@ const dbVersion = 1
 
 func BenchmarkAPIModeBasic(b *testing.B) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 

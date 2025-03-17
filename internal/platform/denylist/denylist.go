@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/ristretto"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/wallarm/api-firewall/internal/config"
 )
 
@@ -23,7 +23,7 @@ type DeniedTokens struct {
 	ElementsNum int64
 }
 
-func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
+func New(cfg *config.Denylist, logger zerolog.Logger) (*DeniedTokens, error) {
 
 	if cfg.Tokens.File == "" {
 		return nil, nil
@@ -54,12 +54,12 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 		return nil, err
 	}
 
-	logger.Debugf("Denylist: total entries (lines) found in the file: %d", totalEntries)
+	logger.Debug().Msgf("Denylist: total entries (lines) found in the file: %d", totalEntries)
 
 	// max cost = total entries * size of ristretto's storeItem struct
 	maxCost := totalEntries * StoreItemSize
 
-	logger.Debugf("Denylist: cache capacity: %d bytes", maxCost)
+	logger.Debug().Msgf("Denylist: cache capacity: %d bytes", maxCost)
 
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: maxCost * 10, // recommended value
@@ -85,10 +85,10 @@ func New(cfg *config.Denylist, logger *logrus.Logger) (*DeniedTokens, error) {
 				currentPercent := numOfElements * 100 / totalEntries
 				if currentPercent/10 > counter10P {
 					counter10P = currentPercent / 10
-					logger.Debugf("Denylist: loaded %d perecents of tokens. Total elements in the cache: %d", counter10P*10, numOfElements)
+					logger.Debug().Msgf("Denylist: loaded %d perecents of tokens. Total elements in the cache: %d", counter10P*10, numOfElements)
 				}
 			} else {
-				logger.Errorf("Denylist: can't add the token to the cache: %s", s.Text())
+				logger.Error().Msgf("Denylist: can't add the token to the cache: %s", s.Text())
 			}
 			cache.Wait()
 		}

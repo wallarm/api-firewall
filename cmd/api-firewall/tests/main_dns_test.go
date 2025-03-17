@@ -3,11 +3,12 @@ package tests
 import (
 	"context"
 	"net"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/foxcpp/go-mockdns"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
@@ -15,8 +16,8 @@ import (
 
 func TestWithoutRCCDNSCacheBasic(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",

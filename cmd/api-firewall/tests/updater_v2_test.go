@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
@@ -65,7 +65,7 @@ paths:
 var currentDBPath = "./wallarm_api2_update.db"
 
 var cfgV2 = config.APIMode{
-	APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
+	APIFWInit:                  config.APIFWInit{Mode: web.APIMode},
 	SpecificationUpdatePeriod:  2 * time.Second,
 	PathToSpecDB:               currentDBPath,
 	UnknownParametersDetection: true,
@@ -186,8 +186,8 @@ func cleanSpecV2(dbFilePath string, schemaID int) error {
 
 func TestLoadBasicV2(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -289,8 +289,8 @@ func TestLoadBasicV2(t *testing.T) {
 
 func TestUpdaterBasicV2(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -498,8 +498,8 @@ func TestUpdaterBasicV2(t *testing.T) {
 
 func TestUpdaterFromEmptyDBV2(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -639,8 +639,8 @@ func TestUpdaterFromEmptyDBV2(t *testing.T) {
 
 func TestUpdaterToEmptyDBV2(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -728,7 +728,7 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 	}
 
 	var cfgV2Empty = config.APIMode{
-		APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
+		APIFWInit:                  config.APIFWInit{Mode: web.APIMode},
 		SpecificationUpdatePeriod:  2 * time.Second,
 		PathToSpecDB:               "./wallarm_api2_empty.db",
 		UnknownParametersDetection: true,
@@ -788,8 +788,8 @@ func TestUpdaterToEmptyDBV2(t *testing.T) {
 
 func TestUpdaterInvalidDBSchemaV2(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -832,8 +832,8 @@ func TestUpdaterInvalidDBSchemaV2(t *testing.T) {
 
 func TestUpdaterToInvalidDBV2(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -921,7 +921,7 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 	}
 
 	var cfgV2Invalid = config.APIMode{
-		APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
+		APIFWInit:                  config.APIFWInit{Mode: web.APIMode},
 		SpecificationUpdatePeriod:  2 * time.Second,
 		PathToSpecDB:               "./wallarm_api_invalid_schema.db",
 		UnknownParametersDetection: true,
@@ -981,8 +981,8 @@ func TestUpdaterToInvalidDBV2(t *testing.T) {
 
 func TestUpdaterFromInvalidDBV2(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -1112,8 +1112,8 @@ func TestUpdaterFromInvalidDBV2(t *testing.T) {
 
 func TestUpdaterFromV1DBToV2(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -1302,8 +1302,8 @@ func TestUpdaterFromV1DBToV2(t *testing.T) {
 
 func TestUpdaterFromV2DBToV1(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 

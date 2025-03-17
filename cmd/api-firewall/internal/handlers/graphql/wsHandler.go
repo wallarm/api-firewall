@@ -6,31 +6,32 @@ import (
 	"sync"
 
 	"github.com/fasthttp/websocket"
+	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
+	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
+
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
-	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 )
 
-func closeWSConn(ctx *fasthttp.RequestCtx, logger *logrus.Logger, conn proxy.WebSocketConn) {
+func closeWSConn(ctx *fasthttp.RequestCtx, logger zerolog.Logger, conn proxy.WebSocketConn) {
 	if err := conn.SendCloseConnection(websocket.CloseNormalClosure); err != nil {
-		logger.WithFields(logrus.Fields{
-			"error":      err,
-			"protocol":   "websocket",
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Debug("Send close message")
+		logger.Debug().
+			Err(err).
+			Str("protocol", "websocket").
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("Send close message")
 	}
 
 	if err := conn.Close(); err != nil {
-		logger.WithFields(logrus.Fields{
-			"error":      err,
-			"protocol":   "websocket",
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("Closing connection")
+		logger.Error().
+			Err(err).
+			Str("protocol", "websocket").
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("Closing connection")
 	}
 }
 
@@ -39,11 +40,11 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 	// Connect to backend
 	backendWSConnect, err := h.wsClient.GetConn(ctx)
 	if err != nil {
-		h.logger.WithFields(logrus.Fields{
-			"error":      err,
-			"protocol":   "websocket",
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("Connecting to the server WS error")
+		h.logger.Error().
+			Err(err).
+			Str("protocol", "websocket").
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("Connecting to the server WS error")
 
 		return web.RespondError(ctx, fasthttp.StatusServiceUnavailable, "")
 	}
@@ -80,11 +81,11 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 					messageType, p, err := clientConn.ReadMessage()
 					if err != nil {
 						if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-							h.logger.WithFields(logrus.Fields{
-								"error":      err,
-								"protocol":   "websocket",
-								"request_id": ctx.UserValue(web.RequestID),
-							}).Debug("Read from client")
+							h.logger.Debug().
+								Err(err).
+								Str("protocol", "websocket").
+								Interface("request_id", ctx.UserValue(web.RequestID)).
+								Msg("Read from client")
 						}
 
 						close(errClient)
@@ -98,11 +99,11 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 						messageType != websocket.TextMessage && messageType != websocket.BinaryMessage {
 
 						if err := backendWSConnect.WriteMessage(messageType, p); err != nil {
-							h.logger.WithFields(logrus.Fields{
-								"error":      err,
-								"protocol":   "websocket",
-								"request_id": ctx.UserValue(web.RequestID),
-							}).Debug("Write to backend")
+							h.logger.Debug().
+								Err(err).
+								Str("protocol", "websocket").
+								Interface("request_id", ctx.UserValue(web.RequestID)).
+								Msg("Write to backend")
 
 							close(errClient)
 							return
@@ -114,20 +115,20 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 
 					// Try to parse graphql WS message
 					if msg, err = jsonParser.ParseBytes(p); err != nil {
-						h.logger.WithFields(logrus.Fields{
-							"error":      err,
-							"protocol":   "websocket",
-							"request_id": ctx.UserValue(web.RequestID),
-						}).Error("read from client: request unmarshal")
+						h.logger.Error().
+							Err(err).
+							Str("protocol", "websocket").
+							Interface("request_id", ctx.UserValue(web.RequestID)).
+							Msg("read from client: request unmarshal")
 
 						// If validation is in log_only mode then the request should be proxied to the backend server
 						if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationLog) {
 							if err := backendWSConnect.WriteMessage(messageType, p); err != nil {
-								h.logger.WithFields(logrus.Fields{
-									"error":      err,
-									"protocol":   "websocket",
-									"request_id": ctx.UserValue(web.RequestID),
-								}).Debug("Write to backend")
+								h.logger.Debug().
+									Err(err).
+									Str("protocol", "websocket").
+									Interface("request_id", ctx.UserValue(web.RequestID)).
+									Msg("Write to backend")
 
 								close(errClient)
 								return
@@ -143,11 +144,11 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 					// Skip message types that do not contain payload
 					if msgType != "subscribe" && msgType != "start" {
 						if err := backendWSConnect.WriteMessage(messageType, p); err != nil {
-							h.logger.WithFields(logrus.Fields{
-								"error":      err,
-								"protocol":   "websocket",
-								"request_id": ctx.UserValue(web.RequestID),
-							}).Debug("Write to backend")
+							h.logger.Debug().
+								Err(err).
+								Str("protocol", "websocket").
+								Interface("request_id", ctx.UserValue(web.RequestID)).
+								Msg("Write to backend")
 
 							close(errClient)
 							return
@@ -171,39 +172,39 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 					// and do not proxy request to the backend
 					validationResult, err := validator.ValidateGraphQLRequest(&h.cfg.Graphql, h.schema, request)
 					if err != nil {
-						h.logger.WithFields(logrus.Fields{
-							"error":      err,
-							"protocol":   "websocket",
-							"request_id": ctx.UserValue(web.RequestID),
-						}).Error("GraphQL query validation")
+						h.logger.Error().
+							Err(err).
+							Str("protocol", "websocket").
+							Interface("request_id", ctx.UserValue(web.RequestID)).
+							Msg("GraphQL query validation")
 
 						// Block request and respond by error in BLOCK mode
 						if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
 
 							if err := clientConn.SendError(messageType, msgID, errors.New("invalid graphql request")); err != nil {
-								h.logger.WithFields(logrus.Fields{
-									"error":      err,
-									"protocol":   "websocket",
-									"request_id": ctx.UserValue(web.RequestID),
-								}).Debug("Write to client")
+								h.logger.Debug().
+									Err(err).
+									Str("protocol", "websocket").
+									Interface("request_id", ctx.UserValue(web.RequestID)).
+									Msg("Write to client")
 							}
 
 							if err := clientConn.SendComplete(messageType, msgID); err != nil {
-								h.logger.WithFields(logrus.Fields{
-									"error":      err,
-									"protocol":   "websocket",
-									"request_id": ctx.UserValue(web.RequestID),
-								}).Debug("Write to client")
+								h.logger.Debug().
+									Err(err).
+									Str("protocol", "websocket").
+									Interface("request_id", ctx.UserValue(web.RequestID)).
+									Msg("Write to client")
 							}
 							continue
 						}
 						// Send request to the backend server
 						if err := backendWSConnect.WriteMessage(messageType, p); err != nil {
-							h.logger.WithFields(logrus.Fields{
-								"error":      err,
-								"protocol":   "websocket",
-								"request_id": ctx.UserValue(web.RequestID),
-							}).Debug("Write to backend")
+							h.logger.Debug().
+								Err(err).
+								Str("protocol", "websocket").
+								Interface("request_id", ctx.UserValue(web.RequestID)).
+								Msg("Write to backend")
 
 							close(errClient)
 							return
@@ -213,29 +214,29 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 					// Send error and complete messages to the client in case of the validation has been failed
 					// and do not proxy request to the backend
 					if !validationResult.Valid {
-						h.logger.WithFields(logrus.Fields{
-							"error":      validationResult.Errors,
-							"protocol":   "websocket",
-							"request_id": ctx.UserValue(web.RequestID),
-						}).Error("GraphQL query validation")
+						h.logger.Error().
+							Err(validationResult.Errors).
+							Str("protocol", "websocket").
+							Interface("request_id", ctx.UserValue(web.RequestID)).
+							Msg("GraphQL query validation")
 
 						// Block request and respond by error in BLOCK mode
 						if strings.EqualFold(h.cfg.Graphql.RequestValidation, web.ValidationBlock) {
 
 							if err := clientConn.SendError(messageType, msgID, validationResult.Errors); err != nil {
-								h.logger.WithFields(logrus.Fields{
-									"error":      err,
-									"protocol":   "websocket",
-									"request_id": ctx.UserValue(web.RequestID),
-								}).Debug("Write to client")
+								h.logger.Debug().
+									Err(err).
+									Str("protocol", "websocket").
+									Interface("request_id", ctx.UserValue(web.RequestID)).
+									Msg("Write to client")
 							}
 
 							if err := clientConn.SendComplete(messageType, msgID); err != nil {
-								h.logger.WithFields(logrus.Fields{
-									"error":      err,
-									"protocol":   "websocket",
-									"request_id": ctx.UserValue(web.RequestID),
-								}).Debug("Write to client")
+								h.logger.Debug().
+									Err(err).
+									Str("protocol", "websocket").
+									Interface("request_id", ctx.UserValue(web.RequestID)).
+									Msg("Write to client")
 							}
 							continue
 						}
@@ -243,11 +244,11 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 
 					// Send request to the backend server
 					if err := backendWSConnect.WriteMessage(messageType, p); err != nil {
-						h.logger.WithFields(logrus.Fields{
-							"error":      err,
-							"protocol":   "websocket",
-							"request_id": ctx.UserValue(web.RequestID),
-						}).Debug("Write to backend")
+						h.logger.Debug().
+							Err(err).
+							Str("protocol", "websocket").
+							Interface("request_id", ctx.UserValue(web.RequestID)).
+							Msg("Write to backend")
 
 						close(errClient)
 						return
@@ -267,22 +268,22 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 				default:
 					messageType, p, err := backendWSConnect.ReadMessage()
 					if err != nil {
-						h.logger.WithFields(logrus.Fields{
-							"error":      err,
-							"protocol":   "websocket",
-							"request_id": ctx.UserValue(web.RequestID),
-						}).Debug("Read from backend")
+						h.logger.Debug().
+							Err(err).
+							Str("protocol", "websocket").
+							Interface("request_id", ctx.UserValue(web.RequestID)).
+							Msg("Read from backend")
 
 						close(errBackend)
 						return
 					}
 
 					if err := clientConn.WriteMessage(messageType, p); err != nil {
-						h.logger.WithFields(logrus.Fields{
-							"error":      err,
-							"protocol":   "websocket",
-							"request_id": ctx.UserValue(web.RequestID),
-						}).Debug("Write to client")
+						h.logger.Debug().
+							Err(err).
+							Str("protocol", "websocket").
+							Interface("request_id", ctx.UserValue(web.RequestID)).
+							Msg("Write to client")
 
 						close(errBackend)
 						return
@@ -296,10 +297,10 @@ func (h *Handler) HandleWebSocketProxy(ctx *fasthttp.RequestCtx) error {
 
 	// The upgrader sets response status code and adds the error message
 	if err != nil {
-		h.logger.WithFields(logrus.Fields{
-			"error":      err,
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("WebSocket handler")
+		h.logger.Error().
+			Err(err).
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("WebSocket handler")
 
 		return nil
 	}

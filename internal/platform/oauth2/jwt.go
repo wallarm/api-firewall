@@ -8,13 +8,13 @@ import (
 
 	"github.com/golang-jwt/jwt"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/wallarm/api-firewall/internal/config"
 )
 
 type JWT struct {
 	Cfg       *config.Oauth
-	Logger    *logrus.Logger
+	Logger    zerolog.Logger
 	PubKey    *rsa.PublicKey
 	SecretKey []byte
 }
@@ -52,7 +52,7 @@ func (j *JWT) Validate(ctx context.Context, tokenWithBearer string, scopes []str
 
 	claims, ok := token.Claims.(*MyCustomClaims)
 	if ok && token.Valid {
-		j.Logger.Debugf("%v %v", claims.Scope, claims.StandardClaims.ExpiresAt)
+		j.Logger.Debug().Msgf("%v %v", claims.Scope, claims.StandardClaims.ExpiresAt)
 	} else {
 		return errors.New("oauth2 token invalid")
 	}

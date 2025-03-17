@@ -1,8 +1,8 @@
 package tests
 
 import (
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/wallarm/api-firewall/internal/platform/storage"
+	"bytes"
+	"encoding/json"
 	"net/url"
 	"os"
 	"os/signal"
@@ -13,14 +13,17 @@ import (
 
 	"github.com/corazawaf/coraza/v3"
 	"github.com/corazawaf/coraza/v3/types"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 	"github.com/valyala/fasthttp"
+
 	proxy2 "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/storage"
 )
 
 const openAPISpecModSecTest = `
@@ -96,16 +99,15 @@ components:
 `
 
 type ModSecIntegrationTests struct {
-	serverUrl  *url.URL
-	shutdown   chan os.Signal
-	logger     *logrus.Logger
-	proxy      *proxy.MockPool
-	client     *proxy.MockHTTPClient
-	swagRouter *loader.Router
-	waf        coraza.WAF
-	loggerHook *test.Hook
-	dbSpec     *storage.MockDBOpenAPILoader
-	lock       *sync.RWMutex
+	serverUrl   *url.URL
+	shutdown    chan os.Signal
+	proxy       *proxy.MockPool
+	client      *proxy.MockHTTPClient
+	swagRouter  *loader.Router
+	wafRules    string
+	wafConfFile string
+	dbSpec      *storage.MockDBOpenAPILoader
+	lock        *sync.RWMutex
 }
 
 func TestModSec(t *testing.T) {
@@ -115,9 +117,6 @@ func TestModSec(t *testing.T) {
 
 	var lock sync.RWMutex
 	dbSpec := storage.NewMockDBOpenAPILoader(mockCtrl)
-
-	testLogger, hook := test.NewNullLogger()
-	testLogger.SetLevel(logrus.ErrorLevel)
 
 	serverUrl, err := url.ParseRequestURI("http://127.0.0.1:80")
 	if err != nil {
@@ -141,46 +140,15 @@ func TestModSec(t *testing.T) {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	var waf coraza.WAF
-
-	msRulesDir := "../../../resources/test/modsec/rules_test"
-	msConfFile := "../../../resources/test/modsec/coraza.conf"
-
-	logErr := func(error types.MatchedRule) {
-		testLogger.WithFields(logrus.Fields{
-			"tags":     error.Rule().Tags(),
-			"version":  error.Rule().Version(),
-			"severity": error.Rule().Severity(),
-			"rule_id":  error.Rule().ID(),
-			"file":     error.Rule().File(),
-			"line":     error.Rule().Line(),
-			"maturity": error.Rule().Maturity(),
-			"accuracy": error.Rule().Accuracy(),
-			"uri":      error.URI(),
-		}).Error(error.Message())
-	}
-
-	rules := path.Join(msRulesDir, "*.conf")
-	waf, err = coraza.NewWAF(
-		coraza.NewWAFConfig().
-			WithErrorCallback(logErr).
-			WithDirectivesFromFile(msConfFile).
-			WithDirectivesFromFile(rules),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	apifwTests := ModSecIntegrationTests{
-		serverUrl:  serverUrl,
-		shutdown:   shutdown,
-		logger:     testLogger,
-		proxy:      pool,
-		client:     client,
-		waf:        waf,
-		loggerHook: hook,
-		lock:       &lock,
-		dbSpec:     dbSpec,
+		serverUrl:   serverUrl,
+		shutdown:    shutdown,
+		proxy:       pool,
+		client:      client,
+		wafConfFile: "../../../resources/test/modsec/coraza.conf",
+		wafRules:    path.Join("../../../resources/test/modsec/rules_test", "*.conf"),
+		lock:        &lock,
+		dbSpec:      dbSpec,
 	}
 
 	// basic test
@@ -204,6 +172,33 @@ func TestModSec(t *testing.T) {
 
 func (s *ModSecIntegrationTests) basicMaliciousRequestBlockMode(t *testing.T) {
 
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
@@ -214,7 +209,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestBlockMode(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -258,6 +253,34 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestBlockMode(t *testing.T) {
 
 func (s *ModSecIntegrationTests) basicMaliciousRequestLogOnlyMode(t *testing.T) {
 
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	var cfg = config.ProxyMode{
 		RequestValidation:         "LOG_ONLY",
 		ResponseValidation:        "LOG_ONLY",
@@ -268,7 +291,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestLogOnlyMode(t *testing.T) 
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -312,18 +335,51 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestLogOnlyMode(t *testing.T) 
 			reqCtx.Response.StatusCode())
 	}
 
-	ruleId := 942100
-	triggeredRuleID := s.loggerHook.AllEntries()[0].Data["rule_id"]
+	// check logs
+	var expectedRuleId float64 = 942100
 
-	if triggeredRuleID != ruleId {
-		t.Errorf("Got  message: %s; Expected triggered rule ID: %d", triggeredRuleID, ruleId)
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
+
+	triggeredRuleID, exists := logEntry["rule_id"].(float64)
+	assert.True(t, exists, "field 'rule_id' doesn't exist")
+
+	if triggeredRuleID != expectedRuleId {
+		t.Errorf("Got rule_id: %f; Expected rule ID: %f", triggeredRuleID, expectedRuleId)
 	}
-
-	s.loggerHook.Reset()
 
 }
 
 func (s *ModSecIntegrationTests) basicMaliciousRequestDisableMode(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var cfg = config.ProxyMode{
 		RequestValidation:         "DISABLE",
@@ -335,7 +391,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestDisableMode(t *testing.T) 
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -379,12 +435,39 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestDisableMode(t *testing.T) 
 			reqCtx.Response.StatusCode())
 	}
 
-	if len(s.loggerHook.AllEntries()) > 0 {
-		t.Errorf("Expected number of errors is 0. Got %d errors", len(s.loggerHook.AllEntries()))
+	if buf.Len() > 0 {
+		t.Errorf("Expected number of bytes (error logs) is 0. Got %d bytes (error logs)", buf.Len())
 	}
 }
 
 func (s *ModSecIntegrationTests) basicMaliciousResponseBlockMode(t *testing.T) {
+
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
@@ -396,7 +479,7 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseBlockMode(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -448,6 +531,34 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseBlockMode(t *testing.T) {
 
 func (s *ModSecIntegrationTests) basicMaliciousResponseLogOnlyMode(t *testing.T) {
 
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "LOG_ONLY",
@@ -458,7 +569,7 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseLogOnlyMode(t *testing.T)
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -506,18 +617,51 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseLogOnlyMode(t *testing.T)
 			reqCtx.Response.StatusCode())
 	}
 
-	ruleId := 955110
-	triggeredRuleID := s.loggerHook.AllEntries()[0].Data["rule_id"]
+	// check logs
+	var expectedRuleId float64 = 955110
 
-	if triggeredRuleID != ruleId {
-		t.Errorf("Got  message: %d; Expected triggered rule ID: %d", triggeredRuleID, ruleId)
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
+
+	triggeredRuleID, exists := logEntry["rule_id"].(float64)
+	assert.True(t, exists, "field 'rule_id' doesn't exist")
+
+	if triggeredRuleID != expectedRuleId {
+		t.Errorf("Got rule_id: %f; Expected rule ID: %f", triggeredRuleID, expectedRuleId)
 	}
-
-	s.loggerHook.Reset()
 
 }
 
 func (s *ModSecIntegrationTests) basicMaliciousResponseDisableMode(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var cfg = config.ProxyMode{
 		RequestValidation:         "DISABLE",
@@ -529,7 +673,7 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseDisableMode(t *testing.T)
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -577,15 +721,39 @@ func (s *ModSecIntegrationTests) basicMaliciousResponseDisableMode(t *testing.T)
 			reqCtx.Response.StatusCode())
 	}
 
-	if len(s.loggerHook.AllEntries()) > 0 {
-		t.Errorf("Expected number of errors is 0. Got %d errors", len(s.loggerHook.AllEntries()))
+	if buf.Len() > 0 {
+		t.Errorf("Expected number of bytes (error logs) is 0. Got %d bytes (error logs)", buf.Len())
 	}
-
-	s.loggerHook.Reset()
-
 }
 
 func (s *ModSecIntegrationTests) basicMaliciousRequestBody(t *testing.T) {
+
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
@@ -597,7 +765,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestBody(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -643,6 +811,34 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestBody(t *testing.T) {
 
 func (s *ModSecIntegrationTests) basicMaliciousRequestHeader(t *testing.T) {
 
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
 		ResponseValidation:        "BLOCK",
@@ -653,7 +849,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestHeader(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -694,18 +890,51 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestHeader(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	ruleId := 942100
-	triggeredRuleID := s.loggerHook.AllEntries()[0].Data["rule_id"]
+	// check logs
+	var expectedRuleId float64 = 942100
 
-	if triggeredRuleID != ruleId {
-		t.Errorf("Got  message: %d; Expected triggered rule ID: %d", triggeredRuleID, ruleId)
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
+
+	triggeredRuleID, exists := logEntry["rule_id"].(float64)
+	assert.True(t, exists, "field 'rule_id' doesn't exist")
+
+	if triggeredRuleID != expectedRuleId {
+		t.Errorf("Got rule_id: %f; Expected rule ID: %f", triggeredRuleID, expectedRuleId)
 	}
-
-	s.loggerHook.Reset()
 
 }
 
 func (s *ModSecIntegrationTests) basicMaliciousRequestCookie(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
@@ -717,7 +946,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestCookie(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/get/test")
@@ -758,18 +987,51 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestCookie(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	ruleId := 942100
-	triggeredRuleID := s.loggerHook.AllEntries()[0].Data["rule_id"]
+	// check logs
+	var expectedRuleId float64 = 942100
 
-	if triggeredRuleID != ruleId {
-		t.Errorf("Got  message: %d; Expected triggered rule ID: %d", triggeredRuleID, ruleId)
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
+
+	triggeredRuleID, exists := logEntry["rule_id"].(float64)
+	assert.True(t, exists, "field 'rule_id' doesn't exist")
+
+	if triggeredRuleID != expectedRuleId {
+		t.Errorf("Got rule_id: %f; Expected rule ID: %f", triggeredRuleID, expectedRuleId)
 	}
-
-	s.loggerHook.Reset()
 
 }
 
 func (s *ModSecIntegrationTests) basicMaliciousRequestPath(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
@@ -781,7 +1043,7 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestPath(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/token/test")
@@ -821,18 +1083,51 @@ func (s *ModSecIntegrationTests) basicMaliciousRequestPath(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	ruleId := 942100
-	triggeredRuleID := s.loggerHook.AllEntries()[0].Data["rule_id"]
+	// check logs
+	var expectedRuleId float64 = 942100
 
-	if triggeredRuleID != ruleId {
-		t.Errorf("Got  message: %d; Expected triggered rule ID: %d", triggeredRuleID, ruleId)
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
+
+	triggeredRuleID, exists := logEntry["rule_id"].(float64)
+	assert.True(t, exists, "field 'rule_id' doesn't exist")
+
+	if triggeredRuleID != expectedRuleId {
+		t.Errorf("Got rule_id: %f; Expected rule ID: %f", triggeredRuleID, expectedRuleId)
 	}
-
-	s.loggerHook.Reset()
 
 }
 
 func (s *ModSecIntegrationTests) basicResponseActionRedirect(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
+	logErr := func(error types.MatchedRule) {
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
+	}
+
+	waf, err := coraza.NewWAF(
+		coraza.NewWAFConfig().
+			WithErrorCallback(logErr).
+			WithDirectivesFromFile(s.wafConfFile).
+			WithDirectivesFromFile(s.wafRules),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var cfg = config.ProxyMode{
 		RequestValidation:         "BLOCK",
@@ -844,7 +1139,7 @@ func (s *ModSecIntegrationTests) basicResponseActionRedirect(t *testing.T) {
 		},
 	}
 
-	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, s.waf)
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, logger, s.proxy, s.dbSpec, nil, nil, waf)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/token/test")
@@ -893,13 +1188,18 @@ func (s *ModSecIntegrationTests) basicResponseActionRedirect(t *testing.T) {
 			expecrtedLocation, currentLocation)
 	}
 
-	ruleId := 130
-	triggeredRuleID := s.loggerHook.AllEntries()[0].Data["rule_id"]
+	// check logs
+	var expectedRuleId float64 = 130
 
-	if triggeredRuleID != ruleId {
-		t.Errorf("Got  message: %d; Expected triggered rule ID: %d", triggeredRuleID, ruleId)
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
+
+	triggeredRuleID, exists := logEntry["rule_id"].(float64)
+	assert.True(t, exists, "field 'rule_id' doesn't exist")
+
+	if triggeredRuleID != expectedRuleId {
+		t.Errorf("Got rule_id: %f; Expected rule ID: %f", triggeredRuleID, expectedRuleId)
 	}
-
-	s.loggerHook.Reset()
 
 }

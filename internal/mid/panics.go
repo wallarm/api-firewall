@@ -4,15 +4,16 @@ import (
 	"runtime/debug"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
+
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
 // Panics recovers from panics and converts the panic to an error so it is
 // reported in Metrics and handled in Errors.
-func Panics(logger *logrus.Logger) web.Middleware {
+func Panics(logger zerolog.Logger) web.Middleware {
 
 	// This is the actual middleware function to be executed.
 	m := func(after router.Handler) router.Handler {
@@ -27,7 +28,7 @@ func Panics(logger *logrus.Logger) web.Middleware {
 					err = errors.Errorf("panic: %v", r)
 
 					// Log the Go stack trace for this panic'd goroutine.
-					logger.Debugf("%s", debug.Stack())
+					logger.Debug().Msgf("%s", debug.Stack())
 				}
 			}()
 

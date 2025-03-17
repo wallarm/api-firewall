@@ -6,8 +6,11 @@ import (
 	"github.com/ardanlabs/conf"
 )
 
-type APIFWMode struct {
-	Mode string `conf:"default:PROXY" validate:"oneof=PROXY API GRAPHQL"`
+type APIFWInit struct {
+	Mode string `conf:"default:PROXY" validate:"oneof=PROXY API GRAPHQL" mapstructure:"mode"`
+
+	LogLevel  string `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
+	LogFormat string `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
 }
 
 type APIFWServer struct {
@@ -36,18 +39,15 @@ type Nameserver struct {
 
 type ProxyMode struct {
 	conf.Version
-	APIFWMode
-	APIFWServer
+	APIFWInit   `mapstructure:",squash"`
+	APIFWServer `mapstructure:"server"`
 	ModSecurity
 	TLS       TLS
 	ShadowAPI ShadowAPI
 	Denylist  Denylist
-	Server    Backend
+	Server    Backend `mapstructure:"backend"`
 	AllowIP   AllowIP
 	DNS       DNS
-
-	LogLevel  string `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
-	LogFormat string `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
 
 	RequestValidation         string       `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
 	ResponseValidation        string       `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
@@ -62,34 +62,29 @@ type ProxyMode struct {
 
 type APIMode struct {
 	conf.Version
-	APIFWMode
+	APIFWInit
 	APIFWServer
 	ModSecurity
 	AllowIP AllowIP
 	TLS     TLS
 
-	SpecificationUpdatePeriod  time.Duration `conf:"default:1m,env:API_MODE_SPECIFICATION_UPDATE_PERIOD"`
-	PathToSpecDB               string        `conf:"env:API_MODE_DEBUG_PATH_DB"`
-	DBVersion                  int           `conf:"default:0,env:API_MODE_DB_VERSION"`
-	UnknownParametersDetection bool          `conf:"default:true,env:API_MODE_UNKNOWN_PARAMETERS_DETECTION"`
+	SpecificationUpdatePeriod time.Duration `conf:"default:1m,env:API_MODE_SPECIFICATION_UPDATE_PERIOD"`
+	PathToSpecDB              string        `conf:"env:API_MODE_DEBUG_PATH_DB"`
+	DBVersion                 int           `conf:"default:0,env:API_MODE_DB_VERSION"`
 
-	LogLevel            string `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
-	LogFormat           string `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
-	PassOptionsRequests bool   `conf:"default:false,env:PASS_OPTIONS"`
+	UnknownParametersDetection bool `conf:"default:true,env:API_MODE_UNKNOWN_PARAMETERS_DETECTION"`
+	PassOptionsRequests        bool `conf:"default:false,env:PASS_OPTIONS"`
 }
 
 type GraphQLMode struct {
 	conf.Version
-	APIFWMode
+	APIFWInit
 	APIFWServer
 	Graphql  GraphQL
 	TLS      TLS
 	Server   ProtectedAPI
 	Denylist Denylist
 	AllowIP  AllowIP
-
-	LogLevel  string `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
-	LogFormat string `conf:"default:TEXT" validate:"oneof=TEXT JSON"`
 }
 
 type TLS struct {
@@ -117,7 +112,6 @@ type ProtectedAPI struct {
 	WriteBufferSize      int           `conf:"default:8192"`
 	MaxResponseBodySize  int           `conf:"default:0"`
 	DeleteAcceptEncoding bool          `conf:"default:false"`
-	DNSLoadBalancing     bool          `conf:"default:false"`
 }
 
 type DNS struct {

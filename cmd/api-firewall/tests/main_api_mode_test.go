@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/exp/slices"
 	"io"
 	"math/rand"
 	"mime/multipart"
@@ -21,8 +20,10 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
+	"golang.org/x/exp/slices"
+
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
@@ -490,7 +491,7 @@ const (
 )
 
 var cfg = config.APIMode{
-	APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
+	APIFWInit:                  config.APIFWInit{Mode: web.APIMode},
 	SpecificationUpdatePeriod:  2 * time.Second,
 	UnknownParametersDetection: true,
 	PassOptionsRequests:        false,
@@ -499,7 +500,7 @@ var cfg = config.APIMode{
 type APIModeServiceTests struct {
 	serverUrl *url.URL
 	shutdown  chan os.Signal
-	logger    *logrus.Logger
+	logger    zerolog.Logger
 	dbSpec    *storage.MockDBOpenAPILoader
 	lock      *sync.RWMutex
 }
@@ -511,8 +512,8 @@ func TestAPIModeBasic(t *testing.T) {
 
 	dbSpec := storage.NewMockDBOpenAPILoader(mockCtrl)
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -2593,7 +2594,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterInvalidCT(t *testing.T)
 func (s *APIModeServiceTests) testAPIModePassOptionsRequest(t *testing.T) {
 
 	cfgPassOptions := config.APIMode{
-		APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
+		APIFWInit:                  config.APIFWInit{Mode: web.APIMode},
 		SpecificationUpdatePeriod:  2 * time.Second,
 		UnknownParametersDetection: true,
 		PassOptionsRequests:        true,

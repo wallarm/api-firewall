@@ -1,15 +1,14 @@
 package web
 
 import (
-	"bytes"
 	"os"
 	"runtime/debug"
 	"sync"
 	"syscall"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 
 	"github.com/wallarm/api-firewall/internal/platform/router"
@@ -48,7 +47,7 @@ const (
 // data/logic on this App struct
 type App struct {
 	Router   *router.Mux
-	Log      *logrus.Logger
+	Log      zerolog.Logger
 	shutdown chan os.Signal
 	mw       []Middleware
 	Options  *AppAdditionalOptions
@@ -67,7 +66,7 @@ type AppAdditionalOptions struct {
 }
 
 // NewApp creates an App value that handle a set of routes for the application.
-func NewApp(options *AppAdditionalOptions, shutdown chan os.Signal, logger *logrus.Logger, mw ...Middleware) *App {
+func NewApp(options *AppAdditionalOptions, shutdown chan os.Signal, logger zerolog.Logger, mw ...Middleware) *App {
 
 	app := App{
 		Router:   router.NewRouter(),
@@ -122,10 +121,10 @@ func (a *App) MainHandler(ctx *fasthttp.RequestCtx) {
 	// handle panic
 	defer func() {
 		if r := recover(); r != nil {
-			a.Log.Errorf("panic: %v", r)
+			a.Log.Error().Msgf("panic: %v", r)
 
 			// Log the Go stack trace for this panic'd goroutine.
-			a.Log.Debugf("%s", debug.Stack())
+			a.Log.Debug().Msgf("%s", debug.Stack())
 			return
 		}
 	}()
@@ -145,44 +144,44 @@ func (a *App) MainHandler(ctx *fasthttp.RequestCtx) {
 
 			ctx.SetUserValue(PassRequestOPTIONS, true)
 
-			a.Log.WithFields(logrus.Fields{
-				"host":       strconv.B2S(ctx.Request.Header.Host()),
-				"path":       strconv.B2S(ctx.Path()),
-				"method":     strconv.B2S(ctx.Request.Header.Method()),
-				"request_id": ctx.UserValue(RequestID),
-			}).Debug("Pass request with OPTIONS method")
+			a.Log.Debug().
+				Interface("request_id", ctx.UserValue(RequestID)).
+				Bytes("host", ctx.Request.Header.Host()).
+				Bytes("path", ctx.Path()).
+				Bytes("method", ctx.Request.Header.Method()).
+				Msg("Pass request with OPTIONS method")
 
 			// proxy request if passOptions flag is set to true and request method is OPTIONS
 			if err := a.Options.DefaultHandler(ctx); err != nil {
-				a.Log.WithFields(logrus.Fields{
-					"error":      err,
-					"host":       strconv.B2S(ctx.Request.Header.Host()),
-					"path":       strconv.B2S(ctx.Path()),
-					"method":     strconv.B2S(ctx.Request.Header.Method()),
-					"request_id": ctx.UserValue(RequestID),
-				}).Error("Error in the request handler")
+				a.Log.Error().
+					Err(err).
+					Interface("request_id", ctx.UserValue(RequestID)).
+					Bytes("host", ctx.Request.Header.Host()).
+					Bytes("path", ctx.Path()).
+					Bytes("method", ctx.Request.Header.Method()).
+					Msg("Error in the request handler")
 			}
 			return
 		}
 
-		a.Log.WithFields(logrus.Fields{
-			"request_id":     ctx.UserValue(RequestID),
-			"method":         bytes.NewBuffer(ctx.Request.Header.Method()).String(),
-			"host":           string(ctx.Request.Header.Host()),
-			"path":           string(ctx.Path()),
-			"client_address": ctx.RemoteAddr(),
-		}).Info("Path or method not found")
+		a.Log.Info().
+			Interface("request_id", ctx.UserValue(RequestID)).
+			Bytes("host", ctx.Request.Header.Host()).
+			Bytes("path", ctx.Path()).
+			Bytes("method", ctx.Request.Header.Method()).
+			Str("client_address", ctx.RemoteAddr().String()).
+			Msg("Path or method not found")
 
 		// block request if the GraphQL endpoint not found
 		if a.Options.Mode == GraphQLMode {
 			if err := RespondError(ctx, fasthttp.StatusForbidden, ""); err != nil {
-				a.Log.WithFields(logrus.Fields{
-					"error":      err,
-					"host":       strconv.B2S(ctx.Request.Header.Host()),
-					"path":       strconv.B2S(ctx.Path()),
-					"method":     strconv.B2S(ctx.Request.Header.Method()),
-					"request_id": ctx.UserValue(RequestID),
-				}).Error("Error in the request handler")
+				a.Log.Error().
+					Err(err).
+					Interface("request_id", ctx.UserValue(RequestID)).
+					Bytes("host", ctx.Request.Header.Host()).
+					Bytes("path", ctx.Path()).
+					Bytes("method", ctx.Request.Header.Method()).
+					Msg("Error in the request handler")
 			}
 			return
 		}
@@ -190,13 +189,13 @@ func (a *App) MainHandler(ctx *fasthttp.RequestCtx) {
 		// handle request by default handler in the endpoint not found in Proxy mode
 		// default handler is used to handle request and response validation logic
 		if err := a.Options.DefaultHandler(ctx); err != nil {
-			a.Log.WithFields(logrus.Fields{
-				"error":      err,
-				"host":       strconv.B2S(ctx.Request.Header.Host()),
-				"path":       strconv.B2S(ctx.Path()),
-				"method":     strconv.B2S(ctx.Request.Header.Method()),
-				"request_id": ctx.UserValue(RequestID),
-			}).Error("Error in the request handler")
+			a.Log.Error().
+				Err(err).
+				Interface("request_id", ctx.UserValue(RequestID)).
+				Bytes("host", ctx.Request.Header.Host()).
+				Bytes("path", ctx.Path()).
+				Bytes("method", ctx.Request.Header.Method()).
+				Msg("Error in the request handler")
 		}
 
 		return
@@ -206,13 +205,13 @@ func (a *App) MainHandler(ctx *fasthttp.RequestCtx) {
 	ctx.SetUserValue(router.RouteCtxKey, rctx)
 
 	if err := handler(ctx); err != nil {
-		a.Log.WithFields(logrus.Fields{
-			"error":      err,
-			"host":       strconv.B2S(ctx.Request.Header.Host()),
-			"path":       strconv.B2S(ctx.Path()),
-			"method":     strconv.B2S(ctx.Request.Header.Method()),
-			"request_id": ctx.UserValue(RequestID),
-		}).Error("Error in the request handler")
+		a.Log.Error().
+			Err(err).
+			Interface("request_id", ctx.UserValue(RequestID)).
+			Bytes("host", ctx.Request.Header.Host()).
+			Bytes("path", ctx.Path()).
+			Bytes("method", ctx.Request.Header.Method()).
+			Msg("Error in the request handler")
 	}
 
 	// delete Allow header which is set by the router

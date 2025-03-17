@@ -3,16 +3,16 @@ package web
 import (
 	"strings"
 
+	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 )
 
 const responseBodyOmitted = "<response body is omitted>"
 
-func LogRequestResponseAtTraceLevel(ctx *fasthttp.RequestCtx, logger *logrus.Logger) {
+func LogRequestResponseAtTraceLevel(ctx *fasthttp.RequestCtx, logger zerolog.Logger) {
 
-	if logger.Level < logrus.TraceLevel {
+	if logger.GetLevel() != zerolog.TraceLevel {
 		return
 	}
 
@@ -24,14 +24,14 @@ func LogRequestResponseAtTraceLevel(ctx *fasthttp.RequestCtx, logger *logrus.Log
 		strBuild.WriteString("\n")
 	})
 
-	logger.WithFields(logrus.Fields{
-		"request_id":     ctx.UserValue(RequestID),
-		"method":         strconv.B2S(ctx.Request.Header.Method()),
-		"uri":            strconv.B2S(ctx.Request.URI().RequestURI()),
-		"headers":        strings.ReplaceAll(strBuild.String(), "\n", `\r\n`),
-		"body":           strings.ReplaceAll(strconv.B2S(ctx.Request.Body()), "\n", `\r\n`),
-		"client_address": ctx.RemoteAddr(),
-	}).Trace("new request")
+	logger.Trace().
+		Str("request_id", ctx.UserValue(RequestID).(string)).
+		Str("method", strconv.B2S(ctx.Request.Header.Method())).
+		Str("uri", strconv.B2S(ctx.Request.URI().RequestURI())).
+		Str("headers", strings.ReplaceAll(strBuild.String(), "\n", `\r\n`)).
+		Str("body", strings.ReplaceAll(strconv.B2S(ctx.Request.Body()), "\n", `\r\n`)).
+		Str("client_address", ctx.RemoteAddr().String()).
+		Msg("new request")
 
 	strBuild.Reset()
 	ctx.Response.Header.VisitAll(func(key, value []byte) {
@@ -51,11 +51,11 @@ func LogRequestResponseAtTraceLevel(ctx *fasthttp.RequestCtx, logger *logrus.Log
 		body = string(ctx.Response.Body())
 	}
 
-	logger.WithFields(logrus.Fields{
-		"request_id":     ctx.UserValue(RequestID),
-		"status_code":    ctx.Response.StatusCode(),
-		"headers":        strings.ReplaceAll(strBuild.String(), "\n", `\r\n`),
-		"body":           strings.ReplaceAll(body, "\n", `\r\n`),
-		"client_address": ctx.RemoteAddr(),
-	}).Trace("response from the API-Firewall")
+	logger.Trace().
+		Str("request_id", ctx.UserValue(RequestID).(string)).
+		Int("status_code", ctx.Response.StatusCode()).
+		Str("headers", strings.ReplaceAll(strBuild.String(), "\n", `\r\n`)).
+		Str("body", strings.ReplaceAll(body, "\n", `\r\n`)).
+		Str("client_address", ctx.RemoteAddr().String()).
+		Msg("response from the API-Firewall")
 }

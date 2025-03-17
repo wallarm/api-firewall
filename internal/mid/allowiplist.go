@@ -5,9 +5,10 @@ import (
 	"net"
 	"strings"
 
+	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/router"
@@ -19,7 +20,7 @@ type IPAllowListOptions struct {
 	Config                *config.AllowIP
 	CustomBlockStatusCode int
 	AllowedIPs            *allowiplist.AllowedIPsType
-	Logger                *logrus.Logger
+	Logger                zerolog.Logger
 }
 
 var errAccessDeniedIP = errors.New("access denied to this IP")
@@ -43,11 +44,11 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 					addr := ctx.RemoteAddr()
 					ipAddr, ok := addr.(*net.TCPAddr)
 					if !ok {
-						options.Logger.WithFields(logrus.Fields{
-							"request_id": ctx.UserValue(web.RequestID),
-							"host":       string(ctx.Request.Header.Host()),
-							"path":       string(ctx.Path()),
-						}).Error("allow IP: can't get client IP address")
+						options.Logger.Error().
+							Interface("request_id", ctx.UserValue(web.RequestID)).
+							Bytes("host", ctx.Request.Header.Host()).
+							Bytes("path", ctx.Path()).
+							Msg("allow IP: can't get client IP address")
 						break
 					}
 					ipToCheck = ipAddr.IP.String()
@@ -62,12 +63,12 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 
 				ip := net.ParseIP(ipToCheck)
 				if ip == nil {
-					options.Logger.WithFields(logrus.Fields{
-						"request_id":        ctx.UserValue(web.RequestID),
-						"host":              string(ctx.Request.Header.Host()),
-						"path":              string(ctx.Path()),
-						"source_ip_address": ipToCheck,
-					}).Info("allow IP: could not parse source IP address")
+					options.Logger.Info().
+						Interface("request_id", ctx.UserValue(web.RequestID)).
+						Bytes("host", ctx.Request.Header.Host()).
+						Bytes("path", ctx.Path()).
+						Str("source_ip_address", ipToCheck).
+						Msg("allow IP: could not parse source IP address")
 
 					switch options.Mode {
 					case web.APIMode:
@@ -81,12 +82,12 @@ func IPAllowlist(options *IPAllowListOptions) web.Middleware {
 				}
 
 				if _, found := options.AllowedIPs.Cache.Get(ip.String()); !found {
-					options.Logger.WithFields(logrus.Fields{
-						"request_id":        ctx.UserValue(web.RequestID),
-						"host":              string(ctx.Request.Header.Host()),
-						"path":              string(ctx.Path()),
-						"source_ip_address": ipToCheck,
-					}).Info("allow IP: requests from the source IP address are not allowed")
+					options.Logger.Info().
+						Interface("request_id", ctx.UserValue(web.RequestID)).
+						Bytes("host", ctx.Request.Header.Host()).
+						Bytes("path", ctx.Path()).
+						Str("source_ip_address", ipToCheck).
+						Msg("allow IP: requests from the source IP address are not allowed")
 
 					switch options.Mode {
 					case web.APIMode:

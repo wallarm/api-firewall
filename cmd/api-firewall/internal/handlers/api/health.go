@@ -3,7 +3,6 @@ package api
 import (
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
@@ -11,7 +10,6 @@ import (
 )
 
 type Health struct {
-	Logger    *logrus.Logger
 	OpenAPIDB storage.DBOpenAPILoader
 }
 

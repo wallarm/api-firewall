@@ -12,8 +12,9 @@ import (
 	"github.com/corazawaf/coraza/v3/experimental"
 	"github.com/corazawaf/coraza/v3/types"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	utils "github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
+
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
@@ -23,10 +24,10 @@ import (
 type ModSecurityOptions struct {
 	Mode                  string
 	WAF                   coraza.WAF
-	Logger                *logrus.Logger
 	RequestValidation     string
 	ResponseValidation    string
 	CustomBlockStatusCode int
+	Logger                zerolog.Logger
 }
 
 var ErrModSecMaliciousRequest = errors.New("malicious request")
@@ -150,12 +151,13 @@ func WAFModSecurity(options *ModSecurityOptions) web.Middleware {
 
 					if options.Mode == web.APIMode {
 						if err := respondAPIModeErrors(ctx, "ModSecurity rules: failed to process request", err.Error()); err != nil {
-							options.Logger.WithFields(logrus.Fields{
-								"host":       utils.B2S(ctx.Request.Header.Host()),
-								"path":       utils.B2S(ctx.Path()),
-								"method":     utils.B2S(ctx.Request.Header.Method()),
-								"request_id": ctx.UserValue(web.RequestID),
-							}).Error(err)
+							options.Logger.Error().
+								Err(err).
+								Bytes("host", ctx.Request.Header.Host()).
+								Bytes("path", ctx.Path()).
+								Bytes("method", ctx.Request.Header.Method()).
+								Interface("request_id", ctx.UserValue(web.RequestID)).
+								Msg("failed to process request")
 						}
 						return nil
 					}
@@ -167,12 +169,13 @@ func WAFModSecurity(options *ModSecurityOptions) web.Middleware {
 
 					if options.Mode == web.APIMode {
 						if err := respondAPIModeErrors(ctx, ErrModSecMaliciousRequest.Error(), fmt.Sprintf("ModSecurity rules: request blocked due to rule %d", it.RuleID)); err != nil {
-							options.Logger.WithFields(logrus.Fields{
-								"host":       utils.B2S(ctx.Request.Header.Host()),
-								"path":       utils.B2S(ctx.Path()),
-								"method":     utils.B2S(ctx.Request.Header.Method()),
-								"request_id": ctx.UserValue(web.RequestID),
-							}).Error(err)
+							options.Logger.Error().
+								Err(err).
+								Bytes("host", ctx.Request.Header.Host()).
+								Bytes("path", ctx.Path()).
+								Bytes("method", ctx.Request.Header.Method()).
+								Interface("request_id", ctx.UserValue(web.RequestID)).
+								Msg("failed to process request")
 						}
 						return nil
 					}

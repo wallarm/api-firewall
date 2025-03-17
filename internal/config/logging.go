@@ -1,17 +1,24 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
-type CustomFormatter struct {
-	logrus.TextFormatter
+func DisableMultiStringFormat(i interface{}) string {
+	if value, ok := i.(string); ok {
+		return strings.ReplaceAll(value, "\n", " ")
+	}
+	return ""
 }
 
-func (f *CustomFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	entry.Message = strings.ReplaceAll(entry.Message, "\n", " ")
-	l, e := f.TextFormatter.Format(entry)
-	return l, e
+type ZerologAdapter struct {
+	Logger zerolog.Logger
+}
+
+// Printf func wrapper
+func (z *ZerologAdapter) Printf(format string, args ...interface{}) {
+	z.Logger.Info().Msg(fmt.Sprintf(format, args...))
 }

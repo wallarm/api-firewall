@@ -3,9 +3,11 @@ package main
 import (
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ardanlabs/conf"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	handlersGQL "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/graphql"
@@ -20,42 +22,68 @@ const (
 )
 
 func main() {
-	logger := logrus.New()
 
-	logger.SetLevel(logrus.DebugLevel)
+	// read logs related env params
+	var cfgInit config.APIFWInit
+	var output zerolog.ConsoleWriter
 
-	cFormatter := &config.CustomFormatter{}
-	cFormatter.DisableQuote = true
-	cFormatter.FullTimestamp = true
-	cFormatter.DisableLevelTruncation = true
-
-	logger.SetFormatter(cFormatter)
-
-	// if MODE var has invalid value then proxy mode will be used
-	var currentMode config.APIFWMode
-	if err := conf.Parse(os.Args[1:], version.Namespace, &currentMode); err != nil {
-		if err := handlersProxy.Run(logger); err != nil {
-			logger.Infof("%s: error: %s", logPrefix, err)
-			os.Exit(1)
-		}
-		return
+	if err := conf.Parse(os.Args[1:], version.Namespace, &cfgInit); err != nil {
+		log.Error().Msgf("%s: error: %s", logPrefix, err)
+		os.Exit(1)
 	}
 
-	// if MODE var has valid or default value then an appropriate mode will be used
-	switch strings.ToLower(currentMode.Mode) {
+	switch strings.ToLower(cfgInit.LogFormat) {
+	case "json":
+		log.Logger = zerolog.New(os.Stderr).
+			With().
+			Timestamp().
+			Logger()
+	case "text":
+		output = zerolog.ConsoleWriter{
+			Out:                 os.Stderr,
+			TimeFormat:          time.RFC3339,
+			FormatFieldValue:    config.DisableMultiStringFormat,
+			FormatMessage:       config.DisableMultiStringFormat,
+			FormatErrFieldValue: config.DisableMultiStringFormat,
+		}
+
+		log.Logger = zerolog.New(output).
+			With().
+			Timestamp().
+			Logger()
+	}
+
+	switch strings.ToLower(cfgInit.LogLevel) {
+	case "trace":
+		zerolog.SetGlobalLevel(zerolog.TraceLevel)
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	case "warning":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	default:
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
+
+	// if MODE var has valid or default value then the corresponding mode will be used
+	// default MODE is PROXY
+	switch strings.ToLower(cfgInit.Mode) {
 	case web.APIMode:
-		if err := handlersAPI.Run(logger); err != nil {
-			logger.Infof("%s: error: %s", logPrefix, err)
+		if err := handlersAPI.Run(log.Logger); err != nil {
+			log.Info().Msgf("%s: error: %s", logPrefix, err)
 			os.Exit(1)
 		}
 	case web.GraphQLMode:
-		if err := handlersGQL.Run(logger); err != nil {
-			logger.Infof("%s: error: %s", logPrefix, err)
+		if err := handlersGQL.Run(log.Logger); err != nil {
+			log.Info().Msgf("%s: error: %s", logPrefix, err)
 			os.Exit(1)
 		}
 	default:
-		if err := handlersProxy.Run(logger); err != nil {
-			logger.Infof("%s: error: %s", logPrefix, err)
+		if err := handlersProxy.Run(log.Logger); err != nil {
+			log.Info().Msgf("%s: error: %s", logPrefix, err)
 			os.Exit(1)
 		}
 	}
