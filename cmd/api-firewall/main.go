@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -25,12 +26,52 @@ func main() {
 
 	// read logs related env params
 	var cfgInit config.APIFWInit
-	var output zerolog.ConsoleWriter
+	cfgInit.Version.SVN = version.Version
+	cfgInit.Version.Desc = version.ProjectName
 
 	if err := conf.Parse(os.Args[1:], version.Namespace, &cfgInit); err != nil {
+		switch err {
+		case conf.ErrHelpWanted:
+			var usage string
+			var err error
+
+			switch strings.ToLower(cfgInit.Mode) {
+			case "api":
+				var cfg config.APIMode
+				usage, err = conf.Usage(version.Namespace, &cfg)
+				if err != nil {
+					log.Error().Msgf("%s: generating usage: %s", logPrefix, err)
+				}
+			case "graphql":
+				var cfg config.GraphQLMode
+				usage, err = conf.Usage(version.Namespace, &cfg)
+				if err != nil {
+					log.Error().Msgf("%s: generating usage: %s", logPrefix, err)
+				}
+			default:
+				var cfg config.ProxyMode
+				usage, err = conf.Usage(version.Namespace, &cfg)
+				if err != nil {
+					log.Error().Msgf("%s: generating usage: %s", logPrefix, err)
+				}
+			}
+
+			fmt.Println(usage)
+			os.Exit(0)
+		case conf.ErrVersionWanted:
+			versionStr, err := conf.VersionString(version.Namespace, &cfgInit)
+			if err != nil {
+				log.Error().Msgf("%s: generating config version: %s", logPrefix, err)
+			}
+			fmt.Println(versionStr)
+			os.Exit(0)
+		}
+
 		log.Error().Msgf("%s: error: %s", logPrefix, err)
 		os.Exit(1)
 	}
+
+	var output zerolog.ConsoleWriter
 
 	switch strings.ToLower(cfgInit.LogFormat) {
 	case "json":

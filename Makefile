@@ -1,4 +1,4 @@
-VERSION := 0.8.8
+VERSION := 0.9.0
 NAMESPACE := github.com/wallarm/api-firewall
 
 .DEFAULT_GOAL := build
@@ -39,11 +39,11 @@ vulncheck:
 	govulncheck ./...
 
 stop_k6_tests:
-	@docker-compose -f resources/test/docker-compose-api-mode.yml down
+	@docker compose -f resources/test/docker-compose-api-mode.yml down
 
 run_k6_tests: stop_k6_tests
-	@docker-compose -f resources/test/docker-compose-api-mode.yml up --build --detach --force-recreate
-	docker run --rm -i --network host grafana/k6 run -v - <resources/test/specification/script.js || true
+	@docker compose -f resources/test/docker-compose-api-mode.yml up --build --detach --force-recreate
+	docker run --rm -i --network host grafana/k6 run --vus 100 --iterations 1200 -v - <resources/test/specification/script.js || true
 	$(MAKE) stop_k6_tests
 
 .PHONY: lint tidy test fmt build genmocks vulncheck run_k6_tests stop_k6_tests

@@ -1,7 +1,6 @@
 package graphql
 
 import (
-	"fmt"
 	"net/url"
 	"os"
 	"os/signal"
@@ -40,22 +39,6 @@ func Run(logger zerolog.Logger) error {
 	cfg.Version.Desc = version.ProjectName
 
 	if err := conf.Parse(os.Args[1:], version.Namespace, &cfg); err != nil {
-		switch err {
-		case conf.ErrHelpWanted:
-			usage, err := conf.Usage(version.Namespace, &cfg)
-			if err != nil {
-				return errors.Wrap(err, "generating config usage")
-			}
-			fmt.Println(usage)
-			return nil
-		case conf.ErrVersionWanted:
-			version, err := conf.VersionString(version.Namespace, &cfg)
-			if err != nil {
-				return errors.Wrap(err, "generating config version")
-			}
-			fmt.Println(version)
-			return nil
-		}
 		return errors.Wrap(err, "parsing config")
 	}
 
