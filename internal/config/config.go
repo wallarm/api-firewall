@@ -7,6 +7,7 @@ import (
 )
 
 type APIFWInit struct {
+	conf.Version
 	Mode string `conf:"default:PROXY" validate:"oneof=PROXY API GRAPHQL" mapstructure:"mode"`
 
 	LogLevel  string `conf:"default:INFO" validate:"oneof=TRACE DEBUG INFO ERROR WARNING"`
@@ -38,7 +39,6 @@ type Nameserver struct {
 }
 
 type ProxyMode struct {
-	conf.Version
 	APIFWInit   `mapstructure:",squash"`
 	APIFWServer `mapstructure:"server"`
 	ModSecurity
@@ -61,7 +61,6 @@ type ProxyMode struct {
 }
 
 type APIMode struct {
-	conf.Version
 	APIFWInit
 	APIFWServer
 	ModSecurity
@@ -77,7 +76,6 @@ type APIMode struct {
 }
 
 type GraphQLMode struct {
-	conf.Version
 	APIFWInit
 	APIFWServer
 	Graphql  GraphQL
