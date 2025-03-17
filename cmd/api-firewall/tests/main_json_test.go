@@ -3,7 +3,6 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/getkin/kin-openapi/openapi3"
 	"net/url"
 	"os"
 	"os/signal"
@@ -11,8 +10,9 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 
 	proxyHandler "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
@@ -91,8 +91,8 @@ func TestJSONBasic(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 

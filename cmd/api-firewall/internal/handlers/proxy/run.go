@@ -16,7 +16,9 @@ import (
 	"github.com/ardanlabs/conf"
 	"github.com/go-playground/validator"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	"github.com/valyala/fasthttp"
 
 	"github.com/wallarm/api-firewall/internal/config"
@@ -33,7 +35,7 @@ const (
 	readinessEndpoint   = "/v1/readiness"
 )
 
-func Run(logger *logrus.Logger) error {
+func Run(logger zerolog.Logger) error {
 
 	// =========================================================================
 	// Configuration
@@ -95,39 +97,31 @@ func Run(logger *logrus.Logger) error {
 		}
 	}
 
-	// =========================================================================
-	// Init Logger
+	// load yaml conf
+	viper.SetConfigName("apifw") // name of config file (without extension)
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".") // optionally look for config in the working directory
 
-	if strings.EqualFold(cfg.LogFormat, "json") {
-		logger.SetFormatter(&logrus.JSONFormatter{})
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
+		log.Debug().Msgf("%s: yaml config file reading error: %v", logPrefix, err)
 	}
 
-	switch strings.ToLower(cfg.LogLevel) {
-	case "trace":
-		logger.SetLevel(logrus.TraceLevel)
-	case "debug":
-		logger.SetLevel(logrus.DebugLevel)
-	case "error":
-		logger.SetLevel(logrus.ErrorLevel)
-	case "warning":
-		logger.SetLevel(logrus.WarnLevel)
-	case "info":
-		logger.SetLevel(logrus.InfoLevel)
-	default:
-		return errors.New("invalid log level")
+	if err := viper.Unmarshal(&cfg); err != nil {
+		log.Debug().Msgf("%s: yaml config file reading error: %v", logPrefix, err)
 	}
 
 	// =========================================================================
 	// App Starting
 
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version.Version)
-	defer logger.Infof("%s: Completed", logPrefix)
+	logger.Info().Msgf("%s : Started : Application initializing : version %q", logPrefix, version.Version)
+	defer logger.Info().Msgf("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
 	if err != nil {
 		return errors.Wrap(err, "generating config for output")
 	}
-	logger.Infof("%s: Configuration Loaded :\n%v\n", logPrefix, out)
+	logger.Info().Msgf("%s: Configuration Loaded :\n%v\n", logPrefix, out)
 
 	var requestHandlers fasthttp.RequestHandler
 
@@ -232,7 +226,7 @@ func Run(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Deny List Cache
 
-	logger.Infof("%s: Initializing Token Cache", logPrefix)
+	logger.Info().Msgf("%s: Initializing Token Cache", logPrefix)
 
 	deniedTokens, err := denylist.New(&cfg.Denylist, logger)
 	if err != nil {
@@ -241,15 +235,15 @@ func Run(logger *logrus.Logger) error {
 
 	switch deniedTokens {
 	case nil:
-		logger.Infof("%s: Denylist not configured", logPrefix)
+		logger.Info().Msgf("%s: Denylist not configured", logPrefix)
 	default:
-		logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
+		logger.Info().Msgf("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
 	}
 
 	// =========================================================================
 	// Init IP Allow List Cache
 
-	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
+	logger.Info().Msgf("%s: Initializing IP Whitelist Cache", logPrefix)
 
 	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
 	if err != nil {
@@ -258,23 +252,28 @@ func Run(logger *logrus.Logger) error {
 
 	switch allowedIPCache {
 	case nil:
-		logger.Infof("%s: The allow ip list is not configured", logPrefix)
+		logger.Info().Msgf("%s: The allow ip list is not configured", logPrefix)
 	default:
-		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
+		logger.Info().Msgf("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
 	}
 
 	// =========================================================================
 	// Init ModSecurity Core
 
-	waf, err := config.LoadModSecurityConfiguration(logger, &cfg.ModSecurity)
+	waf, err := config.LoadModSecurityConfiguration(&cfg.ModSecurity, logger)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Fatal().Err(err)
 		return err
 	}
 
 	if waf != nil {
-		logger.Infof("%s: The ModSecurity configuration has been loaded successfully", logPrefix)
+		logger.Info().Msgf("%s: The ModSecurity configuration has been loaded successfully", logPrefix)
 	}
+
+	// =========================================================================
+	// Init ZeroLogger
+
+	zeroLogger := &config.ZerologAdapter{Logger: logger}
 
 	// =========================================================================
 	// Init Handlers
@@ -294,11 +293,11 @@ func Run(logger *logrus.Logger) error {
 		switch string(ctx.Path()) {
 		case livenessEndpoint:
 			if err := healthData.Liveness(ctx); err != nil {
-				healthData.Logger.Errorf("%s: liveness: %s", logPrefix, err.Error())
+				healthData.Logger.Error().Msgf("%s: liveness: %s", logPrefix, err.Error())
 			}
 		case readinessEndpoint:
 			if err := healthData.Readiness(ctx); err != nil {
-				healthData.Logger.Errorf("%s: readiness: %s", logPrefix, err.Error())
+				healthData.Logger.Error().Msgf("%s: readiness: %s", logPrefix, err.Error())
 			}
 		default:
 			ctx.Error("Unsupported path", fasthttp.StatusNotFound)
@@ -309,20 +308,20 @@ func Run(logger *logrus.Logger) error {
 		Handler:               healthHandler,
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
-		Logger:                logger,
+		Logger:                zeroLogger,
 		NoDefaultServerHeader: true,
 	}
 
 	// Start the service listening for requests.
 	go func() {
-		logger.Infof("%s: Health API listening on %s", logPrefix, cfg.HealthAPIHost)
+		logger.Info().Msgf("%s: Health API listening on %s", logPrefix, cfg.HealthAPIHost)
 		serverErrors <- healthAPI.ListenAndServe(cfg.HealthAPIHost)
 	}()
 
 	// =========================================================================
 	// Start API Service
 
-	logger.Infof("%s: Initializing API support", logPrefix)
+	logger.Info().Msgf("%s: Initializing API support", logPrefix)
 
 	apiHost, err := url.ParseRequestURI(cfg.APIHost)
 	if err != nil {
@@ -349,13 +348,11 @@ func Run(logger *logrus.Logger) error {
 		MaxConnsPerIP:      cfg.MaxConnsPerIP,
 		MaxRequestsPerConn: cfg.MaxRequestsPerConn,
 		ErrorHandler: func(ctx *fasthttp.RequestCtx, err error) {
-			logger.WithFields(logrus.Fields{
-				"error": err,
-			}).Error("request processing error")
+			logger.Error().Err(err).Msg("request processing error")
 
 			ctx.Error("", cfg.CustomBlockStatusCode)
 		},
-		Logger:                logger,
+		Logger:                zeroLogger,
 		NoDefaultServerHeader: true,
 	}
 
@@ -369,14 +366,14 @@ func Run(logger *logrus.Logger) error {
 	// disable updater if SpecificationUpdatePeriod == 0
 	if cfg.SpecificationUpdatePeriod.Seconds() > 0 {
 		go func() {
-			logger.Infof("%s: starting specification regular update process every %.0f seconds", logPrefix, cfg.SpecificationUpdatePeriod.Seconds())
+			logger.Info().Msgf("%s: starting specification regular update process every %.0f seconds", logPrefix, cfg.SpecificationUpdatePeriod.Seconds())
 			updSpecErrors <- updOpenAPISpec.Start()
 		}()
 	}
 
 	// Start the service listening for requests.
 	go func() {
-		logger.Infof("%s: API listening on %s", logPrefix, cfg.APIHost)
+		logger.Info().Msgf("%s: API listening on %s", logPrefix, cfg.APIHost)
 		switch isTLS {
 		case false:
 			serverErrors <- api.ListenAndServe(apiHost.Host)
@@ -395,13 +392,13 @@ func Run(logger *logrus.Logger) error {
 		return errors.Wrap(err, "server error")
 
 	case sig := <-shutdown:
-		logger.Infof("%s: %v: Start shutdown", logPrefix, sig)
+		logger.Info().Msgf("%s: %v: Start shutdown", logPrefix, sig)
 
 		// Asking listener to shutdown and shed load.
 		if err := api.Shutdown(); err != nil {
 			return errors.Wrap(err, "could not stop server gracefully")
 		}
-		logger.Infof("%s: %v: Completed shutdown", logPrefix, sig)
+		logger.Info().Msgf("%s: %v: Completed shutdown", logPrefix, sig)
 
 		// Close proxy pool
 		pool.Close()

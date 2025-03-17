@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/ristretto"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/wallarm/api-firewall/internal/config"
 )
 
@@ -47,7 +47,7 @@ func getIPsFromCIDR(subnet string) ([]string, error) {
 	return ips[1 : len(ips)-1], nil
 }
 
-func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
+func New(cfg *config.AllowIP, logger zerolog.Logger) (*AllowedIPsType, error) {
 
 	if cfg.File == "" {
 		return nil, nil
@@ -71,7 +71,7 @@ func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 			if strings.Contains(c.Text(), "/") {
 				subnetIPs, err := getIPsFromCIDR(c.Text())
 				if err != nil {
-					logger.Debugf("Allowlist (IP): entry with the key %s is not a valid subnet. Error: %v", c.Text(), err)
+					logger.Debug().Msgf("Allowlist (IP): entry with the key %s is not a valid subnet. Error: %v", c.Text(), err)
 					continue
 				}
 				ips = append(ips, subnetIPs...)
@@ -84,7 +84,7 @@ func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 				ips = append(ips, ip.String())
 				continue
 			} else {
-				logger.Debugf("Allowlist (IP): entry with the key %s is not a valid IP address. Error: %v", c.Text(), err)
+				logger.Debug().Msgf("Allowlist (IP): entry with the key %s is not a valid IP address. Error: %v", c.Text(), err)
 			}
 
 		}
@@ -94,7 +94,7 @@ func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 		return nil, err
 	}
 
-	logger.Debugf("Allowlist (IP): total entries (lines) found in the file: %d", totalEntries)
+	logger.Debug().Msgf("Allowlist (IP): total entries (lines) found in the file: %d", totalEntries)
 
 	// max cost = total entries * size of ristretto's storeItem struct
 	maxCost := totalEntries * (StoreItemSize + ElementCost)
@@ -122,10 +122,10 @@ func New(cfg *config.AllowIP, logger *logrus.Logger) (*AllowedIPsType, error) {
 			currentPercent := numOfElements * 100 / totalEntries
 			if currentPercent/10 > counter10P {
 				counter10P = currentPercent / 10
-				logger.Debugf("Allowlist (IP): loaded %d perecents of IPs. Total elements in the cache: %d", counter10P*10, numOfElements)
+				logger.Debug().Msgf("Allowlist (IP): loaded %d perecents of IPs. Total elements in the cache: %d", counter10P*10, numOfElements)
 			}
 		} else {
-			logger.Errorf("Allowlist (IP): can't add the token to the cache: %s", ip)
+			logger.Debug().Msgf("Allowlist (IP): can't add the token to the cache: %s", ip)
 		}
 		cache.Wait()
 

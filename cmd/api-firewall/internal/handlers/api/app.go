@@ -11,8 +11,8 @@ import (
 	"syscall"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 
 	"github.com/wallarm/api-firewall/internal/platform/router"
@@ -31,7 +31,7 @@ var (
 // data/logic on this App struct
 type App struct {
 	Routers     map[int]*router.Mux
-	Log         *logrus.Logger
+	Log         zerolog.Logger
 	passOPTIONS bool
 	shutdown    chan os.Signal
 	mw          []web.Middleware
@@ -40,7 +40,7 @@ type App struct {
 }
 
 // NewApp creates an App value that handle a set of routes for the set of application.
-func NewApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs storage.DBOpenAPILoader, shutdown chan os.Signal, logger *logrus.Logger, mw ...web.Middleware) *App {
+func NewApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs storage.DBOpenAPILoader, shutdown chan os.Signal, logger zerolog.Logger, mw ...web.Middleware) *App {
 
 	schemaIDs := storedSpecs.SchemaIDs()
 
@@ -136,10 +136,10 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	// handle panic
 	defer func() {
 		if r := recover(); r != nil {
-			a.Log.Errorf("panic: %v", r)
+			a.Log.Error().Msgf("panic: %v", r)
 
 			// Log the Go stack trace for this panic'd goroutine.
-			a.Log.Debugf("%s", debug.Stack())
+			a.Log.Debug().Msgf("%s", debug.Stack())
 			return
 		}
 	}()
@@ -151,22 +151,22 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	if err != nil {
 		defer web.LogRequestResponseAtTraceLevel(ctx, a.Log)
 
-		a.Log.WithFields(logrus.Fields{
-			"error":      err,
-			"host":       strconv.B2S(ctx.Request.Header.Host()),
-			"path":       strconv.B2S(ctx.Path()),
-			"method":     strconv.B2S(ctx.Request.Header.Method()),
-			"request_id": ctx.UserValue(web.RequestID),
-		}).Error("error while getting schema ID")
+		a.Log.Error().
+			Err(err).
+			Bytes("host", ctx.Request.Header.Host()).
+			Bytes("path", ctx.Path()).
+			Bytes("method", ctx.Request.Header.Method()).
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("error while getting schema ID")
 
 		if err := web.RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
-			a.Log.WithFields(logrus.Fields{
-				"error":      err,
-				"host":       strconv.B2S(ctx.Request.Header.Host()),
-				"path":       strconv.B2S(ctx.Path()),
-				"method":     strconv.B2S(ctx.Request.Header.Method()),
-				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("error while sending response")
+			a.Log.Error().
+				Err(err).
+				Bytes("host", ctx.Request.Header.Host()).
+				Bytes("path", ctx.Path()).
+				Bytes("method", ctx.Request.Header.Method()).
+				Interface("request_id", ctx.UserValue(web.RequestID)).
+				Msg("error while sending response")
 		}
 
 		return
@@ -196,22 +196,23 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 			// OPTIONS methods are passed if the passOPTIONS is set to true
 			if a.passOPTIONS && strconv.B2S(ctx.Method()) == fasthttp.MethodOptions {
 				ctx.SetUserValue(keyStatusCode, fasthttp.StatusOK)
-				a.Log.WithFields(logrus.Fields{
-					"host":       strconv.B2S(ctx.Request.Header.Host()),
-					"path":       strconv.B2S(ctx.Path()),
-					"method":     strconv.B2S(ctx.Request.Header.Method()),
-					"request_id": ctx.UserValue(web.RequestID),
-				}).Debug("Pass request with OPTIONS method")
+				a.Log.Debug().
+					Bytes("host", ctx.Request.Header.Host()).
+					Bytes("path", ctx.Path()).
+					Bytes("method", ctx.Request.Header.Method()).
+					Interface("request_id", ctx.UserValue(web.RequestID)).
+					Msg("pass request with OPTIONS method")
 				continue
 			}
 
 			// Method or Path were not found
-			a.Log.WithFields(logrus.Fields{
-				"host":       strconv.B2S(ctx.Request.Header.Host()),
-				"path":       strconv.B2S(ctx.Path()),
-				"method":     strconv.B2S(ctx.Request.Header.Method()),
-				"request_id": ctx.UserValue(web.RequestID),
-			}).Debug("Method or path were not found")
+			a.Log.Debug().
+				Bytes("host", ctx.Request.Header.Host()).
+				Bytes("path", ctx.Path()).
+				Bytes("method", ctx.Request.Header.Method()).
+				Interface("request_id", ctx.UserValue(web.RequestID)).
+				Msg("method or path were not found")
+
 			ctx.SetUserValue(keyValidationErrors, []*validator.ValidationError{{Message: validator.ErrMethodAndPathNotFound.Error(), Code: validator.ErrCodeMethodAndPathNotFound, SchemaID: &schemaID}})
 			ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
 			continue
@@ -221,13 +222,13 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 		ctx.SetUserValue(router.RouteCtxKey, rctx)
 
 		if err := handler(ctx); err != nil {
-			a.Log.WithFields(logrus.Fields{
-				"error":      err,
-				"host":       strconv.B2S(ctx.Request.Header.Host()),
-				"path":       strconv.B2S(ctx.Path()),
-				"method":     strconv.B2S(ctx.Request.Header.Method()),
-				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("error in the request handler")
+			a.Log.Error().
+				Err(err).
+				Bytes("host", ctx.Request.Header.Host()).
+				Bytes("path", ctx.Path()).
+				Bytes("method", ctx.Request.Header.Method()).
+				Interface("request_id", ctx.UserValue(web.RequestID)).
+				Msg("error in the request handler")
 		}
 	}
 
@@ -286,13 +287,13 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	}
 
 	if err := web.Respond(ctx, validator.ValidationResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
-		a.Log.WithFields(logrus.Fields{
-			"request_id": ctx.UserValue(web.RequestID),
-			"host":       strconv.B2S(ctx.Request.Header.Host()),
-			"path":       strconv.B2S(ctx.Path()),
-			"method":     strconv.B2S(ctx.Request.Header.Method()),
-			"error":      err,
-		}).Error("respond error")
+		a.Log.Error().
+			Err(err).
+			Bytes("host", ctx.Request.Header.Host()).
+			Bytes("path", ctx.Path()).
+			Bytes("method", ctx.Request.Header.Method()).
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("respond error")
 	}
 }
 

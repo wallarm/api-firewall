@@ -14,8 +14,7 @@ import (
 
 	"github.com/fasthttp/websocket"
 	"github.com/golang/mock/gomock"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/valyala/fasthttp"
 
@@ -30,8 +29,6 @@ import (
 type ServiceGraphQLTests struct {
 	serverUrl       *url.URL
 	shutdown        chan os.Signal
-	logger          *logrus.Logger
-	loggerHook      *test.Hook
 	proxy           *proxy.MockPool
 	client          *proxy.MockHTTPClient
 	backendWSClient *proxy.MockWebSocketClient
@@ -89,9 +86,6 @@ func TestGraphQLBasic(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	testLogger, hook := test.NewNullLogger()
-	testLogger.SetLevel(logrus.ErrorLevel)
-
 	serverUrl, err := url.ParseRequestURI("http://127.0.0.1:80/query")
 	if err != nil {
 		t.Fatalf("parsing API Host URL: %s", err.Error())
@@ -107,8 +101,6 @@ func TestGraphQLBasic(t *testing.T) {
 	apifwTests := ServiceGraphQLTests{
 		serverUrl:       serverUrl,
 		shutdown:        shutdown,
-		logger:          testLogger,
-		loggerHook:      hook,
 		proxy:           pool,
 		client:          client,
 		backendWSClient: backendWSClient,
@@ -159,8 +151,8 @@ func (s *ServiceGraphQLTests) testGQLRunBasic(t *testing.T) {
 
 	// start GQL handler
 	go func() {
-		logger := logrus.New()
-		logger.SetLevel(logrus.ErrorLevel)
+		logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+		logger = logger.Level(zerolog.ErrorLevel)
 
 		if err := graphqlHandler.Run(logger); err != nil {
 			t.Fatal(err)
@@ -172,6 +164,10 @@ func (s *ServiceGraphQLTests) testGQLRunBasic(t *testing.T) {
 }
 
 func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
@@ -195,7 +191,7 @@ func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -270,6 +266,10 @@ func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {
 
 func (s *ServiceGraphQLTests) testGQLEndpointNotExists(t *testing.T) {
 
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
 		MaxQueryDepth:      0,
@@ -292,7 +292,7 @@ func (s *ServiceGraphQLTests) testGQLEndpointNotExists(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -356,6 +356,10 @@ func (s *ServiceGraphQLTests) testGQLEndpointNotExists(t *testing.T) {
 
 func (s *ServiceGraphQLTests) testGQLGETSuccess(t *testing.T) {
 
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
 		MaxQueryDepth:      0,
@@ -378,7 +382,7 @@ func (s *ServiceGraphQLTests) testGQLGETSuccess(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -447,6 +451,10 @@ func (s *ServiceGraphQLTests) testGQLGETSuccess(t *testing.T) {
 
 func (s *ServiceGraphQLTests) testGQLGETMutationFailed(t *testing.T) {
 
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
 		MaxQueryDepth:      0,
@@ -469,7 +477,7 @@ func (s *ServiceGraphQLTests) testGQLGETMutationFailed(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
@@ -512,19 +520,27 @@ func (s *ServiceGraphQLTests) testGQLGETMutationFailed(t *testing.T) {
 
 	expectedErrMsg := "wrong GraphQL query type in GET request"
 
-	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
 
-	if s.loggerHook.LastEntry().Message != unmarshalErr {
-		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, unmarshalErr)
-	}
+	message, exists := logEntry["message"].(string)
+	assert.True(t, exists, "field 'message' doesn't exist")
 
-	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
-		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
-	}
+	assert.Equal(t, unmarshalErr, message, "Got error message: %s; Expected error message: %s", message, unmarshalErr)
+
+	currentError, exists := logEntry["error"].(string)
+	assert.True(t, exists, "field 'error' doesn't exist")
+
+	assert.Equal(t, expectedErrMsg, currentError, "Got error message: %s; Expected error message: %s", currentError, expectedErrMsg)
 
 }
 
 func (s *ServiceGraphQLTests) testGQLValidationFailed(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
@@ -549,21 +565,21 @@ func (s *ServiceGraphQLTests) testGQLValidationFailed(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
 		query {
-    room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            wrongParameter
-            text
-            createdBy
-            createdAt
-        }
-    }
+   room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           wrongParameter
+           text
+           createdBy
+           createdAt
+       }
+   }
 }
 	`
 	var requestBody = map[string]any{
@@ -602,19 +618,29 @@ func (s *ServiceGraphQLTests) testGQLValidationFailed(t *testing.T) {
 
 	expectedErrMsg := "field: wrongParameter not defined on type: Message"
 
-	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
 
-	if s.loggerHook.LastEntry().Message != validationErr {
-		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
-	}
+	message, exists := logEntry["message"].(string)
+	assert.True(t, exists, "field 'message' doesn't exist")
 
-	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
-		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
+	assert.Equal(t, validationErr, message, "Got error message: %s; Expected error message: %s", message, unmarshalErr)
+
+	currentError, exists := logEntry["error"].(string)
+	assert.True(t, exists, "field 'error' doesn't exist")
+
+	if !strings.HasPrefix(currentError, expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", currentError, expectedErrMsg)
 	}
 
 }
 
 func (s *ServiceGraphQLTests) testGQLInvalidQuerySyntax(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
@@ -638,21 +664,21 @@ func (s *ServiceGraphQLTests) testGQLInvalidQuerySyntax(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
 		query {
-    room(name: "GeneralChat") {
-        name
-        messages {
-            {
-            id
-            text
-            createdBy
-            createdAt
-        }
-    }
+   room(name: "GeneralChat") {
+       name
+       messages {
+           {
+           id
+           text
+           createdBy
+           createdAt
+       }
+   }
 };
 	`
 	var requestBody = map[string]any{
@@ -691,19 +717,30 @@ func (s *ServiceGraphQLTests) testGQLInvalidQuerySyntax(t *testing.T) {
 
 	expectedErrMsg := "external: unexpected token - got: LBRACE want one of: [RBRACE IDENT SPREAD]"
 
-	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+	// check logs
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
 
-	if s.loggerHook.LastEntry().Message != unmarshalErr {
-		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, unmarshalErr)
-	}
+	message, exists := logEntry["message"].(string)
+	assert.True(t, exists, "field 'message' doesn't exist")
 
-	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
-		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
+	assert.Equal(t, unmarshalErr, message, "Got error message: %s; Expected error message: %s", message, unmarshalErr)
+
+	currentError, exists := logEntry["error"].(string)
+	assert.True(t, exists, "field 'error' doesn't exist")
+
+	if !strings.HasPrefix(currentError, expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", currentError, expectedErrMsg)
 	}
 
 }
 
 func (s *ServiceGraphQLTests) testGQLInvalidMaxComplexity(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 1,
@@ -727,20 +764,20 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxComplexity(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
 		query {
-    room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            text
-            createdBy
-            createdAt
-        }
-    }
+   room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           text
+           createdBy
+           createdAt
+       }
+   }
 }
 	`
 	var requestBody = map[string]any{
@@ -779,19 +816,30 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxComplexity(t *testing.T) {
 
 	expectedErrMsg := "the maximum query complexity value has been exceeded. The maximum query complexity value is 1. The current query complexity is 2"
 
-	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+	// check logs
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
 
-	if s.loggerHook.LastEntry().Message != validationErr {
-		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
-	}
+	message, exists := logEntry["message"].(string)
+	assert.True(t, exists, "field 'message' doesn't exist")
 
-	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
-		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
+	assert.Equal(t, validationErr, message, "Got error message: %s; Expected error message: %s", message, unmarshalErr)
+
+	currentError, exists := logEntry["error"].(string)
+	assert.True(t, exists, "field 'error' doesn't exist")
+
+	if !strings.HasPrefix(currentError, expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", currentError, expectedErrMsg)
 	}
 
 }
 
 func (s *ServiceGraphQLTests) testGQLInvalidMaxDepth(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
@@ -815,20 +863,20 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxDepth(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
 		query {
-    room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            text
-            createdBy
-            createdAt
-        }
-    }
+   room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           text
+           createdBy
+           createdAt
+       }
+   }
 }
 	`
 	var requestBody = map[string]any{
@@ -867,19 +915,30 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxDepth(t *testing.T) {
 
 	expectedErrMsg := "the maximum query depth value has been exceeded. The maximum query depth value is 1. The current query depth is 3"
 
-	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+	// check logs
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
 
-	if s.loggerHook.LastEntry().Message != validationErr {
-		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
-	}
+	message, exists := logEntry["message"].(string)
+	assert.True(t, exists, "field 'message' doesn't exist")
 
-	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
-		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
+	assert.Equal(t, validationErr, message, "Got error message: %s; Expected error message: %s", message, unmarshalErr)
+
+	currentError, exists := logEntry["error"].(string)
+	assert.True(t, exists, "field 'error' doesn't exist")
+
+	if !strings.HasPrefix(currentError, expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", currentError, expectedErrMsg)
 	}
 
 }
 
 func (s *ServiceGraphQLTests) testGQLInvalidNodeLimit(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
@@ -903,20 +962,20 @@ func (s *ServiceGraphQLTests) testGQLInvalidNodeLimit(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
 		query {
-    room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            text
-            createdBy
-            createdAt
-        }
-    }
+   room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           text
+           createdBy
+           createdAt
+       }
+   }
 }
 	`
 
@@ -956,19 +1015,30 @@ func (s *ServiceGraphQLTests) testGQLInvalidNodeLimit(t *testing.T) {
 
 	expectedErrMsg := "the query node limit has been exceeded. The query node count limit is 1. The current query node count value is 2"
 
-	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+	// check logs
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
 
-	if s.loggerHook.LastEntry().Message != validationErr {
-		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
-	}
+	message, exists := logEntry["message"].(string)
+	assert.True(t, exists, "field 'message' doesn't exist")
 
-	if !strings.HasPrefix(lastErrMsg.Error(), expectedErrMsg) {
-		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
+	assert.Equal(t, validationErr, message, "Got error message: %s; Expected error message: %s", message, unmarshalErr)
+
+	currentError, exists := logEntry["error"].(string)
+	assert.True(t, exists, "field 'error' doesn't exist")
+
+	if !strings.HasPrefix(currentError, expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", currentError, expectedErrMsg)
 	}
 
 }
 
 func (s *ServiceGraphQLTests) testGQLBatchQueryLimit(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
@@ -994,7 +1064,7 @@ func (s *ServiceGraphQLTests) testGQLBatchQueryLimit(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	bqReq := `[
@@ -1031,19 +1101,28 @@ func (s *ServiceGraphQLTests) testGQLBatchQueryLimit(t *testing.T) {
 
 	expectedErrMsg := "the batch query limit has been exceeded. The number of queries in the batch is 3. The current batch query limit is 1"
 
-	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+	// check logs
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
 
-	if s.loggerHook.LastEntry().Message != validationErr {
-		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
+	message, exists := logEntry["message"].(string)
+	assert.True(t, exists, "field 'message' doesn't exist")
+
+	assert.Equal(t, validationErr, message, "Got error message: %s; Expected error message: %s", message, unmarshalErr)
+
+	currentError, exists := logEntry["error"].(string)
+	assert.True(t, exists, "field 'error' doesn't exist")
+
+	if !strings.EqualFold(currentError, expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", currentError, expectedErrMsg)
 	}
-
-	if !strings.EqualFold(lastErrMsg.Error(), expectedErrMsg) {
-		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
-	}
-
 }
 
 func (s *ServiceGraphQLTests) testGQLDenylistBlock(t *testing.T) {
+
+	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
@@ -1075,25 +1154,25 @@ func (s *ServiceGraphQLTests) testGQLDenylistBlock(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	deniedTokens, err := denylist.New(&cfg.Denylist, s.logger)
+	deniedTokens, err := denylist.New(&cfg.Denylist, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, deniedTokens, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, deniedTokens, nil)
 
 	// Construct GraphQL request payload
 	query := `
 		query {
-    room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            text
-            createdBy
-            createdAt
-        }
-    }
+   room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           text
+           createdBy
+           createdAt
+       }
+   }
 }
 	`
 	var requestBody = map[string]any{
@@ -1278,6 +1357,10 @@ func StartWSBackendServer(t testing.TB, addr string) *fasthttp.Server {
 
 func (s *ServiceGraphQLTests) testGQLSubscription(t *testing.T) {
 
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
 		MaxQueryDepth:      0,
@@ -1312,7 +1395,7 @@ func (s *ServiceGraphQLTests) testGQLSubscription(t *testing.T) {
 	serverUrl, err := url.ParseRequestURI(cfg.Server.URL)
 	assert.Nil(t, err)
 
-	handler := graphqlHandler.Handlers(&cfg, schema, serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// connection to the backend
 	headers := http.Header{}
@@ -1457,6 +1540,9 @@ func (s *ServiceGraphQLTests) testGQLSubscription(t *testing.T) {
 
 func (s *ServiceGraphQLTests) testGQLSubscriptionLogOnly(t *testing.T) {
 
+	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
 		MaxQueryDepth:      0,
@@ -1489,7 +1575,7 @@ func (s *ServiceGraphQLTests) testGQLSubscriptionLogOnly(t *testing.T) {
 	serverUrl, err := url.ParseRequestURI(cfg.Server.URL)
 	assert.Nil(t, err)
 
-	handler := graphqlHandler.Handlers(&cfg, schema, serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// connection to the backend
 	headers := http.Header{}
@@ -1596,6 +1682,10 @@ func (s *ServiceGraphQLTests) testGQLSubscriptionLogOnly(t *testing.T) {
 
 func (s *ServiceGraphQLTests) testGQLMaxAliasesNum(t *testing.T) {
 
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
+
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity: 0,
 		MaxQueryDepth:      0,
@@ -1619,29 +1709,29 @@ func (s *ServiceGraphQLTests) testGQLMaxAliasesNum(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
 		query {
-    a0:room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            text
-            createdBy
-            createdAt
-        }
-    }
-    a1:room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            text
-            createdBy
-            createdAt
-        }
-    }
+   a0:room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           text
+           createdBy
+           createdAt
+       }
+   }
+   a1:room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           text
+           createdBy
+           createdAt
+       }
+   }
 }
 	`
 	var requestBody = map[string]any{
@@ -1680,19 +1770,30 @@ func (s *ServiceGraphQLTests) testGQLMaxAliasesNum(t *testing.T) {
 
 	expectedErrMsg := "the maximum number of aliases in the GraphQL document has been exceeded. The maximum number of aliases value is 1. The current number of aliases is 2, locations: [], path: []"
 
-	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+	// check logs
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
 
-	if s.loggerHook.LastEntry().Message != validationErr {
-		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
-	}
+	message, exists := logEntry["message"].(string)
+	assert.True(t, exists, "field 'message' doesn't exist")
 
-	if !strings.EqualFold(lastErrMsg.Error(), expectedErrMsg) {
-		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, expectedErrMsg)
+	assert.Equal(t, validationErr, message, "Got error message: %s; Expected error message: %s", message, unmarshalErr)
+
+	currentError, exists := logEntry["error"].(string)
+	assert.True(t, exists, "field 'error' doesn't exist")
+
+	if !strings.EqualFold(currentError, expectedErrMsg) {
+		t.Errorf("Got error message: %s; Expected error message: %s", currentError, expectedErrMsg)
 	}
 
 }
 
 func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	gqlCfg := config.GraphQL{
 		MaxQueryComplexity:      0,
@@ -1718,30 +1819,30 @@ func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
 		t.Fatalf("Loading GraphQL Schema error: %v", err)
 	}
 
-	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, s.logger, s.proxy, s.backendWSClient, nil, nil)
+	handler := graphqlHandler.Handlers(&cfg, schema, s.serverUrl, s.shutdown, logger, s.proxy, s.backendWSClient, nil, nil)
 
 	// Construct GraphQL request payload
 	query := `
 		query {
-    a0:room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            text
-            createdBy
-            createdAt
-        }
-    }
-    a1:room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            name
-            text
-            createdBy
-            createdAt
-        }
-    }
+   a0:room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           text
+           createdBy
+           createdAt
+       }
+   }
+   a1:room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           name
+           text
+           createdBy
+           createdAt
+       }
+   }
 }
 	`
 	var requestBody = map[string]any{
@@ -1757,19 +1858,19 @@ func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
 	req.Header.SetContentType("application/json")
 
 	responseBody := `{
-    "data": {
-        "room": {
-            "name": "GeneralChat",
-            "messages": [
-                {
-                    "id": "TrsXJcKa",
-                    "text": "Hello, world!",
-                    "createdBy": "TestUser",
-                    "createdAt": "2023-01-01T00:00:00+00:00"
-                }
-            ]
-        }
-    }
+   "data": {
+       "room": {
+           "name": "GeneralChat",
+           "messages": [
+               {
+                   "id": "TrsXJcKa",
+                   "text": "Hello, world!",
+                   "createdBy": "TestUser",
+                   "createdAt": "2023-01-01T00:00:00+00:00"
+               }
+           ]
+       }
+   }
 }`
 
 	resp := fasthttp.AcquireResponse()
@@ -1802,26 +1903,26 @@ func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
 	// query with duplication of the name field
 	query = `
 		query {
-    a0:room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            text
-            createdBy
-            createdAt
-        }
-    }
-    a1:room(name: "GeneralChat") {
-        name
-        messages {
-            id
-            name
-            name
-            text
-            createdBy
-            createdAt
-        }
-    }
+   a0:room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           text
+           createdBy
+           createdAt
+       }
+   }
+   a1:room(name: "GeneralChat") {
+       name
+       messages {
+           id
+           name
+           name
+           text
+           createdBy
+           createdAt
+       }
+   }
 }
 	`
 
@@ -1859,13 +1960,20 @@ func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
 			len(gqlResp.Errors))
 	}
 
-	lastErrMsg := s.loggerHook.LastEntry().Data["error"].(error)
+	// check logs
+	var logEntry map[string]interface{}
+	err = json.Unmarshal(buf.Bytes(), &logEntry)
+	assert.NoError(t, err, "invalid JSON")
 
-	if s.loggerHook.LastEntry().Message != validationErr {
-		t.Errorf("Got error message: %s; Expected error message: %s", s.loggerHook.LastEntry().Message, validationErr)
-	}
+	message, exists := logEntry["message"].(string)
+	assert.True(t, exists, "field 'message' doesn't exist")
 
-	if !strings.HasPrefix(lastErrMsg.Error(), validator.ErrFieldDuplicationFound.Error()) {
-		t.Errorf("Got error message: %s; Expected error message: %s", lastErrMsg, validator.ErrFieldDuplicationFound.Error())
+	assert.Equal(t, validationErr, message, "Got error message: %s; Expected error message: %s", message, unmarshalErr)
+
+	currentError, exists := logEntry["error"].(string)
+	assert.True(t, exists, "field 'error' doesn't exist")
+
+	if !strings.HasPrefix(currentError, validator.ErrFieldDuplicationFound.Error()) {
+		t.Errorf("Got error message: %s; Expected error message: %s", currentError, validator.ErrFieldDuplicationFound.Error())
 	}
 }

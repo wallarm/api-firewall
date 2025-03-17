@@ -3,7 +3,7 @@ package proxy
 import (
 	"os"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
 	"github.com/wallarm/api-firewall/internal/platform/web"
@@ -11,7 +11,7 @@ import (
 )
 
 type Health struct {
-	Logger *logrus.Logger
+	Logger zerolog.Logger
 	Pool   proxy.Pool
 }
 

@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
+
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
@@ -25,7 +26,7 @@ const (
 )
 
 var cfgUpdater = config.APIMode{
-	APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
+	APIFWInit:                  config.APIFWInit{Mode: web.APIMode},
 	SpecificationUpdatePeriod:  2 * time.Second,
 	PathToSpecDB:               "./wallarm_api_after_update.db",
 	UnknownParametersDetection: true,
@@ -34,8 +35,8 @@ var cfgUpdater = config.APIMode{
 
 func TestUpdaterBasic(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -210,8 +211,8 @@ func TestUpdaterBasic(t *testing.T) {
 
 func TestUpdaterFromEmptyDB(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -351,8 +352,8 @@ func TestUpdaterFromEmptyDB(t *testing.T) {
 
 func TestUpdaterToEmptyDB(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -440,7 +441,7 @@ func TestUpdaterToEmptyDB(t *testing.T) {
 	}
 
 	var cfgUpdaterEmpty = config.APIMode{
-		APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
+		APIFWInit:                  config.APIFWInit{Mode: web.APIMode},
 		SpecificationUpdatePeriod:  2 * time.Second,
 		PathToSpecDB:               "./wallarm_api_empty.db",
 		UnknownParametersDetection: true,
@@ -500,8 +501,8 @@ func TestUpdaterToEmptyDB(t *testing.T) {
 
 func TestUpdaterInvalidDBSchema(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -544,8 +545,8 @@ func TestUpdaterInvalidDBSchema(t *testing.T) {
 
 func TestUpdaterInvalidDBFile(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -588,8 +589,8 @@ func TestUpdaterInvalidDBFile(t *testing.T) {
 
 func TestUpdaterToInvalidDB(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -677,7 +678,7 @@ func TestUpdaterToInvalidDB(t *testing.T) {
 	}
 
 	var cfgUpdaterEmpty = config.APIMode{
-		APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
+		APIFWInit:                  config.APIFWInit{Mode: web.APIMode},
 		SpecificationUpdatePeriod:  2 * time.Second,
 		PathToSpecDB:               "./wallarm_api_invalid_schema.db",
 		UnknownParametersDetection: true,
@@ -737,8 +738,8 @@ func TestUpdaterToInvalidDB(t *testing.T) {
 
 func TestUpdaterFromInvalidDB(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -868,8 +869,8 @@ func TestUpdaterFromInvalidDB(t *testing.T) {
 
 func TestUpdaterToNotExistDB(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 
@@ -957,7 +958,7 @@ func TestUpdaterToNotExistDB(t *testing.T) {
 	}
 
 	var cfgUpdaterEmpty = config.APIMode{
-		APIFWMode:                  config.APIFWMode{Mode: web.APIMode},
+		APIFWInit:                  config.APIFWInit{Mode: web.APIMode},
 		SpecificationUpdatePeriod:  2 * time.Second,
 		PathToSpecDB:               "./wallarm_api_not_exist.db",
 		UnknownParametersDetection: true,
@@ -1017,8 +1018,8 @@ func TestUpdaterToNotExistDB(t *testing.T) {
 
 func TestUpdaterFromNotExistDB(t *testing.T) {
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 

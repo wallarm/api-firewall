@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/fasthttp/websocket"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/valyala/fasthttp"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
@@ -112,8 +112,9 @@ func StartGqlBenchBackendServer(t testing.TB, addr string) *fasthttp.Server {
 }
 
 func BenchmarkGraphQL(b *testing.B) {
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	// start backend
 	server := StartGqlBenchBackendServer(b, benchBackendHost)

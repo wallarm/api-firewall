@@ -21,8 +21,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 
 	proxy2 "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/proxy"
@@ -352,7 +352,7 @@ var (
 type ServiceTests struct {
 	serverUrl *url.URL
 	shutdown  chan os.Signal
-	logger    *logrus.Logger
+	logger    zerolog.Logger
 	proxy     *proxy.MockPool
 	client    *proxy.MockHTTPClient
 	lock      *sync.RWMutex
@@ -419,8 +419,8 @@ func TestBasic(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	var lock sync.RWMutex
 	dbSpec := storage.NewMockDBOpenAPILoader(mockCtrl)
