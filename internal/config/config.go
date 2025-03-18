@@ -48,6 +48,7 @@ type ProxyMode struct {
 	Server    Backend `mapstructure:"backend"`
 	AllowIP   AllowIP
 	DNS       DNS
+	Endpoints []Endpoint
 
 	RequestValidation         string       `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
 	ResponseValidation        string       `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
@@ -185,4 +186,15 @@ type GraphQL struct {
 	WSOrigin                []string `conf:"" validate:"url"`
 
 	RequestValidation string `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
+}
+
+type Endpoint struct {
+	ValidationMode `mapstructure:",squash"`
+	Path           string `conf:"required" validate:"url"`
+	Method         string `conf:"" validate:"required"`
+}
+
+type ValidationMode struct {
+	RequestValidation  string `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
+	ResponseValidation string `conf:"required" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
 }

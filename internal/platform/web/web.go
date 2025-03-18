@@ -25,6 +25,7 @@ const (
 	ValidationBlock   = "block"
 	ValidationLog     = "log_only"
 
+	EndpointActions        = "endpoint_actions"
 	PassRequestOPTIONS     = "proxy_request_with_options_method"
 	RequestProxyFailed     = "proxy_failed"
 	RequestProxyNoRoute    = "proxy_no_route"
@@ -82,7 +83,7 @@ func NewApp(options *AppAdditionalOptions, shutdown chan os.Signal, logger zerol
 
 // Handle is our mechanism for mounting Handlers for a given HTTP verb and path
 // pair, this makes for really easy, convenient routing.
-func (a *App) Handle(method string, path string, handler router.Handler, mw ...Middleware) error {
+func (a *App) Handle(method string, path string, actions *router.Actions, handler router.Handler, mw ...Middleware) error {
 
 	// First wrap handler specific middleware around this handler.
 	handler = WrapMiddleware(mw, handler)
@@ -107,11 +108,9 @@ func (a *App) Handle(method string, path string, handler router.Handler, mw ...M
 		return nil
 	}
 
-	// Add this handler for the specified verb and route.
-	if err := a.Router.AddEndpoint(method, path, h); err != nil {
+	if err := a.Router.AddEndpointWithActions(method, path, actions, h); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -134,7 +133,11 @@ func (a *App) MainHandler(ctx *fasthttp.RequestCtx) {
 
 	// find the handler with the OAS information
 	rctx := router.NewRouteContext()
-	handler := a.Router.Find(rctx, strconv.B2S(ctx.Method()), strconv.B2S(ctx.Request.URI().Path()))
+	handler, actions := a.Router.FindWithActions(rctx, strconv.B2S(ctx.Method()), strconv.B2S(ctx.Request.URI().Path()))
+
+	if actions != nil {
+		ctx.SetUserValue(EndpointActions, actions)
+	}
 
 	// handler not found in the OAS
 	if handler == nil {

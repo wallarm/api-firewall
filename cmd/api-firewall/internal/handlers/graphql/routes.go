@@ -92,10 +92,10 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 		graphqlPath = "/"
 	}
 
-	if err := app.Handle(fasthttp.MethodGet, graphqlPath, s.GraphQLHandle); err != nil {
+	if err := app.Handle(fasthttp.MethodGet, graphqlPath, nil, s.GraphQLHandle, nil); err != nil {
 		logger.Error().Err(err).Msg("GraphQL GET endpoint registration failed")
 	}
-	if err := app.Handle(fasthttp.MethodPost, graphqlPath, s.GraphQLHandle); err != nil {
+	if err := app.Handle(fasthttp.MethodPost, graphqlPath, nil, s.GraphQLHandle); err != nil {
 		logger.Error().Err(err).Msg("GraphQL POST endpoint registration failed")
 	}
 
@@ -115,7 +115,7 @@ func Handlers(cfg *config.GraphQLMode, schema *graphql.Schema, serverURL *url.UR
 		}
 
 		for i := range handlers {
-			if err := app.Handle(fasthttp.MethodGet, handlers[i].Path, web.NewFastHTTPHandler(handlers[i].Handler, true)); err != nil {
+			if err := app.Handle(fasthttp.MethodGet, handlers[i].Path, nil, web.NewFastHTTPHandler(handlers[i].Handler, true)); err != nil {
 				logger.Error().Err(err).Msg("GraphQL Playground endpoint registration failed")
 			}
 		}

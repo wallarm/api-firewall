@@ -112,8 +112,16 @@ type endpoint struct {
 	// pattern is the routing pattern for handler nodes
 	pattern string
 
+	// actions are response actions for requests and responses
+	actions *Actions
+
 	// parameter keys recorded on handler nodes
 	paramKeys []string
+}
+
+type Actions struct {
+	Request  string
+	Response string
 }
 
 func (s endpoints) Value(method methodTyp) *endpoint {
@@ -126,6 +134,14 @@ func (s endpoints) Value(method methodTyp) *endpoint {
 }
 
 func (n *node) InsertRoute(method methodTyp, pattern string, handler Handler) (*node, error) {
+	return n.insertRoute(method, pattern, nil, handler)
+}
+
+func (n *node) InsertRouteWithActions(method methodTyp, pattern string, actions *Actions, handler Handler) (*node, error) {
+	return n.insertRoute(method, pattern, actions, handler)
+}
+
+func (n *node) insertRoute(method methodTyp, pattern string, actions *Actions, handler Handler) (*node, error) {
 	var parent *node
 	search := pattern
 
@@ -133,7 +149,7 @@ func (n *node) InsertRoute(method methodTyp, pattern string, handler Handler) (*
 		// Handle key exhaustion
 		if len(search) == 0 {
 			// Insert or update the node's leaf handler
-			if err := n.setEndpoint(method, handler, pattern); err != nil {
+			if err := n.setEndpoint(method, actions, handler, pattern); err != nil {
 				return nil, err
 			}
 			return n, nil
@@ -170,7 +186,7 @@ func (n *node) InsertRoute(method methodTyp, pattern string, handler Handler) (*
 			if err != nil {
 				return nil, err
 			}
-			if err := hn.setEndpoint(method, handler, pattern); err != nil {
+			if err := hn.setEndpoint(method, actions, handler, pattern); err != nil {
 				return nil, err
 			}
 
@@ -216,7 +232,7 @@ func (n *node) InsertRoute(method methodTyp, pattern string, handler Handler) (*
 		// If the new key is a subset, set the method/handler on this node and finish.
 		search = search[commonPrefix:]
 		if len(search) == 0 {
-			if err := child.setEndpoint(method, handler, pattern); err != nil {
+			if err := child.setEndpoint(method, actions, handler, pattern); err != nil {
 				return nil, err
 			}
 			return child, nil
@@ -232,7 +248,7 @@ func (n *node) InsertRoute(method methodTyp, pattern string, handler Handler) (*
 		if err != nil {
 			return nil, err
 		}
-		if err := hn.setEndpoint(method, handler, pattern); err != nil {
+		if err := hn.setEndpoint(method, actions, handler, pattern); err != nil {
 			return nil, err
 		}
 		return hn, nil
@@ -361,7 +377,7 @@ func (n *node) getEdge(ntyp nodeTyp, label, tail byte, prefix string) *node {
 	return nil
 }
 
-func (n *node) setEndpoint(method methodTyp, handler Handler, pattern string) error {
+func (n *node) setEndpoint(method methodTyp, actions *Actions, handler Handler, pattern string) error {
 	// Set the handler for the method type on the node
 	if n.endpoints == nil {
 		n.endpoints = make(endpoints)
@@ -378,17 +394,20 @@ func (n *node) setEndpoint(method methodTyp, handler Handler, pattern string) er
 	if method&mALL == mALL {
 		h := n.endpoints.Value(mALL)
 		h.handler = handler
+		h.actions = actions
 		h.pattern = pattern
 		h.paramKeys = paramKeys
 		for _, m := range methodMap {
 			h := n.endpoints.Value(m)
 			h.handler = handler
+			h.actions = actions
 			h.pattern = pattern
 			h.paramKeys = paramKeys
 		}
 	} else {
 		h := n.endpoints.Value(method)
 		h.handler = handler
+		h.actions = actions
 		h.pattern = pattern
 		h.paramKeys = paramKeys
 	}
@@ -418,6 +437,31 @@ func (n *node) FindRoute(rctx *Context, method methodTyp, path string) (*node, e
 	}
 
 	return rn, rn.endpoints, rn.endpoints[method].handler
+}
+
+func (n *node) FindRouteWithActions(rctx *Context, method methodTyp, path string) (*node, Handler, *Actions) {
+	// Reset the context routing pattern and params
+	rctx.routePattern = ""
+	rctx.routeParams.Keys = rctx.routeParams.Keys[:0]
+	rctx.routeParams.Values = rctx.routeParams.Values[:0]
+
+	// Find the routing handlers for the path
+	rn := n.findRoute(rctx, method, path)
+	if rn == nil {
+		return nil, nil, nil
+	}
+
+	// Record the routing params in the request lifecycle
+	rctx.URLParams.Keys = append(rctx.URLParams.Keys, rctx.routeParams.Keys...)
+	rctx.URLParams.Values = append(rctx.URLParams.Values, rctx.routeParams.Values...)
+
+	// Record the routing pattern in the request lifecycle
+	if rn.endpoints[method].pattern != "" {
+		rctx.routePattern = rn.endpoints[method].pattern
+		rctx.RoutePatterns = append(rctx.RoutePatterns, rctx.routePattern)
+	}
+
+	return rn, rn.endpoints[method].handler, rn.endpoints[method].actions
 }
 
 // Recursive edge traversal by checking all nodeTyp groups along the way.
@@ -873,42 +917,4 @@ type Route struct {
 	SubRoutes Routes
 	Handlers  map[string]Handler
 	Pattern   string
-}
-
-// WalkFunc is the type of the function called for each method and route visited by Walk.
-type WalkFunc func(method string, route string, handler Handler, middlewares ...func(Handler) Handler) error
-
-// Walk walks any router tree that implements Routes interface.
-func Walk(r Routes, walkFn WalkFunc) error {
-	return walk(r, walkFn, "")
-}
-
-func walk(r Routes, walkFn WalkFunc, parentRoute string, parentMw ...func(Handler) Handler) error {
-	for _, route := range r.Routes() {
-		mws := make([]func(Handler) Handler, len(parentMw))
-		copy(mws, parentMw)
-
-		if route.SubRoutes != nil {
-			if err := walk(route.SubRoutes, walkFn, parentRoute+route.Pattern, mws...); err != nil {
-				return err
-			}
-			continue
-		}
-
-		for method, handler := range route.Handlers {
-			if method == "*" {
-				// Ignore a "catchAll" method, since we pass down all the specific methods for each route.
-				continue
-			}
-
-			fullRoute := parentRoute + route.Pattern
-			fullRoute = strings.Replace(fullRoute, "/*/", "/", -1)
-
-			if err := walkFn(method, fullRoute, handler, mws...); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
