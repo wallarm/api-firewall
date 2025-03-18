@@ -80,6 +80,7 @@ func Run(logger zerolog.Logger) error {
 		}
 	}
 
+	// TODO: fix logger update
 	// load yaml conf
 	viper.SetConfigName("apifw") // name of config file (without extension)
 	viper.SetConfigType("yaml")

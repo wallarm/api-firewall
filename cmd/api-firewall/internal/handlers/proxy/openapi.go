@@ -105,9 +105,17 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		isOptionsReq = false
 	}
 
+	// set Request/Response validation mode
+	var RequestValidationMode = s.cfg.RequestValidation
+	var ResponseValidationMode = s.cfg.ResponseValidation
+	if actions, ok := ctx.UserValue(web.EndpointActions).(*router.Actions); ok {
+		RequestValidationMode = actions.Request
+		ResponseValidationMode = actions.Response
+	}
+
 	// proxy request if APIFW is disabled
 	if isOptionsReq ||
-		strings.EqualFold(s.cfg.RequestValidation, web.ValidationDisable) && strings.EqualFold(s.cfg.ResponseValidation, web.ValidationDisable) {
+		strings.EqualFold(RequestValidationMode, web.ValidationDisable) && strings.EqualFold(ResponseValidationMode, web.ValidationDisable) {
 		if err := proxy.Perform(ctx, s.proxyPool, s.cfg.Server.RequestHostHeader); err != nil {
 			s.logger.Error().
 				Err(err).
@@ -125,7 +133,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 		// route for the request not found
 		ctx.SetUserValue(web.RequestProxyNoRoute, true)
 
-		if strings.EqualFold(s.cfg.RequestValidation, web.ValidationBlock) || strings.EqualFold(s.cfg.ResponseValidation, web.ValidationBlock) {
+		if strings.EqualFold(RequestValidationMode, web.ValidationBlock) || strings.EqualFold(ResponseValidationMode, web.ValidationBlock) {
 			if s.cfg.AddValidationStatusHeader {
 				vh := "request: customRoute not found"
 				return web.RespondError(ctx, s.cfg.CustomBlockStatusCode, vh)
@@ -237,7 +245,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	jsonParser := s.parserPool.Get()
 	defer s.parserPool.Put(jsonParser)
 
-	switch strings.ToLower(s.cfg.RequestValidation) {
+	switch strings.ToLower(RequestValidationMode) {
 	case web.ValidationBlock:
 		if err := validator.ValidateRequest(ctx, requestValidationInput, jsonParser); err != nil {
 
@@ -391,7 +399,7 @@ func (s *openapiWaf) openapiWafHandler(ctx *fasthttp.RequestCtx) error {
 	}
 
 	// validate response
-	switch strings.ToLower(s.cfg.ResponseValidation) {
+	switch strings.ToLower(ResponseValidationMode) {
 	case web.ValidationBlock:
 		if err := validator.ValidateResponse(ctx, responseValidationInput, jsonParser); err != nil {
 			// response has been blocked

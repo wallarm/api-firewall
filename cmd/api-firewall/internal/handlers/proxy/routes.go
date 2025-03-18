@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"crypto/rsa"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"net/url"
 	"os"
 	"strings"
@@ -185,7 +186,24 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 
 		s.logger.Debug().Msgf("handler: Loaded path %s - %s", swagRouter.Routes[i].Method, updRoutePath)
 
-		if err := app.Handle(swagRouter.Routes[i].Method, updRoutePath, s.openapiWafHandler); err != nil {
+		// set endpoint custom validation modes
+		var actions *router.Actions
+		for _, endpoint := range cfg.Endpoints {
+			if strings.EqualFold(endpoint.Path, updRoutePath) && (endpoint.Method == "" || endpoint.Method != "" && strings.EqualFold(swagRouter.Routes[i].Method, endpoint.Method)) {
+				actions = new(router.Actions)
+				actions.Request = endpoint.RequestValidation
+				actions.Response = endpoint.ResponseValidation
+
+				logger.Debug().
+					Str("method", swagRouter.Routes[i].Method).
+					Str("path", updRoutePath).
+					Str("request_validation_mode", actions.Request).
+					Str("response_validation_mode", actions.Response).
+					Msgf("handler: custom validation mode applied for %s - %s: request %s, response %s", swagRouter.Routes[i].Method, updRoutePath, actions.Request, actions.Response)
+			}
+		}
+
+		if err := app.Handle(swagRouter.Routes[i].Method, updRoutePath, actions, s.openapiWafHandler); err != nil {
 			logger.Error().Err(err).Msgf("The OAS endpoint registration failed: method %s, path %s", swagRouter.Routes[i].Method, updRoutePath)
 		}
 	}
