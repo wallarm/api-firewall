@@ -40,12 +40,12 @@ type Nameserver struct {
 
 type ProxyMode struct {
 	APIFWInit   `mapstructure:",squash"`
-	APIFWServer `mapstructure:"server"`
+	APIFWServer `mapstructure:"Server"`
 	ModSecurity
 	TLS       TLS
 	ShadowAPI ShadowAPI
 	Denylist  Denylist
-	Server    Backend `mapstructure:"backend"`
+	Server    Backend `mapstructure:"Backend"`
 	AllowIP   AllowIP
 	DNS       DNS
 	Endpoints []Endpoint

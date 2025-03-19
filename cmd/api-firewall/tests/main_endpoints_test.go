@@ -57,7 +57,7 @@ func TestEndpointConfig(t *testing.T) {
 	}
 
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
-	logger = logger.Level(zerolog.DebugLevel)
+	logger = logger.Level(zerolog.ErrorLevel)
 
 	proxy := proxyPool.NewMockPool(mockCtrl)
 	client := proxyPool.NewMockHTTPClient(mockCtrl)
