@@ -33,7 +33,7 @@ func (i *Introspection) Validate(ctx context.Context, tokenWithBearer string, sc
 		return errors.New("oauth token not found")
 	}
 
-	var meta map[string]interface{}
+	var meta map[string]any
 	var err error
 
 	metaCached := i.Cache.Get(tokenString)
@@ -44,7 +44,7 @@ func (i *Introspection) Validate(ctx context.Context, tokenWithBearer string, sc
 			return err
 		}
 	default:
-		meta = metaCached.Value().(map[string]interface{})
+		meta = metaCached.Value().(map[string]any)
 	}
 
 	scopeString, ok := meta["scope"].(string)
@@ -72,7 +72,7 @@ func (i *Introspection) Validate(ctx context.Context, tokenWithBearer string, sc
 	return nil
 }
 
-func (i *Introspection) getTokenMetaInfo(token string) (map[string]interface{}, error) {
+func (i *Introspection) getTokenMetaInfo(token string) (map[string]any, error) {
 
 	req := fasthttp.AcquireRequest()
 	req.Header.SetMethod(i.Cfg.Introspection.EndpointMethod)
@@ -128,7 +128,7 @@ func (i *Introspection) getTokenMetaInfo(token string) (map[string]interface{}, 
 
 	body := res.Body()
 
-	var tokenStatus map[string]interface{}
+	var tokenStatus map[string]any
 	if err := json.Unmarshal(body, &tokenStatus); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal extension properties: %v (%s)", err, body)
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func encodeBody(body interface{}, mediaType string) ([]byte, error) {
+func encodeBody(body any, mediaType string) ([]byte, error) {
 	encoder, ok := bodyEncoders[mediaType]
 	if !ok {
 		return nil, &ParseError{
@@ -16,7 +16,7 @@ func encodeBody(body interface{}, mediaType string) ([]byte, error) {
 	return encoder(body)
 }
 
-type BodyEncoder func(body interface{}) ([]byte, error)
+type BodyEncoder func(body any) ([]byte, error)
 
 var bodyEncoders = map[string]BodyEncoder{
 	"application/json": json.Marshal,

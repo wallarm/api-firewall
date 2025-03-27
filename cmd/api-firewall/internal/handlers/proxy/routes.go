@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/corazawaf/coraza/v3"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/karlseguin/ccache/v2"
 	"github.com/sirupsen/logrus"

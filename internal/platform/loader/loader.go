@@ -34,11 +34,11 @@ func ParseOAS(schema []byte, SchemaVersion string, schemaID int) (*openapi3.T, e
 	loader := openapi3.NewLoader()
 	parsedSpec, err := loader.LoadFromData(schema)
 	if err != nil {
-		return nil, fmt.Errorf("%w: schema version %s, schema ID %d: %w", ErrOASParsing, SchemaVersion, schemaID, err)
+		return nil, fmt.Errorf("%w: schema version '%s', schema ID %d: %w", ErrOASParsing, SchemaVersion, schemaID, err)
 	}
 
 	if err := validateOAS(parsedSpec); err != nil {
-		return nil, fmt.Errorf("%w: schema version %s, schema ID %d: %w: ", ErrOASValidation, SchemaVersion, schemaID, err)
+		return nil, fmt.Errorf("%w: schema version '%s', schema ID %d: %w: ", ErrOASValidation, SchemaVersion, schemaID, err)
 	}
 
 	return parsedSpec, nil

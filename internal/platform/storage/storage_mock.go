@@ -134,10 +134,10 @@ func (mr *MockDBOpenAPILoaderMockRecorder) Specification(schemaID interface{}) *
 }
 
 // SpecificationRaw mocks base method.
-func (m *MockDBOpenAPILoader) SpecificationRaw(schemaID int) interface{} {
+func (m *MockDBOpenAPILoader) SpecificationRaw(schemaID int) any {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SpecificationRaw", schemaID)
-	ret0, _ := ret[0].(interface{})
+	ret0, _ := ret[0].(any)
 	return ret0
 }
 

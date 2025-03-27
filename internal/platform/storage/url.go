@@ -115,7 +115,7 @@ func (u *URL) Specification(_ int) *openapi3.T {
 	return u.OpenAPISpec
 }
 
-func (u *URL) SpecificationRaw(_ int) interface{} {
+func (u *URL) SpecificationRaw(_ int) any {
 	u.lock.RLock()
 	defer u.lock.RUnlock()
 

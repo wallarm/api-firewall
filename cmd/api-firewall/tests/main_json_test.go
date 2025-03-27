@@ -142,7 +142,7 @@ func (s *ServiceTests) testBasicObjJSONFieldValidation(t *testing.T) {
 	handler := proxyHandler.Handlers(s.lock, &apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
 	// basic object check
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"valueNum":           10.1,
 		"valueInt":           10,
 		"valueStr":           "testStringValue",
@@ -188,7 +188,7 @@ func (s *ServiceTests) testBasicArrJSONFieldValidation(t *testing.T) {
 
 	handler := proxyHandler.Handlers(s.lock, &apifwCfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal([]map[string]interface{}{{
+	p, err := json.Marshal([]map[string]any{{
 		"valueNum":           10.1,
 		"valueInt":           10,
 		"valueStr":           "testStringValue",
@@ -249,12 +249,12 @@ func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 	// negative tests
 	negativeTests := []struct {
 		name        string
-		requestBody map[string]interface{}
+		requestBody map[string]any
 	}{
 		// request with invalid valueNum
 		{
 			name: "invalid_value_num",
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"valueNum":           "wrongType",
 				"valueInt":           10,
 				"valueStr":           "testStringValue",
@@ -268,7 +268,7 @@ func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 		// request with invalid valueInt
 		{
 			name: "invalid_value_int",
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"valueNum":           10.1,
 				"valueInt":           10.1,
 				"valueStr":           "testStringValue",
@@ -282,7 +282,7 @@ func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 		// request with invalid valueStr
 		{
 			name: "invalid_value_str",
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"valueNum":           10.1,
 				"valueInt":           10,
 				"valueStr":           10,
@@ -296,7 +296,7 @@ func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 		// request with invalid valueBool
 		{
 			name: "invalid_value_bool",
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"valueNum":           10.1,
 				"valueInt":           10,
 				"valueStr":           "testStringValue",
@@ -310,7 +310,7 @@ func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 		// request with invalid valueNumMultipleOf
 		{
 			name: "invalid_value_num_multiple_of",
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"valueNum":           10.1,
 				"valueInt":           10,
 				"valueStr":           "testStringValue",
@@ -324,7 +324,7 @@ func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 		// request with invalid valueIntMinMax
 		{
 			name: "invalid_value_int_min_max",
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"valueNum":           10.1,
 				"valueInt":           10,
 				"valueStr":           "testStringValue",
@@ -338,7 +338,7 @@ func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 		// request with invalid valueStringMinMax
 		{
 			name: "invalid_value_string_min_max",
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"valueNum":           10.1,
 				"valueInt":           10,
 				"valueStr":           "testStringValue",
@@ -352,7 +352,7 @@ func (s *ServiceTests) testNegativeJSONFieldValidation(t *testing.T) {
 		// request with invalid ValueStringEnum
 		{
 			name: "invalid_value_string_enum",
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"valueNum":           10.1,
 				"valueInt":           10,
 				"valueStr":           "testStringValue",

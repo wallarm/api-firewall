@@ -2,6 +2,11 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.8.9 (2025-03-28)
+
+* Dependency upgrade
+* Update the Go version up to v1.23.7
+
 ## v0.8.8 (2025-02-27)
 
 * Dependency upgrade

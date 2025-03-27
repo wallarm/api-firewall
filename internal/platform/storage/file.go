@@ -93,7 +93,7 @@ func (s *File) Specification(_ int) *openapi3.T {
 	return s.OpenAPISpec
 }
 
-func (s *File) SpecificationRaw(_ int) interface{} {
+func (s *File) SpecificationRaw(_ int) any {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 

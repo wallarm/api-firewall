@@ -211,7 +211,7 @@ func (s *ServiceGraphQLTests) testGQLSuccess(t *testing.T) {
     }
 }
 	`
-	var requestBody = map[string]interface{}{
+	var requestBody = map[string]any{
 		"query": query,
 	}
 
@@ -308,7 +308,7 @@ func (s *ServiceGraphQLTests) testGQLEndpointNotExists(t *testing.T) {
     }
 }
 	`
-	var requestBody = map[string]interface{}{
+	var requestBody = map[string]any{
 		"query": query,
 	}
 
@@ -566,7 +566,7 @@ func (s *ServiceGraphQLTests) testGQLValidationFailed(t *testing.T) {
     }
 }
 	`
-	var requestBody = map[string]interface{}{
+	var requestBody = map[string]any{
 		"query": query,
 	}
 
@@ -655,7 +655,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidQuerySyntax(t *testing.T) {
     }
 };
 	`
-	var requestBody = map[string]interface{}{
+	var requestBody = map[string]any{
 		"query": query,
 	}
 
@@ -743,7 +743,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxComplexity(t *testing.T) {
     }
 }
 	`
-	var requestBody = map[string]interface{}{
+	var requestBody = map[string]any{
 		"query": query,
 	}
 
@@ -831,7 +831,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidMaxDepth(t *testing.T) {
     }
 }
 	`
-	var requestBody = map[string]interface{}{
+	var requestBody = map[string]any{
 		"query": query,
 	}
 
@@ -920,7 +920,7 @@ func (s *ServiceGraphQLTests) testGQLInvalidNodeLimit(t *testing.T) {
 }
 	`
 
-	var requestBody = map[string]interface{}{
+	var requestBody = map[string]any{
 		"query": query,
 	}
 
@@ -1096,7 +1096,7 @@ func (s *ServiceGraphQLTests) testGQLDenylistBlock(t *testing.T) {
     }
 }
 	`
-	var requestBody = map[string]interface{}{
+	var requestBody = map[string]any{
 		"query": query,
 	}
 
@@ -1644,7 +1644,7 @@ func (s *ServiceGraphQLTests) testGQLMaxAliasesNum(t *testing.T) {
     }
 }
 	`
-	var requestBody = map[string]interface{}{
+	var requestBody = map[string]any{
 		"query": query,
 	}
 
@@ -1744,7 +1744,7 @@ func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
     }
 }
 	`
-	var requestBody = map[string]interface{}{
+	var requestBody = map[string]any{
 		"query": query,
 	}
 
@@ -1825,7 +1825,7 @@ func (s *ServiceGraphQLTests) testGQLDuplicateFields(t *testing.T) {
 }
 	`
 
-	requestBody = map[string]interface{}{
+	requestBody = map[string]any{
 		"query": query,
 	}
 

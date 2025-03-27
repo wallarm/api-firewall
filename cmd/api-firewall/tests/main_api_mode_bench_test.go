@@ -37,7 +37,7 @@ func BenchmarkAPIModeBasic(b *testing.B) {
 
 	handler := handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
