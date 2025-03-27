@@ -80,14 +80,13 @@ func Run(logger zerolog.Logger) error {
 		}
 	}
 
-	// TODO: fix logger update
-	// load yaml conf
+	// load apifw.yaml configuration file
 	viper.SetConfigName("apifw") // name of config file (without extension)
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".") // optionally look for config in the working directory
 
-	err := viper.ReadInConfig() // Find and read the config file
-	if err != nil {             // Handle errors reading the config file
+	err := viper.ReadInConfig()
+	if err != nil { // Handle errors reading the config file
 		log.Debug().Msgf("%s: yaml config file reading error: %v", logPrefix, err)
 	}
 

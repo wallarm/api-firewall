@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"crypto/rsa"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 	"net/url"
 	"os"
 	"strings"
@@ -23,6 +22,7 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
