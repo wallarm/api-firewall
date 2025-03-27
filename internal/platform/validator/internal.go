@@ -40,16 +40,16 @@ func isNilValue(value any) bool {
 	return false
 }
 
-func convertToMap(v *fastjson.Value) interface{} {
+func convertToMap(v *fastjson.Value) any {
 	switch v.Type() {
 	case fastjson.TypeObject:
-		m := make(map[string]interface{})
+		m := make(map[string]any)
 		v.GetObject().Visit(func(k []byte, v *fastjson.Value) {
 			m[string(k)] = convertToMap(v)
 		})
 		return m
 	case fastjson.TypeArray:
-		var a []interface{}
+		var a []any
 		for _, v := range v.GetArray() {
 			a = append(a, convertToMap(v))
 		}

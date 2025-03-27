@@ -76,7 +76,7 @@ func GetDecompressedRequestBody(req *fasthttp.Request, contentEncoding string) (
 }
 
 // Respond converts a Go value to JSON and sends it to the client.
-func Respond(ctx *fasthttp.RequestCtx, data interface{}, statusCode int) error {
+func Respond(ctx *fasthttp.RequestCtx, data any, statusCode int) error {
 	// If there is nothing to marshal then set status code and return.
 	if statusCode == http.StatusNoContent {
 		ctx.SetStatusCode(statusCode)

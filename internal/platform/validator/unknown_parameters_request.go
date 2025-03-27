@@ -178,7 +178,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 		}
 	case mType == "application/x-www-form-urlencoded":
 		// required params in paramList
-		paramList, ok := value.(map[string]interface{})
+		paramList, ok := value.(map[string]any)
 		if !ok {
 			return foundUnknownParams, ErrDecodingFailed
 		}
@@ -193,7 +193,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 			}
 		})
 	case mType == "application/json" || mType == "multipart/form-data" || suffix == "+json":
-		paramList, ok := value.(map[string]interface{})
+		paramList, ok := value.(map[string]any)
 		if !ok {
 			return foundUnknownParams, ErrDecodingFailed
 		}
@@ -213,7 +213,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 			propKeys = append(propKeys, strings.ToLower(key))
 		}
 
-		paramList, ok := value.(map[string]interface{})
+		paramList, ok := value.(map[string]any)
 		if !ok {
 			return foundUnknownParams, ErrDecodingFailed
 		}
@@ -221,7 +221,7 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 		switch len(paramList) {
 		case 1:
 			for _, paramValue := range paramList {
-				params, ok := paramValue.(map[string]interface{})
+				params, ok := paramValue.(map[string]any)
 				if !ok {
 					continue
 				}

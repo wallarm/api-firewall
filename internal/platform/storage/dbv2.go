@@ -138,7 +138,7 @@ func (s *SQLLiteV2) Specification(schemaID int) *openapi3.T {
 	return spec
 }
 
-func (s *SQLLiteV2) SpecificationRaw(schemaID int) interface{} {
+func (s *SQLLiteV2) SpecificationRaw(schemaID int) any {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 

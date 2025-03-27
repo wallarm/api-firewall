@@ -548,7 +548,7 @@ func (s *ServiceTests) testCustomBlockStatusCode(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -622,7 +622,7 @@ func (s *ServiceTests) testPathNotExists(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -745,7 +745,7 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -784,7 +784,7 @@ func (s *ServiceTests) testBlockMode(t *testing.T) {
 	}
 
 	// Repeat request with invalid email
-	reqInvalidEmail, err := json.Marshal(map[string]interface{}{
+	reqInvalidEmail, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -835,7 +835,7 @@ func (s *ServiceTests) testDenylist(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, deniedTokens, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -914,7 +914,7 @@ func (s *ServiceTests) testAllowlist(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, allowedIPs, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1012,7 +1012,7 @@ func (s *ServiceTests) testAllowlistXForwardedFor(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, allowedIPs, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1128,7 +1128,7 @@ func (s *ServiceTests) testShadowAPI(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1181,7 +1181,7 @@ func (s *ServiceTests) testLogOnlyMode(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1235,7 +1235,7 @@ func (s *ServiceTests) testDisableMode(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"email": "wallarm.com",
 		"url":   "http://wallarm.com",
 	})
@@ -1286,7 +1286,7 @@ func (s *ServiceTests) testBlockLogOnlyMode(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1338,7 +1338,7 @@ func (s *ServiceTests) testLogOnlyBlockMode(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -2137,7 +2137,7 @@ func (s *ServiceTests) testRequestBodyCompression(t *testing.T) {
 
 	for _, encSchema := range testSupportedEncodingSchemas {
 
-		p, err = json.Marshal(map[string]interface{}{
+		p, err = json.Marshal(map[string]any{
 			"firstname": "test",
 			"lastname":  "test",
 			"job":       "test",
@@ -2180,7 +2180,7 @@ func (s *ServiceTests) testRequestBodyCompression(t *testing.T) {
 
 		// Repeat request with wrong JSON in request
 
-		p, err = json.Marshal(map[string]interface{}{
+		p, err = json.Marshal(map[string]any{
 			"firstname": "test",
 			"lastname":  "test",
 			"job":       "test",
@@ -2230,7 +2230,7 @@ func (s *ServiceTests) testResponseBodyCompression(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -2620,7 +2620,7 @@ func (s *ServiceTests) unknownParamJSONParam(t *testing.T) {
 
 	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -2658,7 +2658,7 @@ func (s *ServiceTests) unknownParamJSONParam(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
-	p, err = json.Marshal(map[string]interface{}{
+	p, err = json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",

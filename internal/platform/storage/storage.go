@@ -13,7 +13,7 @@ import (
 type DBOpenAPILoader interface {
 	Load(dbStoragePath string) (bool, error)
 	AfterLoad(dbStoragePath string) error
-	SpecificationRaw(schemaID int) interface{}
+	SpecificationRaw(schemaID int) any
 	SpecificationRawContent(schemaID int) []byte
 	SpecificationVersion(schemaID int) string
 	Specification(schemaID int) *openapi3.T

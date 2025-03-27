@@ -745,7 +745,7 @@ func (s *APIModeServiceTests) testAPIModeSuccess(t *testing.T) {
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -777,7 +777,7 @@ func (s *APIModeServiceTests) testAPIModeSuccess(t *testing.T) {
 	checkResponseOkStatusCode(t, &reqCtx, DefaultSchemaID)
 
 	// Repeat request with invalid email
-	reqInvalidEmail, err := json.Marshal(map[string]interface{}{
+	reqInvalidEmail, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -808,7 +808,7 @@ func (s *APIModeServiceTests) testAPIModeMissedMultipleReqParams(t *testing.T) {
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -840,7 +840,7 @@ func (s *APIModeServiceTests) testAPIModeMissedMultipleReqParams(t *testing.T) {
 	checkResponseOkStatusCode(t, &reqCtx, DefaultSchemaID)
 
 	// Repeat request with invalid email
-	reqInvalidEmail, err := json.Marshal(map[string]interface{}{
+	reqInvalidEmail, err := json.Marshal(map[string]any{
 		"email": "test@wallarm.com",
 	})
 
@@ -850,7 +850,7 @@ func (s *APIModeServiceTests) testAPIModeMissedMultipleReqParams(t *testing.T) {
 
 	req.SetBodyStream(bytes.NewReader(reqInvalidEmail), -1)
 
-	missedParams := map[string]interface{}{
+	missedParams := map[string]any{
 		"firstname": struct{}{},
 		"lastname":  struct{}{},
 	}
@@ -1008,7 +1008,7 @@ func (s *APIModeServiceTests) testAPIModeOneSchemeMultipleIDs(t *testing.T) {
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
 	// one schema
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1092,7 +1092,7 @@ func (s *APIModeServiceTests) testAPIModeTwoDifferentSchemesMultipleIDs(t *testi
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
 	// one schema
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1122,7 +1122,7 @@ func (s *APIModeServiceTests) testAPIModeTwoDifferentSchemesMultipleIDs(t *testi
 
 	req.Header.Set(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", SecondSchemaID))
 
-	p, err = json.Marshal(map[string]interface{}{
+	p, err = json.Marshal(map[string]any{
 		"email": "test@wallarm.com",
 	})
 
@@ -1198,7 +1198,7 @@ func (s *APIModeServiceTests) testAPIModeTwoSchemesMultipleIDs(t *testing.T) {
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1247,7 +1247,7 @@ func (s *APIModeServiceTests) testAPIModeTwoSchemesMultipleIDs(t *testing.T) {
 	}
 
 	// Repeat request with invalid email
-	reqInvalidEmail, err := json.Marshal(map[string]interface{}{
+	reqInvalidEmail, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1330,7 +1330,7 @@ func (s *APIModeServiceTests) testAPIModeInvalidCTParseError(t *testing.T) {
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1366,7 +1366,7 @@ func (s *APIModeServiceTests) testAPIModeCTNotInSpec(t *testing.T) {
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1426,7 +1426,7 @@ func (s *APIModeServiceTests) testAPIModeNoXWallarmSchemaIDHeader(t *testing.T) 
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1528,7 +1528,7 @@ func (s *APIModeServiceTests) testAPIModeMethodAndPathNotFound(t *testing.T) {
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -1731,7 +1731,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyMissed(t *testing.T) {
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"status":  uuid.New().String(),
 		"testInt": 50,
 		"error":   "test",
@@ -1782,7 +1782,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterMissed(t *testing.
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"status":  uuid.New().String(),
 		"testInt": 50,
 		"error":   "test",
@@ -1812,7 +1812,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterMissed(t *testing.
 	checkResponseOkStatusCode(t, &reqCtx, DefaultSchemaID)
 
 	// body without required parameter
-	p, err = json.Marshal(map[string]interface{}{
+	p, err = json.Marshal(map[string]any{
 		"error": "test",
 	})
 
@@ -2003,7 +2003,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"status":  uuid.New().String(),
 		"testInt": 50,
 		"error":   "test",
@@ -2033,7 +2033,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 	checkResponseOkStatusCode(t, &reqCtx, DefaultSchemaID)
 
 	// body without required parameter
-	p, err = json.Marshal(map[string]interface{}{
+	p, err = json.Marshal(map[string]any{
 		"status":  "invalid_test_value",
 		"testInt": 50,
 		"error":   "test",
@@ -2063,7 +2063,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParameterInvalidValue})
 
 	// body with parameter which has invalid type
-	p, err = json.Marshal(map[string]interface{}{
+	p, err = json.Marshal(map[string]any{
 		"status":  uuid.New().String(),
 		"testInt": "invalid_type_str",
 		"error":   "test",
@@ -2093,7 +2093,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParameterInvalidValue})
 
 	// body with required parameter that has value less than minimum threshold
-	p, err = json.Marshal(map[string]interface{}{
+	p, err = json.Marshal(map[string]any{
 		"status":  uuid.New().String(),
 		"testInt": 1,
 		"error":   "test",
@@ -2123,7 +2123,7 @@ func (s *APIModeServiceTests) testAPIModeRequiredBodyParameterInvalidValue(t *te
 	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredBodyParameterInvalidValue})
 
 	// body with required parameter that has value more than maximum threshold
-	p, err = json.Marshal(map[string]interface{}{
+	p, err = json.Marshal(map[string]any{
 		"status":  uuid.New().String(),
 		"testInt": 1000,
 		"error":   "test",
@@ -2365,7 +2365,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyJSON(t *testing.T) 
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname":     "test",
 		"lastname":      "test",
 		"job":           "test",
@@ -2399,7 +2399,7 @@ func (s *APIModeServiceTests) testAPIModeUnknownParameterBodyJSON(t *testing.T) 
 	// check response status code and response body
 	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeUnknownParameterFound})
 
-	p, err = json.Marshal(map[string]interface{}{
+	p, err = json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -2690,7 +2690,7 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequest(t *testing.T) {
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
@@ -2746,7 +2746,7 @@ func (s *APIModeServiceTests) testAPIModeInvalidRouteInRequestInMultipleSchemas(
 
 	handler := handlersAPI.Handlers(s.lock, &cfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
 
-	p, err := json.Marshal(map[string]interface{}{
+	p, err := json.Marshal(map[string]any{
 		"firstname": "test",
 		"lastname":  "test",
 		"job":       "test",
