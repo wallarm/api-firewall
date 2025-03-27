@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/wallarm/api-firewall/internal/config"
@@ -25,7 +25,7 @@ func (j *JWT) Validate(ctx context.Context, tokenWithBearer string, scopes []str
 
 	type MyCustomClaims struct {
 		Scope string `json:"scope"`
-		jwt.StandardClaims
+		jwt.RegisteredClaims
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &MyCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
@@ -52,7 +52,7 @@ func (j *JWT) Validate(ctx context.Context, tokenWithBearer string, scopes []str
 
 	claims, ok := token.Claims.(*MyCustomClaims)
 	if ok && token.Valid {
-		j.Logger.Debugf("%v %v", claims.Scope, claims.StandardClaims.ExpiresAt)
+		j.Logger.Debugf("%v %v", claims.Scope, claims.RegisteredClaims.ExpiresAt)
 	} else {
 		return errors.New("oauth2 token invalid")
 	}
