@@ -140,12 +140,22 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 		Logger:                logger,
 	}
 
+	// Use ModSecurity-specific validation settings if defined, otherwise fall back to global settings
+	modSecRequestValidation := cfg.ModSecurity.RequestValidation
+	if modSecRequestValidation == "" {
+		modSecRequestValidation = cfg.RequestValidation
+	}
+	modSecResponseValidation := cfg.ModSecurity.ResponseValidation
+	if modSecResponseValidation == "" {
+		modSecResponseValidation = cfg.ResponseValidation
+	}
+
 	modSecOptions := mid.ModSecurityOptions{
 		Mode:                  web.ProxyMode,
 		WAF:                   waf,
 		Logger:                logger,
-		RequestValidation:     cfg.RequestValidation,
-		ResponseValidation:    cfg.ResponseValidation,
+		RequestValidation:     modSecRequestValidation,
+		ResponseValidation:    modSecResponseValidation,
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
 	}
 

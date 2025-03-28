@@ -11,8 +11,10 @@ import (
 )
 
 type ModSecurity struct {
-	ConfFiles []string `conf:"env:MODSEC_CONF_FILES"`
-	RulesDir  string   `conf:"env:MODSEC_RULES_DIR"`
+	ConfFiles          []string `conf:"env:MODSEC_CONF_FILES"`
+	RulesDir           string   `conf:"env:MODSEC_RULES_DIR"`
+	RequestValidation  string   `conf:"env:MODSEC_REQUEST_VALIDATION validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
+	ResponseValidation string   `conf:"env:MODSEC_RESPONSE_VALIDATION" validate:"required,oneof=DISABLE BLOCK LOG_ONLY"`
 }
 
 func LoadModSecurityConfiguration(cfg *ModSecurity, logger zerolog.Logger) (coraza.WAF, error) {
