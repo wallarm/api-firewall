@@ -9,7 +9,7 @@ jobs:
     name: Draft release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       -
@@ -47,7 +47,7 @@ jobs:
 
   build-x86:
     name: Build ${{ matrix.artifact }} binary
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - draft-release
     env:
@@ -64,14 +64,14 @@ jobs:
             distro: debian
             artifact: 386-libc
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       -
         name: Extract tag name
         run: echo "X_TAG=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
       -
         uses: addnab/docker-run-action@v3
         with:
-          image: debian:bullseye
+          image: debian:bookworm
           options: >
             --volume ${{ github.workspace }}:/build
             --workdir /build
@@ -158,7 +158,7 @@ jobs:
 
   build-x86-alpine:
     name: Build ${{ matrix.artifact }} binary
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - draft-release
     env:
@@ -174,7 +174,7 @@ jobs:
             distro: alpine
             artifact: 386-musl
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       -
         name: Extract tag name
         run: echo "X_TAG=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
@@ -262,7 +262,7 @@ jobs:
 
   build-arm:
     name: Build ${{ matrix.artifact }} binary
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - draft-release
     env:
@@ -271,11 +271,11 @@ jobs:
       matrix:
         include:
           - arch: armv6
-            distro: bullseye
+            distro: bookworm
             go_distribution: https://go.dev/dl/go1.23.7.linux-armv6l.tar.gz
             artifact: armv6-libc
           - arch: aarch64
-            distro: bullseye
+            distro: bookworm
             go_distribution: https://go.dev/dl/go1.23.7.linux-arm64.tar.gz
             artifact: arm64-libc
           - arch: armv6
@@ -287,12 +287,12 @@ jobs:
             go_distribution: https://go.dev/dl/go1.23.7.linux-arm64.tar.gz
             artifact: arm64-musl
     steps:
-      - uses: actions/checkout@v2.1.0
+      - uses: actions/checkout@v4
       -
         name: Extract tag name
         run: echo "X_TAG=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
       -
-        uses: uraimo/run-on-arch-action@v2
+        uses: uraimo/run-on-arch-action@v3
         name: Build artifact
         id: build
         with:
@@ -308,7 +308,7 @@ jobs:
             set -e
 
             case "${{ matrix.distro }}" in
-              bullseye)
+              bookworm)
                 apt-get update -y                            && \
                 apt-get install --no-install-recommends -y      \
                     binutils                                    \
@@ -401,14 +401,14 @@ jobs:
 
   commit-release:
     name: Commit release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - draft-release
       - build-x86
       - build-x86-alpine
       - build-arm
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       -
         uses: eregon/publish-release@v1
         env:
