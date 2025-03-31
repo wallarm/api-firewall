@@ -10,6 +10,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type ModSecurity struct {
+	ConfFiles []string `conf:"env:MODSEC_CONF_FILES"`
+	RulesDir  string   `conf:"env:MODSEC_RULES_DIR"`
+}
+
 func LoadModSecurityConfiguration(cfg *ModSecurity, logger zerolog.Logger) (coraza.WAF, error) {
 
 	logErr := func(error types.MatchedRule) {
