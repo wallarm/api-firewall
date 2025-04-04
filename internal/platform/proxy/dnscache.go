@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -30,7 +30,7 @@ type Resolver struct {
 	lookupTimeout  time.Duration
 	useCache       bool
 
-	logger *logrus.Logger
+	logger zerolog.Logger
 
 	lock   sync.RWMutex
 	cache  map[string][]net.IPAddr
@@ -39,7 +39,7 @@ type Resolver struct {
 
 type DNSCacheOptions struct {
 	UseCache      bool
-	Logger        *logrus.Logger
+	Logger        zerolog.Logger
 	FetchTimeout  time.Duration
 	LookupTimeout time.Duration
 }
@@ -155,10 +155,7 @@ func (r *Resolver) Refresh() {
 	for _, addr := range addrs {
 		ctx, cancelF := context.WithTimeout(context.Background(), r.lookupTimeout)
 		if _, err := r.lookupIPAddrAndCache(ctx, addr); err != nil {
-			r.logger.WithFields(logrus.Fields{
-				"error": err,
-				"addr":  addr,
-			}).Error("failed to refresh DNS cache")
+			r.logger.Error().Err(err).Str("addr", addr).Msg("failed to refresh DNS cache")
 		}
 		cancelF()
 	}

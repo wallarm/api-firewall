@@ -1,13 +1,14 @@
 package api
 
 import (
+	"github.com/rs/zerolog"
 	"net/url"
 	"os"
 	"runtime/debug"
 	"sync"
 
 	"github.com/corazawaf/coraza/v3"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
 
@@ -19,15 +20,15 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, logger *logrus.Logger, storedSpecs storage.DBOpenAPILoader, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
+func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, logger zerolog.Logger, storedSpecs storage.DBOpenAPILoader, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
 
 	// handle panic
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf("panic: %v", r)
+			log.Error().Msgf("panic: %v", r)
 
 			// Log the Go stack trace for this panic'd goroutine.
-			logger.Debugf("%s", debug.Stack())
+			log.Debug().Msgf("%s", debug.Stack())
 			return
 		}
 	}()
@@ -61,13 +62,13 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		if servers != nil {
 			var err error
 			if serverURLStr, err = servers.BasePath(); err != nil {
-				logger.Errorf("getting server URL from OpenAPI specification: %v", err)
+				log.Error().Msgf("getting server URL from OpenAPI specification: %v", err)
 			}
 		}
 
 		serverURL, err := url.Parse(serverURLStr)
 		if err != nil {
-			logger.Errorf("parsing server URL from OpenAPI specification: %v", err)
+			log.Error().Msgf("parsing server URL from OpenAPI specification: %v", err)
 		}
 
 		if serverURL.Path == "" {
@@ -77,14 +78,13 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		// get new router
 		newSwagRouter, err := loader.NewRouterDBLoader(storedSpecs.SpecificationVersion(schemaID), storedSpecs.Specification(schemaID))
 		if err != nil {
-			logger.WithFields(logrus.Fields{"error": err}).Error("New router creation failed")
+			log.Fatal().Err(err).Msg("new router creation failed")
 		}
 
 		for i := 0; i < len(newSwagRouter.Routes); i++ {
 
 			s := RequestValidator{
 				CustomRoute:   &newSwagRouter.Routes[i],
-				Log:           logger,
 				Cfg:           cfg,
 				ParserPool:    &parserPool,
 				OpenAPIRouter: newSwagRouter,
@@ -92,20 +92,22 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 			}
 			updRoutePathEsc, err := url.JoinPath(serverURL.Path, newSwagRouter.Routes[i].Path)
 			if err != nil {
-				s.Log.Errorf("url parse error: Schema ID %d: OpenAPI version %s: Loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
+				log.Error().Msgf("url parse error: Schema ID %d: openAPI version %s: loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
 				continue
 			}
 
 			updRoutePath, err := url.PathUnescape(updRoutePathEsc)
 			if err != nil {
-				s.Log.Errorf("url unescape error: Schema ID %d: OpenAPI version %s: Loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
+				log.Error().Msgf("url unescape error: schema ID %d: openAPI version %s: loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
 				continue
 			}
 
-			s.Log.Debugf("handler: Schema ID %d: OpenAPI version %s: Loaded path %s - %s", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Method, updRoutePath)
+			log.Debug().Msgf("handler: schema ID %d: openAPI version %s: loaded path %s - %s", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Method, updRoutePath)
 
 			if err := apps.Handle(schemaID, newSwagRouter.Routes[i].Method, updRoutePath, s.Handler); err != nil {
-				logger.WithFields(logrus.Fields{"error": err, "schema_id": schemaID}).Errorf("The OAS endpoint registration failed: method %s, path %s", newSwagRouter.Routes[i].Method, updRoutePath)
+				log.Error().Err(err).
+					Int("schema_id", schemaID).
+					Msgf("the OAS endpoint registration failed: method %s, path %s", newSwagRouter.Routes[i].Method, updRoutePath)
 			}
 		}
 

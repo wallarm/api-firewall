@@ -7,23 +7,28 @@ import (
 
 	"github.com/corazawaf/coraza/v3"
 	"github.com/corazawaf/coraza/v3/types"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
-func LoadModSecurityConfiguration(logger *logrus.Logger, cfg *ModSecurity) (coraza.WAF, error) {
+type ModSecurity struct {
+	ConfFiles []string `conf:"env:MODSEC_CONF_FILES"`
+	RulesDir  string   `conf:"env:MODSEC_RULES_DIR"`
+}
+
+func LoadModSecurityConfiguration(cfg *ModSecurity, logger zerolog.Logger) (coraza.WAF, error) {
 
 	logErr := func(error types.MatchedRule) {
-		logger.WithFields(logrus.Fields{
-			"tags":     error.Rule().Tags(),
-			"version":  error.Rule().Version(),
-			"severity": error.Rule().Severity(),
-			"rule_id":  error.Rule().ID(),
-			"file":     error.Rule().File(),
-			"line":     error.Rule().Line(),
-			"maturity": error.Rule().Maturity(),
-			"accuracy": error.Rule().Accuracy(),
-			"uri":      error.URI(),
-		}).Error(error.Message())
+		logger.Error().
+			Strs("tags", error.Rule().Tags()).
+			Str("version", error.Rule().Version()).
+			Str("severity", error.Rule().Severity().String()).
+			Int("rule_id", error.Rule().ID()).
+			Str("file", error.Rule().File()).
+			Int("line", error.Rule().Line()).
+			Int("maturity", error.Rule().Maturity()).
+			Int("accuracy", error.Rule().Accuracy()).
+			Str("uri", error.URI()).
+			Msg(error.Message())
 	}
 
 	var waf coraza.WAF

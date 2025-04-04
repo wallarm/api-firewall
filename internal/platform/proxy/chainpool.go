@@ -10,13 +10,13 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/rs/zerolog"
 	"net"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 
 	"github.com/wallarm/api-firewall/internal/config"
@@ -132,7 +132,7 @@ type Options struct {
 	WriteBufferSize     int
 	MaxResponseBodySize int
 
-	Logger *logrus.Logger
+	Logger zerolog.Logger
 
 	DNSResolver DNSCache
 }

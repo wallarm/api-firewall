@@ -4,8 +4,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
+
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/denylist"
 	"github.com/wallarm/api-firewall/internal/platform/router"
@@ -17,7 +18,7 @@ type DenylistOptions struct {
 	Config                *config.Denylist
 	CustomBlockStatusCode int
 	DeniedTokens          *denylist.DeniedTokens
-	Logger                *logrus.Logger
+	Logger                zerolog.Logger
 }
 
 var errAccessDenied = errors.New("access denied")
@@ -36,13 +37,14 @@ func Denylist(options *DenylistOptions) web.Middleware {
 				if options.Config.Tokens.CookieName != "" {
 					token := string(ctx.Request.Header.Cookie(options.Config.Tokens.CookieName))
 					if _, found := options.DeniedTokens.Cache.Get(token); found {
-						options.Logger.WithFields(logrus.Fields{
-							"request_id": ctx.UserValue(web.RequestID),
-							"host":       string(ctx.Request.Header.Host()),
-							"path":       string(ctx.Path()),
-							"method":     string(ctx.Request.Header.Method()),
-							"token":      token,
-						}).Info("The request with the API token has been blocked")
+						options.Logger.Info().
+							Interface("request_id", ctx.UserValue(web.RequestID)).
+							Bytes("host", ctx.Request.Header.Host()).
+							Bytes("path", ctx.Path()).
+							Bytes("method", ctx.Request.Header.Method()).
+							Str("token", token).
+							Msg("The request with the API token has been blocked")
+
 						if strings.EqualFold(options.Mode, web.GraphQLMode) {
 							ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
 							return web.RespondGraphQLErrors(&ctx.Response, errAccessDenied)
@@ -56,13 +58,15 @@ func Denylist(options *DenylistOptions) web.Middleware {
 						token = strings.TrimPrefix(token, "Bearer ")
 					}
 					if _, found := options.DeniedTokens.Cache.Get(token); found {
-						options.Logger.WithFields(logrus.Fields{
-							"request_id": ctx.UserValue(web.RequestID),
-							"host":       string(ctx.Request.Header.Host()),
-							"path":       string(ctx.Path()),
-							"method":     string(ctx.Request.Header.Method()),
-							"token":      token,
-						}).Info("The request with the API token has been blocked")
+
+						options.Logger.Info().
+							Interface("request_id", ctx.UserValue(web.RequestID)).
+							Bytes("host", ctx.Request.Header.Host()).
+							Bytes("path", ctx.Path()).
+							Bytes("method", ctx.Request.Header.Method()).
+							Str("token", token).
+							Msg("The request with the API token has been blocked")
+
 						if strings.EqualFold(options.Mode, web.GraphQLMode) {
 							ctx.Response.SetStatusCode(options.CustomBlockStatusCode)
 							return web.RespondGraphQLErrors(&ctx.Response, errAccessDenied)

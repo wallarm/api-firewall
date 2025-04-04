@@ -3,7 +3,8 @@ package updater
 import (
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+
 	"github.com/wallarm/api-firewall/pkg/APIMode"
 )
 
@@ -17,14 +18,14 @@ type DatabaseUpdater interface {
 }
 
 type Specification struct {
-	logger     *logrus.Logger
+	logger     zerolog.Logger
 	stop       chan struct{}
 	updateTime time.Duration
 	apifw      APIMode.APIFirewall
 }
 
 // NewUpdater function defines configuration updater controller
-func NewUpdater(logger *logrus.Logger, apifw APIMode.APIFirewall, updateTime time.Duration) DatabaseUpdater {
+func NewUpdater(logger zerolog.Logger, apifw APIMode.APIFirewall, updateTime time.Duration) DatabaseUpdater {
 	return &Specification{
 		logger:     logger,
 		stop:       make(chan struct{}),
@@ -43,11 +44,11 @@ func (s *Specification) Run() {
 
 			currentSIDs, isUpdated, err := s.apifw.UpdateSpecsStorage()
 			if err != nil {
-				s.logger.Errorf("%s: error while OpenAPI specifications update: %v", logPrefix, err)
+				s.logger.Error().Msgf("%s: error while OpenAPI specifications update: %v", logPrefix, err)
 			}
 
 			if isUpdated {
-				s.logger.Debugf("%s: OpenAPI specifications were updated: current schema IDs list %v", logPrefix, currentSIDs)
+				s.logger.Debug().Msgf("%s: OpenAPI specifications were updated: current schema IDs list %v", logPrefix, currentSIDs)
 			}
 
 		case <-s.stop:
@@ -67,7 +68,7 @@ func (s *Specification) Start() error {
 
 // Shutdown function stops update process
 func (s *Specification) Shutdown() error {
-	defer s.logger.Infof("%s: stopped", logPrefix)
+	defer s.logger.Info().Msgf("%s: stopped", logPrefix)
 
 	// close worker and finish Start function
 	for i := 0; i < 2; i++ {

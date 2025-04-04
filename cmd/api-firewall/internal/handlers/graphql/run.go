@@ -1,17 +1,15 @@
 package graphql
 
 import (
-	"fmt"
 	"net/url"
 	"os"
 	"os/signal"
 	"path"
-	"strings"
 	"syscall"
 
 	"github.com/ardanlabs/conf"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
 
@@ -31,7 +29,7 @@ const (
 	readinessEndpoint   = "/v1/readiness"
 )
 
-func Run(logger *logrus.Logger) error {
+func Run(logger zerolog.Logger) error {
 
 	// =========================================================================
 	// Configuration
@@ -41,55 +39,20 @@ func Run(logger *logrus.Logger) error {
 	cfg.Version.Desc = version.ProjectName
 
 	if err := conf.Parse(os.Args[1:], version.Namespace, &cfg); err != nil {
-		switch err {
-		case conf.ErrHelpWanted:
-			usage, err := conf.Usage(version.Namespace, &cfg)
-			if err != nil {
-				return errors.Wrap(err, "generating config usage")
-			}
-			fmt.Println(usage)
-			return nil
-		case conf.ErrVersionWanted:
-			version, err := conf.VersionString(version.Namespace, &cfg)
-			if err != nil {
-				return errors.Wrap(err, "generating config version")
-			}
-			fmt.Println(version)
-			return nil
-		}
 		return errors.Wrap(err, "parsing config")
 	}
 
 	// =========================================================================
 	// Init Logger
 
-	if strings.EqualFold(cfg.LogFormat, "json") {
-		logger.SetFormatter(&logrus.JSONFormatter{})
-	}
-
-	switch strings.ToLower(cfg.LogLevel) {
-	case "trace":
-		logger.SetLevel(logrus.TraceLevel)
-	case "debug":
-		logger.SetLevel(logrus.DebugLevel)
-	case "error":
-		logger.SetLevel(logrus.ErrorLevel)
-	case "warning":
-		logger.SetLevel(logrus.WarnLevel)
-	case "info":
-		logger.SetLevel(logrus.InfoLevel)
-	default:
-		return errors.New("invalid log level")
-	}
-
-	logger.Infof("%s : Started : Application initializing : version %q", logPrefix, version.Version)
-	defer logger.Infof("%s: Completed", logPrefix)
+	logger.Info().Msgf("%s : Started : Application initializing : version %q", logPrefix, version.Version)
+	defer logger.Info().Msgf("%s: Completed", logPrefix)
 
 	out, err := conf.String(&cfg)
 	if err != nil {
 		return errors.Wrap(err, "generating config for output")
 	}
-	logger.Infof("%s: Configuration Loaded :\n%v\n", logPrefix, out)
+	logger.Info().Msgf("%s: Configuration Loaded :\n%v\n", logPrefix, out)
 
 	// Make a channel to listen for an interrupt or terminate signal from the OS.
 	// Use a buffered channel because the signal package requires it.
@@ -106,30 +69,30 @@ func Run(logger *logrus.Logger) error {
 	// load file with GraphQL schema
 	f, err := os.Open(cfg.Graphql.Schema)
 	if err != nil {
-		logger.Fatalf("Loading GraphQL Schema error: %v", err)
+		logger.Fatal().Msgf("Loading GraphQL Schema error: %v", err)
 		return err
 	}
 
 	// parse the GraphQL schema
 	schema, err := graphql.NewSchemaFromReader(f)
 	if err != nil {
-		logger.Fatalf("Loading GraphQL Schema error: %v", err)
+		logger.Fatal().Msgf("Loading GraphQL Schema error: %v", err)
 		return err
 	}
 
 	validationRes, err := schema.Validate()
 	if err != nil {
-		logger.Fatalf("GraphQL Schema validator error: %v", err)
+		logger.Fatal().Msgf("GraphQL Schema validator error: %v", err)
 		return err
 	}
 
 	if !validationRes.Valid {
-		logger.Fatalf("GraphQL Schema validator error: %v", validationRes.Errors)
+		logger.Fatal().Msgf("GraphQL Schema validator error: %v", validationRes.Errors)
 		return validationRes.Errors
 	}
 
 	if err := f.Close(); err != nil {
-		logger.Fatalf("Loading GraphQL Schema error: %v", err)
+		logger.Fatal().Msgf("Loading GraphQL Schema error: %v", err)
 		return err
 	}
 
@@ -200,7 +163,7 @@ func Run(logger *logrus.Logger) error {
 	// =========================================================================
 	// Init Cache
 
-	logger.Infof("%s: Initializing DenyList Cache", logPrefix)
+	logger.Info().Msgf("%s: Initializing DenyList Cache", logPrefix)
 
 	deniedTokens, err := denylist.New(&cfg.Denylist, logger)
 	if err != nil {
@@ -209,15 +172,15 @@ func Run(logger *logrus.Logger) error {
 
 	switch deniedTokens {
 	case nil:
-		logger.Infof("%s: Denylist not configured", logPrefix)
+		logger.Info().Msgf("%s: Denylist not configured", logPrefix)
 	default:
-		logger.Infof("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
+		logger.Info().Msgf("%s: Loaded %d tokens to the cache", logPrefix, deniedTokens.ElementsNum)
 	}
 
 	// =========================================================================
 	// Init Allow IP List
 
-	logger.Infof("%s: Initializing IP Whitelist Cache", logPrefix)
+	logger.Info().Msgf("%s: Initializing IP Whitelist Cache", logPrefix)
 
 	allowedIPCache, err := allowiplist.New(&cfg.AllowIP, logger)
 	if err != nil {
@@ -226,10 +189,15 @@ func Run(logger *logrus.Logger) error {
 
 	switch allowedIPCache {
 	case nil:
-		logger.Infof("%s: The allow ip list is not configured", logPrefix)
+		logger.Info().Msgf("%s: The allow ip list is not configured", logPrefix)
 	default:
-		logger.Infof("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
+		logger.Info().Msgf("%s: Loaded %d Whitelisted IP's to the cache", logPrefix, allowedIPCache.ElementsNum)
 	}
+
+	// =========================================================================
+	// Init ZeroLogger
+
+	zeroLogger := &config.ZerologAdapter{Logger: logger}
 
 	// =========================================================================
 	// Init Handlers
@@ -249,11 +217,11 @@ func Run(logger *logrus.Logger) error {
 		switch string(ctx.Path()) {
 		case livenessEndpoint:
 			if err := healthData.Liveness(ctx); err != nil {
-				healthData.Logger.Errorf("%s: liveness: %s", logPrefix, err.Error())
+				healthData.Logger.Error().Msgf("%s: liveness: %s", logPrefix, err.Error())
 			}
 		case readinessEndpoint:
 			if err := healthData.Readiness(ctx); err != nil {
-				healthData.Logger.Errorf("%s: readiness: %s", logPrefix, err.Error())
+				healthData.Logger.Error().Msgf("%s: readiness: %s", logPrefix, err.Error())
 			}
 		default:
 			ctx.Error("Unsupported path", fasthttp.StatusNotFound)
@@ -264,20 +232,20 @@ func Run(logger *logrus.Logger) error {
 		Handler:               healthHandler,
 		ReadTimeout:           cfg.ReadTimeout,
 		WriteTimeout:          cfg.WriteTimeout,
-		Logger:                logger,
+		Logger:                zeroLogger,
 		NoDefaultServerHeader: true,
 	}
 
 	// Start the service listening for requests.
 	go func() {
-		logger.Infof("%s: Health API listening on %s", logPrefix, cfg.HealthAPIHost)
+		logger.Info().Msgf("%s: Health API listening on %s", logPrefix, cfg.HealthAPIHost)
 		serverErrors <- healthAPI.ListenAndServe(cfg.HealthAPIHost)
 	}()
 
 	// =========================================================================
 	// Start API Service
 
-	logger.Infof("%s: Initializing API support", logPrefix)
+	logger.Info().Msgf("%s: Initializing API support", logPrefix)
 
 	apiHost, err := url.ParseRequestURI(cfg.APIHost)
 	if err != nil {
@@ -304,19 +272,19 @@ func Run(logger *logrus.Logger) error {
 		MaxConnsPerIP:      cfg.MaxConnsPerIP,
 		MaxRequestsPerConn: cfg.MaxRequestsPerConn,
 		ErrorHandler: func(ctx *fasthttp.RequestCtx, err error) {
-			logger.WithFields(logrus.Fields{
-				"error": err,
-			}).Error("request processing error")
+			logger.Error().
+				Err(err).
+				Msg("request processing error")
 
 			ctx.Error("", fasthttp.StatusForbidden)
 		},
-		Logger:                logger,
+		Logger:                zeroLogger,
 		NoDefaultServerHeader: true,
 	}
 
 	// Start the service listening for requests.
 	go func() {
-		logger.Infof("%s: API listening on %s", logPrefix, cfg.APIHost)
+		logger.Info().Msgf("%s: API listening on %s", logPrefix, cfg.APIHost)
 		switch isTLS {
 		case false:
 			serverErrors <- api.ListenAndServe(apiHost.Host)
@@ -335,13 +303,13 @@ func Run(logger *logrus.Logger) error {
 		return errors.Wrap(err, "server error")
 
 	case sig := <-shutdown:
-		logger.Infof("%s: %v: Start shutdown", logPrefix, sig)
+		logger.Info().Msgf("%s: %v: Start shutdown", logPrefix, sig)
 
 		// Asking listener to shutdown and shed load.
 		if err := api.Shutdown(); err != nil {
 			return errors.Wrap(err, "could not stop server gracefully")
 		}
-		logger.Infof("%s: %v: Completed shutdown", logPrefix, sig)
+		logger.Info().Msgf("%s: %v: Completed shutdown", logPrefix, sig)
 
 		// Close proxy pool
 		pool.Close()

@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bytes"
 	"crypto/rsa"
 	"net/url"
 	"os"
@@ -12,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/karlseguin/ccache/v2"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
 
@@ -23,11 +22,12 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	woauth2 "github.com/wallarm/api-firewall/internal/platform/oauth2"
 	"github.com/wallarm/api-firewall/internal/platform/proxy"
+	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger *logrus.Logger, httpClientsPool proxy.Pool, specStorage storage.DBOpenAPILoader, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
+func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shutdown chan os.Signal, logger zerolog.Logger, httpClientsPool proxy.Pool, specStorage storage.DBOpenAPILoader, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
 
 	// define FastJSON parsers pool
 	var parserPool fastjson.ParserPool
@@ -41,17 +41,17 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 		if strings.HasPrefix(strings.ToLower(cfg.Server.Oauth.JWT.SignatureAlgorithm), "rs") && cfg.Server.Oauth.JWT.PubCertFile != "" {
 			verifyBytes, err := os.ReadFile(cfg.Server.Oauth.JWT.PubCertFile)
 			if err != nil {
-				logger.Errorf("Error reading public key from file: %v", err)
+				logger.Error().Msgf("Error reading public key from file: %v", err)
 				break
 			}
 
 			key, err = jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
 			if err != nil {
-				logger.Errorf("Error parsing public key: %v", err)
+				logger.Error().Msgf("Error parsing public key: %v", err)
 				break
 			}
 
-			logger.Infof("OAuth2: public certificate successfully loaded")
+			logger.Info().Msgf("OAuth2: public certificate successfully loaded")
 		}
 
 		oauthValidator = &woauth2.JWT{
@@ -76,23 +76,23 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 		ctx.SetUserValue(web.RequestID, uuid.NewString())
 
 		// log request
-		logger.WithFields(logrus.Fields{
-			"host":           string(ctx.Request.Header.Host()),
-			"method":         bytes.NewBuffer(ctx.Request.Header.Method()).String(),
-			"path":           string(ctx.Path()),
-			"client_address": ctx.RemoteAddr(),
-			"request_id":     ctx.UserValue(web.RequestID),
-		}).Info("Pass request with OPTIONS method")
+		logger.Info().
+			Bytes("host", ctx.Request.Header.Host()).
+			Bytes("method", ctx.Request.Header.Method()).
+			Bytes("path", ctx.Path()).
+			Str("client_address", ctx.RemoteAddr().String()).
+			Interface("request_id", ctx.UserValue(web.RequestID)).
+			Msg("Pass request with OPTIONS method")
 
 		// proxy request
 		if err := proxy.Perform(ctx, httpClientsPool, cfg.Server.RequestHostHeader); err != nil {
-			logger.WithFields(logrus.Fields{
-				"error":      err,
-				"host":       string(ctx.Request.Header.Host()),
-				"path":       string(ctx.Path()),
-				"method":     string(ctx.Request.Header.Method()),
-				"request_id": ctx.UserValue(web.RequestID),
-			}).Error("Error while proxying request")
+			logger.Error().
+				Err(err).
+				Bytes("host", ctx.Request.Header.Host()).
+				Bytes("method", ctx.Request.Header.Method()).
+				Bytes("path", ctx.Path()).
+				Interface("request_id", ctx.UserValue(web.RequestID)).
+				Msg("Error while proxying request")
 		}
 	}
 
@@ -151,7 +151,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 
 	swagRouter, err := loader.NewRouter(specStorage.Specification(0), true)
 	if err != nil {
-		logger.Errorf("Error parsing OpenAPI specification: %v", err)
+		logger.Error().Msgf("Error parsing OpenAPI specification: %v", err)
 		return nil
 	}
 
@@ -174,20 +174,37 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 
 		updRoutePathEsc, err := url.JoinPath(serverPath, swagRouter.Routes[i].Path)
 		if err != nil {
-			s.logger.Errorf("url parse error: Loaded path %s - %v", swagRouter.Routes[i].Path, err)
+			s.logger.Error().Msgf("url parse error: Loaded path %s - %v", swagRouter.Routes[i].Path, err)
 			continue
 		}
 
 		updRoutePath, err := url.PathUnescape(updRoutePathEsc)
 		if err != nil {
-			s.logger.Errorf("url unescape error: Loaded path %s - %v", swagRouter.Routes[i].Path, err)
+			s.logger.Error().Msgf("url unescape error: Loaded path %s - %v", swagRouter.Routes[i].Path, err)
 			continue
 		}
 
-		s.logger.Debugf("handler: Loaded path %s - %s", swagRouter.Routes[i].Method, updRoutePath)
+		s.logger.Debug().Msgf("handler: Loaded path %s - %s", swagRouter.Routes[i].Method, updRoutePath)
 
-		if err := app.Handle(swagRouter.Routes[i].Method, updRoutePath, s.openapiWafHandler); err != nil {
-			logger.WithFields(logrus.Fields{"error": err}).Errorf("The OAS endpoint registration failed: method %s, path %s", swagRouter.Routes[i].Method, updRoutePath)
+		// set endpoint custom validation modes
+		var actions *router.Actions
+		for _, endpoint := range cfg.Endpoints {
+			if strings.EqualFold(endpoint.Path, updRoutePath) && (endpoint.Method == "" || endpoint.Method != "" && strings.EqualFold(swagRouter.Routes[i].Method, endpoint.Method)) {
+				actions = new(router.Actions)
+				actions.Request = endpoint.RequestValidation
+				actions.Response = endpoint.ResponseValidation
+
+				logger.Debug().
+					Str("method", swagRouter.Routes[i].Method).
+					Str("path", updRoutePath).
+					Str("request_validation_mode", actions.Request).
+					Str("response_validation_mode", actions.Response).
+					Msgf("handler: custom validation mode applied for %s - %s: request %s, response %s", swagRouter.Routes[i].Method, updRoutePath, actions.Request, actions.Response)
+			}
+		}
+
+		if err := app.Handle(swagRouter.Routes[i].Method, updRoutePath, actions, s.openapiWafHandler); err != nil {
+			logger.Error().Err(err).Msgf("The OAS endpoint registration failed: method %s, path %s", swagRouter.Routes[i].Method, updRoutePath)
 		}
 	}
 

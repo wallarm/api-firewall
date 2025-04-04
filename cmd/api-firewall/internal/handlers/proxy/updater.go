@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/corazawaf/coraza/v3"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 
 	"github.com/wallarm/api-firewall/internal/config"
@@ -25,7 +25,7 @@ const (
 )
 
 type Specification struct {
-	logger         *logrus.Logger
+	logger         zerolog.Logger
 	waf            coraza.WAF
 	oasStorage     storage.DBOpenAPILoader
 	stop           chan struct{}
@@ -41,7 +41,7 @@ type Specification struct {
 }
 
 // NewHandlerUpdater function defines configuration updater controller
-func NewHandlerUpdater(lock *sync.RWMutex, logger *logrus.Logger, oasStorage storage.DBOpenAPILoader, cfg *config.ProxyMode, serverURL *url.URL, api *fasthttp.Server, shutdown chan os.Signal, pool proxy.Pool, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
+func NewHandlerUpdater(lock *sync.RWMutex, logger zerolog.Logger, oasStorage storage.DBOpenAPILoader, cfg *config.ProxyMode, serverURL *url.URL, api *fasthttp.Server, shutdown chan os.Signal, pool proxy.Pool, deniedTokens *denylist.DeniedTokens, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
 	return &Specification{
 		logger:         logger,
 		waf:            waf,
@@ -65,10 +65,10 @@ func (s *Specification) Run() {
 	// handle panic
 	defer func() {
 		if r := recover(); r != nil {
-			s.logger.Errorf("panic: %v", r)
+			s.logger.Error().Msgf("panic: %v", r)
 
 			// Log the Go stack trace for this panic'd goroutine.
-			s.logger.Debugf("%s", debug.Stack())
+			s.logger.Debug().Msgf("%s", debug.Stack())
 			return
 		}
 	}()
@@ -81,7 +81,7 @@ func (s *Specification) Run() {
 			// load new schemes
 			newSpecDB, err := s.Load()
 			if err != nil {
-				s.logger.WithFields(logrus.Fields{"error": err}).Errorf("%s: loading specifications", logPrefix)
+				s.logger.Error().Err(err).Msgf("%s: loading specifications", logPrefix)
 				continue
 			}
 
@@ -91,11 +91,11 @@ func (s *Specification) Run() {
 				s.oasStorage = newSpecDB
 				s.api.Handler = Handlers(s.lock, s.cfg, s.serverURL, s.shutdown, s.logger, s.pool, s.oasStorage, s.deniedTokens, s.allowedIPCache, s.waf)
 				if err := s.oasStorage.AfterLoad(s.cfg.APISpecs); err != nil {
-					s.logger.WithFields(logrus.Fields{"error": err}).Errorf("%s: error in after specification loading function", logPrefix)
+					s.logger.Error().Err(err).Msgf("%s: error in after specification loading function", logPrefix)
 				}
 				s.lock.Unlock()
 
-				s.logger.Debugf("%s: OpenAPI specification has been updated", logPrefix)
+				s.logger.Debug().Msgf("%s: OpenAPI specification has been updated", logPrefix)
 
 				continue
 			}
@@ -116,7 +116,7 @@ func (s *Specification) Start() error {
 
 // Shutdown function stops update process
 func (s *Specification) Shutdown() error {
-	defer s.logger.Infof("%s: stopped", logPrefix)
+	defer s.logger.Info().Msgf("%s: stopped", logPrefix)
 
 	// close worker and finish Start function
 	for i := 0; i < 2; i++ {
