@@ -95,6 +95,7 @@ nav:
     - Allowlisting IPs: configuration-guides/allowlist.md
     - SSL/TLS Configuration: configuration-guides/ssl-tls.md
     - DNS Cache Update: configuration-guides/dns-cache-update.md
+    - Endpoint-Related Response Actions: configuration-guides/endpoint-related-response.md
     - System Settings: configuration-guides/system-settings.md
   - Demos:
     - Docker Compose: demos/docker-compose.md
