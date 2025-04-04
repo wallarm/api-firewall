@@ -44,11 +44,15 @@ func (e *EndpointList) Set(value string) error {
 
 		endpoint := Endpoint{
 			Method: method,
-			Path:   path,
+			Path:   strings.TrimSpace(path),
 			ValidationMode: ValidationMode{
-				RequestValidation:  parts[1],
-				ResponseValidation: parts[2],
+				RequestValidation:  strings.TrimSpace(parts[1]),
+				ResponseValidation: strings.TrimSpace(parts[2]),
 			},
+		}
+
+		if endpoint.Path == "" || endpoint.RequestValidation == "" || endpoint.ResponseValidation == "" {
+			return fmt.Errorf("invalid endpoint format, expected [METHOD:]PATH|REQ|RESP")
 		}
 
 		*e = append(*e, endpoint)

@@ -510,6 +510,9 @@ func TestBasic(t *testing.T) {
 
 	// dns cache
 	t.Run("testDNSCacheFetch", apifwTests.testDNSCacheFetch)
+
+	// custom endpoint
+	t.Run("testEndpointBlock", apifwTests.testEndpointBlock)
 }
 
 func (s *ServiceTests) testProxyRunBasic(t *testing.T) {
@@ -3001,4 +3004,82 @@ func (s *ServiceTests) testDNSCacheFetch(t *testing.T) {
 			reqCtx.Response.StatusCode())
 	}
 
+}
+
+func (s *ServiceTests) testEndpointBlock(t *testing.T) {
+
+	var cfg = config.ProxyMode{
+		RequestValidation:         "LOG_ONLY",
+		ResponseValidation:        "LOG_ONLY",
+		CustomBlockStatusCode:     403,
+		AddValidationStatusHeader: false,
+		ShadowAPI: config.ShadowAPI{
+			ExcludeList: []int{404, 401},
+		},
+		Endpoints: []config.Endpoint{{
+			ValidationMode: config.ValidationMode{RequestValidation: "BLOCK", ResponseValidation: "BLOCK"},
+			Path:           "/path/{test}",
+			Method:         "",
+		}},
+	}
+
+	handler := proxy2.Handlers(s.lock, &cfg, s.serverUrl, s.shutdown, s.logger, s.proxy, s.dbSpec, nil, nil, nil)
+
+	reqInvalidEmail, err := json.Marshal(map[string]any{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signup")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(reqInvalidEmail), -1)
+	req.Header.SetContentType("application/json")
+
+	resp := fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	s.proxy.EXPECT().Get().Return(s.client, resolvedIP, nil)
+	s.client.EXPECT().Do(gomock.Any(), gomock.Any()).SetArg(1, *resp)
+	s.proxy.EXPECT().Put(resolvedIP, s.client).Return(nil)
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	req = fasthttp.AcquireRequest()
+	req.SetRequestURI("/path/testValueNotInEnumList")
+	req.Header.SetMethod("GET")
+
+	resp = fasthttp.AcquireResponse()
+	resp.SetStatusCode(fasthttp.StatusOK)
+	resp.Header.SetContentType("application/json")
+	resp.SetBody([]byte("{\"status\":\"success\"}"))
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 403 {
+		t.Errorf("Incorrect response status code. Expected: 403 and got %d",
+			reqCtx.Response.StatusCode())
+	}
 }

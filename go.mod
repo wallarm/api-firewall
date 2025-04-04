@@ -20,13 +20,13 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/karlseguin/ccache/v2 v2.0.8
 	github.com/klauspost/compress v1.18.0
-	github.com/mattn/go-sqlite3 v1.14.24
+	github.com/mattn/go-sqlite3 v1.14.27
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38
-	github.com/spf13/viper v1.20.0
+	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
-	github.com/valyala/fasthttp v1.59.0
+	github.com/valyala/fasthttp v1.60.0
 	github.com/valyala/fastjson v1.6.4
 	github.com/wundergraph/graphql-go-tools v1.67.4
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
