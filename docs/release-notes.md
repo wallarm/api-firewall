@@ -4,9 +4,9 @@ This page describes new releases of Wallarm API Firewall.
 
 ## v0.9.0 (2025-04-04)
 
-* Replace Logrus to ZeroLog
-* Add support of the YAML configuration file
-* Add support of the endpoint-based response action
+* Added support of the [YAML configuration file](installation-guides/docker-container.md#step-4-configure-api-firewall)
+* Added support of the [endpoint-related response actions](configuration-guides/endpoint-related-response.md)
+* Replaced the Logrus logging library with ZeroLog
 
 ## v0.8.9 (2025-03-28)
 
