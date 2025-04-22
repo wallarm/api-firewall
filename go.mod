@@ -2,7 +2,7 @@ module github.com/wallarm/api-firewall
 
 go 1.23.0
 
-toolchain go1.23.7
+toolchain go1.23.8
 
 require (
 	github.com/andybalholm/brotli v1.1.1
@@ -23,7 +23,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.34.0
-	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38
+	github.com/savsgio/gotils v0.0.0-20250408102913-196191ec6287
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
 	github.com/valyala/fasthttp v1.61.0
