@@ -52,7 +52,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 	}
 
 	// Construct the App which holds all routes as well as common Middleware.
-	apps := NewApp(lock, cfg.PassOptionsRequests, storedSpecs, shutdown, logger, mid.IPAllowlist(&ipAllowlistOptions), mid.WAFModSecurity(&modSecOptions), mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
+	apps := NewApp(lock, cfg.PassOptionsRequests, cfg.MaxErrorsInResponse, storedSpecs, shutdown, logger, mid.IPAllowlist(&ipAllowlistOptions), mid.WAFModSecurity(&modSecOptions), mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
 
 	for _, schemaID := range schemaIDs {
 

@@ -1,5 +1,7 @@
 package validator
 
+import "math/rand"
+
 type FieldTypeError struct {
 	Name         string `json:"name"`
 	ExpectedType string `json:"expected_type,omitempty"`
@@ -24,4 +26,19 @@ type ValidationResponseSummary struct {
 type ValidationResponse struct {
 	Summary []*ValidationResponseSummary `json:"summary"`
 	Errors  []*ValidationError           `json:"errors,omitempty"`
+}
+
+// SampleSlice function samples data in slice and responds by the subset of slice data
+func SampleSlice[T any](rawData []T, limit int) []T {
+	if len(rawData) <= limit || limit == 0 {
+		return rawData
+	}
+
+	indices := rand.Perm(len(rawData))[:limit]
+
+	sampled := make([]T, limit)
+	for i, idx := range indices {
+		sampled[i] = rawData[idx]
+	}
+	return sampled
 }

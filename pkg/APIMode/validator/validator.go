@@ -21,7 +21,7 @@ var (
 	StatusInternalServerError int = fasthttp.StatusInternalServerError
 )
 
-func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*router.Mux, lock *sync.RWMutex, passOptionsRequests bool) (resp *ValidationResponse, err error) {
+func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*router.Mux, lock *sync.RWMutex, passOptionsRequests bool, maxErrorsInResponse int) (resp *ValidationResponse, err error) {
 
 	// handle panic
 	defer func() {
@@ -127,7 +127,10 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*rou
 		responseErrors = append(responseErrors, validationErrors...)
 	}
 
-	return &ValidationResponse{Summary: responseSummary, Errors: responseErrors}, nil
+	// limit amount of errors to reduce the total size of the response
+	limitedResponseErrors := SampleSlice(responseErrors, maxErrorsInResponse)
+
+	return &ValidationResponse{Summary: responseSummary, Errors: limitedResponseErrors}, nil
 }
 
 // Find function searches for the handler by path and method

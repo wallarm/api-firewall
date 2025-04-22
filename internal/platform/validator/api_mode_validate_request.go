@@ -14,6 +14,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"github.com/valyala/fastjson"
+
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"

@@ -15,4 +15,6 @@ type APIMode struct {
 
 	UnknownParametersDetection bool `conf:"default:true,env:API_MODE_UNKNOWN_PARAMETERS_DETECTION"`
 	PassOptionsRequests        bool `conf:"default:false,env:PASS_OPTIONS"`
+
+	MaxErrorsInResponse int `conf:"default:0,env:API_MODE_MAX_ERRORS_IN_RESPONSE"`
 }

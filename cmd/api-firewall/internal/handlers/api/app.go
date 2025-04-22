@@ -30,17 +30,18 @@ var (
 // object for each of our http handlers. Feel free to add any configuration
 // data/logic on this App struct
 type App struct {
-	Routers     map[int]*router.Mux
-	Log         zerolog.Logger
-	passOPTIONS bool
-	shutdown    chan os.Signal
-	mw          []web.Middleware
-	storedSpecs storage.DBOpenAPILoader
-	lock        *sync.RWMutex
+	Routers             map[int]*router.Mux
+	Log                 zerolog.Logger
+	passOPTIONS         bool
+	maxErrorsInResponse int
+	shutdown            chan os.Signal
+	mw                  []web.Middleware
+	storedSpecs         storage.DBOpenAPILoader
+	lock                *sync.RWMutex
 }
 
 // NewApp creates an App value that handle a set of routes for the set of application.
-func NewApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs storage.DBOpenAPILoader, shutdown chan os.Signal, logger zerolog.Logger, mw ...web.Middleware) *App {
+func NewApp(lock *sync.RWMutex, passOPTIONS bool, maxErrorsInResponse int, storedSpecs storage.DBOpenAPILoader, shutdown chan os.Signal, logger zerolog.Logger, mw ...web.Middleware) *App {
 
 	schemaIDs := storedSpecs.SchemaIDs()
 
@@ -51,13 +52,14 @@ func NewApp(lock *sync.RWMutex, passOPTIONS bool, storedSpecs storage.DBOpenAPIL
 	}
 
 	app := App{
-		Routers:     routers,
-		shutdown:    shutdown,
-		mw:          mw,
-		Log:         logger,
-		storedSpecs: storedSpecs,
-		lock:        lock,
-		passOPTIONS: passOPTIONS,
+		Routers:             routers,
+		shutdown:            shutdown,
+		mw:                  mw,
+		Log:                 logger,
+		storedSpecs:         storedSpecs,
+		lock:                lock,
+		passOPTIONS:         passOPTIONS,
+		maxErrorsInResponse: maxErrorsInResponse,
 	}
 
 	return &app
@@ -286,7 +288,10 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 		ctx.Request.Header.SetMethod(fasthttp.MethodGet)
 	}
 
-	if err := web.Respond(ctx, validator.ValidationResponse{Summary: responseSummary, Errors: responseErrors}, fasthttp.StatusOK); err != nil {
+	// limit amount of errors to reduce the total size of the response
+	limitedResponseErrors := validator.SampleSlice(responseErrors, a.maxErrorsInResponse)
+
+	if err := web.Respond(ctx, validator.ValidationResponse{Summary: responseSummary, Errors: limitedResponseErrors}, fasthttp.StatusOK); err != nil {
 		a.Log.Error().
 			Err(err).
 			Bytes("host", ctx.Request.Header.Host()).

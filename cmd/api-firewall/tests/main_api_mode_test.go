@@ -613,6 +613,9 @@ func TestAPIModeBasic(t *testing.T) {
 	// check conflicts in the Path
 	t.Run("testConflictsInThePath", apifwTests.testConflictsInThePath)
 	t.Run("testObjectInQuery", apifwTests.testObjectInQuery)
+
+	// check limited response (maxErrorsInResponse param)
+	t.Run("testAPIModeMissedMultipleReqParamsLimitedResponse", apifwTests.testAPIModeMissedMultipleReqParamsLimitedResponse)
 }
 
 func createForm(form map[string]string) (string, io.Reader, error) {
@@ -2925,4 +2928,106 @@ func (s *APIModeServiceTests) testObjectInQuery(t *testing.T) {
 
 	// check response status code and response body
 	checkResponseForbiddenStatusCode(t, &reqCtx, DefaultSchemaID, []string{validator.ErrCodeRequiredQueryParameterMissed})
+}
+
+func (s *APIModeServiceTests) testAPIModeMissedMultipleReqParamsLimitedResponse(t *testing.T) {
+
+	updatedCfg := config.APIMode{
+		APIFWInit:                  config.APIFWInit{Mode: web.APIMode},
+		SpecificationUpdatePeriod:  2 * time.Second,
+		UnknownParametersDetection: true,
+		PassOptionsRequests:        false,
+		MaxErrorsInResponse:        1,
+	}
+
+	handler := handlersAPI.Handlers(s.lock, &updatedCfg, s.shutdown, s.logger, s.dbSpec, nil, nil)
+
+	p, err := json.Marshal(map[string]any{
+		"firstname": "test",
+		"lastname":  "test",
+		"job":       "test",
+		"email":     "test@wallarm.com",
+		"url":       "http://wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI("/test/signup")
+	req.Header.SetMethod("POST")
+	req.SetBodyStream(bytes.NewReader(p), -1)
+	req.Header.SetContentType("application/json")
+	req.Header.Add(web.XWallarmSchemaIDHeader, fmt.Sprintf("%d", DefaultSchemaID))
+
+	reqCtx := fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
+	// check response status code and response body
+	checkResponseOkStatusCode(t, &reqCtx, DefaultSchemaID)
+
+	// Repeat request with invalid email
+	reqInvalidEmail, err := json.Marshal(map[string]any{
+		"email": "test@wallarm.com",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.SetBodyStream(bytes.NewReader(reqInvalidEmail), -1)
+
+	missedParams := map[string]any{
+		"firstname": struct{}{},
+		"lastname":  struct{}{},
+	}
+
+	reqCtx = fasthttp.RequestCtx{
+		Request: *req,
+	}
+
+	handler(&reqCtx)
+
+	if reqCtx.Response.StatusCode() != 200 {
+		t.Errorf("Incorrect response status code. Expected: 200 and got %d",
+			reqCtx.Response.StatusCode())
+	}
+
+	apifwResponse := validator.ValidationResponse{}
+	if err := json.Unmarshal(reqCtx.Response.Body(), &apifwResponse); err != nil {
+		t.Errorf("Error while JSON response parsing: %v", err)
+	}
+
+	if len(apifwResponse.Errors) != 1 {
+		t.Errorf("wrong number of errors. Expected: 1. Got: %d", len(apifwResponse.Errors))
+	}
+
+	for _, apifwErr := range apifwResponse.Errors {
+
+		if apifwErr.Code != validator.ErrCodeRequiredBodyParameterMissed {
+			t.Errorf("Incorrect error code. Expected: %s and got %s",
+				validator.ErrCodeRequiredBodyParameterMissed, apifwErr.Code)
+		}
+
+		if len(apifwErr.Fields) != 1 {
+			t.Errorf("wrong number of related fields. Expected: 1. Got: %d", len(apifwErr.Fields))
+		}
+
+		if _, ok := missedParams[apifwErr.Fields[0]]; !ok {
+			t.Errorf("Invalid missed field. Expected: firstname or lastname but got %s",
+				apifwErr.Fields[0])
+		}
+
+	}
+
+	t.Logf("Name of the test: %s; request method: %s; request uri: %s; request body: %s", t.Name(), string(reqCtx.Request.Header.Method()), string(reqCtx.Request.RequestURI()), string(reqCtx.Request.Body()))
+	t.Logf("Name of the test: %s; status code: %d; response body: %s", t.Name(), reqCtx.Response.StatusCode(), string(reqCtx.Response.Body()))
+
 }
