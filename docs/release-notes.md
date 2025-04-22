@@ -2,6 +2,9 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.9.1 (2025-04-23)
+TBD
+
 ## v0.9.0 (2025-04-04)
 
 * Added support of the [YAML configuration file](installation-guides/docker-container.md#step-4-configure-api-firewall)
