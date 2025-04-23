@@ -2,6 +2,12 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.9.1 (2025-04-23)
+
+* Dependency upgrade
+* Add APIFW_API_MODE_MAX_ERRORS_IN_RESPONSE param to limit the response size in API mode
+* Fix related_fields_details field issue in API mode
+
 ## v0.9.0 (2025-04-04)
 
 * Added support of the [YAML configuration file](installation-guides/docker-container.md#step-4-configure-api-firewall)

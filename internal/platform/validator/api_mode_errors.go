@@ -7,6 +7,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/pkg/errors"
+
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
@@ -35,22 +36,23 @@ func checkRequiredFields(reqErr *openapi3filter.RequestError, schemaError *opena
 	switch schemaError.SchemaField {
 	case "required":
 
-		response := validator.ValidationError{}
+		fields := schemaError.JSONPointer()
+		for id := range fields {
 
-		switch reqErr.Parameter.In {
-		case "query":
-			response.Code = validator.ErrCodeRequiredQueryParameterMissed
-		case "cookie":
-			response.Code = validator.ErrCodeRequiredCookieParameterMissed
-		case "path":
-			response.Code = validator.ErrCodeRequiredPathParameterMissed
-		case "header":
-			response.Code = validator.ErrCodeRequiredHeaderMissed
-		}
+			response := validator.ValidationError{}
 
-		for _, field := range schemaError.JSONPointer() {
+			switch reqErr.Parameter.In {
+			case "query":
+				response.Code = validator.ErrCodeRequiredQueryParameterMissed
+			case "cookie":
+				response.Code = validator.ErrCodeRequiredCookieParameterMissed
+			case "path":
+				response.Code = validator.ErrCodeRequiredPathParameterMissed
+			case "header":
+				response.Code = validator.ErrCodeRequiredHeaderMissed
+			}
 
-			response.Fields = []string{field}
+			response.Fields = []string{fields[id]}
 			response.Message = validator.ErrMissedRequiredParameters.Error()
 
 			for _, t := range schemaError.Schema.Type.Slice() {
@@ -215,9 +217,9 @@ func GetErrorResponse(validationError error) ([]*validator.ValidationError, erro
 			for _, multiErr := range multiErrors {
 				schemaError, ok := multiErr.(*openapi3.SchemaError)
 				if ok {
-					response := validator.ValidationError{}
 					switch schemaError.SchemaField {
 					case "required":
+						response := validator.ValidationError{}
 						response.Code = validator.ErrCodeRequiredBodyParameterMissed
 
 						for _, field := range schemaError.JSONPointer() {
@@ -240,12 +242,15 @@ func GetErrorResponse(validationError error) ([]*validator.ValidationError, erro
 							responseErrors = append(responseErrors, &response)
 						}
 					default:
-						response.Code = validator.ErrCodeRequiredBodyParameterInvalidValue
-						response.Message = schemaError.Error()
 
-						for _, field := range schemaError.JSONPointer() {
+						fields := schemaError.JSONPointer()
+						for id := range fields {
 
-							response.Fields = []string{field}
+							response := validator.ValidationError{}
+							response.Code = validator.ErrCodeRequiredBodyParameterInvalidValue
+							response.Message = schemaError.Error()
+
+							response.Fields = []string{fields[id]}
 
 							if len(response.Fields) > 0 {
 								parseErr, ok := err.Err.(*ParseError)
@@ -283,13 +288,14 @@ func GetErrorResponse(validationError error) ([]*validator.ValidationError, erro
 		default:
 			schemaError, ok := multiErrors.(*openapi3.SchemaError)
 			if ok {
-				response := validator.ValidationError{}
 				switch schemaError.SchemaField {
 				case "required":
-					response.Code = validator.ErrCodeRequiredBodyParameterMissed
-					for _, field := range schemaError.JSONPointer() {
+					fields := schemaError.JSONPointer()
+					for id := range fields {
 
-						response.Fields = []string{field}
+						response := validator.ValidationError{}
+						response.Code = validator.ErrCodeRequiredBodyParameterMissed
+						response.Fields = []string{fields[id]}
 						response.Message = schemaError.Error()
 
 						for _, f := range response.Fields {
@@ -307,10 +313,13 @@ func GetErrorResponse(validationError error) ([]*validator.ValidationError, erro
 						responseErrors = append(responseErrors, &response)
 					}
 				default:
-					response.Code = validator.ErrCodeRequiredBodyParameterInvalidValue
-					for _, field := range schemaError.JSONPointer() {
+					fields := schemaError.JSONPointer()
+					for id := range fields {
 
-						response.Fields = []string{field}
+						response := validator.ValidationError{}
+						response.Code = validator.ErrCodeRequiredBodyParameterInvalidValue
+
+						response.Fields = []string{fields[id]}
 						response.Message = schemaError.Error()
 
 						if len(response.Fields) > 0 {

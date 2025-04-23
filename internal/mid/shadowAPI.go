@@ -1,9 +1,10 @@
 package mid
 
 import (
+	"slices"
+
 	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
-	"golang.org/x/exp/slices"
 
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/router"

@@ -34,6 +34,7 @@ type Configuration struct {
 	DBVersion                  int
 	UnknownParametersDetection bool
 	PassOptionsRequests        bool
+	MaxErrorsInResponse        int
 }
 
 type Option func(*Configuration)
@@ -49,6 +50,13 @@ func WithDBVersion(dbVersion int) Option {
 func WithPathToDB(path string) Option {
 	return func(c *Configuration) {
 		c.PathToSpecDB = path
+	}
+}
+
+// WithMaxErrorsInResponse is a functional option to set max errors in the response
+func WithMaxErrorsInResponse(limit int) Option {
+	return func(c *Configuration) {
+		c.MaxErrorsInResponse = limit
 	}
 }
 
@@ -82,6 +90,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 			DBVersion:                  0,
 			UnknownParametersDetection: true,
 			PassOptionsRequests:        true,
+			MaxErrorsInResponse:        0,
 		},
 	}
 
@@ -178,7 +187,7 @@ func (a *APIFWModeAPI) ValidateRequest(schemaIDs []int, uri, method, body []byte
 		go func(ctx *fasthttp.RequestCtx, sID int) {
 			defer wg.Done()
 
-			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.routers, a.lock, a.options.PassOptionsRequests)
+			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.routers, a.lock, a.options.PassOptionsRequests, a.options.MaxErrorsInResponse)
 
 			m.Lock()
 			defer m.Unlock()
@@ -235,7 +244,7 @@ func (a *APIFWModeAPI) ValidateRequestFromReader(schemaIDs []int, r *bufio.Reade
 		go func(sID int) {
 			defer wg.Done()
 
-			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.routers, a.lock, a.options.PassOptionsRequests)
+			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.routers, a.lock, a.options.PassOptionsRequests, a.options.MaxErrorsInResponse)
 
 			m.Lock()
 			defer m.Unlock()

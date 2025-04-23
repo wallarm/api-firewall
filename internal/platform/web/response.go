@@ -6,12 +6,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 
 	"github.com/klauspost/compress/flate"
 	"github.com/klauspost/compress/zlib"
 	"github.com/valyala/fasthttp"
 	"github.com/wundergraph/graphql-go-tools/pkg/graphql"
-	"golang.org/x/exp/slices"
 )
 
 // List of the supported compression schemes
