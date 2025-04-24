@@ -4,9 +4,9 @@ This page describes new releases of Wallarm API Firewall.
 
 ## v0.9.1 (2025-04-23)
 
+* Added the `APIFW_API_MODE_MAX_ERRORS_IN_RESPONSE` [environment variable to limit the number of returned validation errors](installation-guides/api-mode.md#running-the-api-firewall-container) in the `API` mode
+* Fixed the `related_fields_details` field issues in the `API` mode
 * Dependency upgrade
-* Add APIFW_API_MODE_MAX_ERRORS_IN_RESPONSE param to limit the response size in API mode
-* Fix related_fields_details field issue in API mode
 
 ## v0.9.0 (2025-04-04)
 

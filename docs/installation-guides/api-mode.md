@@ -38,7 +38,7 @@ Use the following command to run the API Firewall container:
 
 ```
 docker run --rm -it -v <PATH_TO_SQLITE_DATABASE>:/var/lib/wallarm-api/1/wallarm_api.db \
-    -e APIFW_MODE=API -p 8282:8282 wallarm/api-firewall:v0.8.6
+    -e APIFW_MODE=API -p 8282:8282 wallarm/api-firewall:v0.9.1
 ```
 
 You can pass to the container the following variables:
@@ -55,6 +55,7 @@ You can pass to the container the following variables:
 | `APIFW_WRITE_TIMEOUT` | The timeout for API Firewall to return the response to the request. The default value is `5s`. | No |
 | `APIFW_HEALTH_HOST` | The host of the health check service. The default value is `0.0.0.0:9667`. The liveness probe service path is `/v1/liveness` and the readiness service path is `/v1/readiness`. | No |
 | `APIFW_API_MODE_DB_VERSION` | Determines the SQLite database version that the API Firewall is configured to use. Available options are:<ul><li>`0` (default) - tries to load V2 (with the `status` field) first; if unsuccessful, attempts V1. On both failures, the firewall fails to start.</li><li>`1` - recognize and process the database as V1 only.</li><li>`2` - recognize and process the database as V2 only.</li></ul> | No |
+|`APIFW_API_MODE_MAX_ERRORS_IN_RESPONSE` | Limits the number of errors included in the API Firewall response for a single request validation.<br><br>The default value is `0`, which means no limit is applied.<br><br>Supported starting from version 0.9.1. | No |
 
 ## Evaluating requests against the specification
 
