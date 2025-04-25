@@ -3,7 +3,7 @@
 The DNS cache update feature allows you to make asynchronous DNS requests and cache results for a configured period of time. This feature could be useful when DNS load balancing is used. 
 
 !!! info "Feature availability"
-    This feature and corresponding variables are supported only in the [`PROXY`](installation-guides/docker-container.md) API Firewall mode.
+    This feature and corresponding variables are supported only in the [`PROXY`](../installation-guides/docker-container.md) API Firewall mode.
 
 To configure the DNS cache update, use the following environment variables:
 
