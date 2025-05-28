@@ -11,16 +11,17 @@ import (
 
 // List of metrics
 var (
-	//todo: fix comments
+	// Counter: Total number of errors
 	TotalErrors = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "apifw_service_errors_total",
 			Help: "Total number of errors occurred in the APIFW service.",
 		})
 
+	// Counter: Errors by types
 	ErrorTypeCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "apifw_service_errors_by_type_total",
+			Name: "apifw_service_errors_by_type",
 			Help: "Total number of errors by type and endpoint.",
 		},
 		[]string{"error_type", "method", "endpoint"},
@@ -29,7 +30,7 @@ var (
 	// Counter: Total number of HTTP requests
 	HttpRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "http_requests_total",
+			Name: "apifw_http_requests_total",
 			Help: "Total number of HTTP requests",
 		},
 		[]string{"method", "endpoint", "status_code"},
@@ -38,7 +39,7 @@ var (
 	// Histogram: HTTP request duration
 	HttpRequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name: "http_request_duration_seconds",
+			Name: "apifw_http_request_duration_seconds",
 			Help: "HTTP request duration in seconds",
 			//Buckets: prometheus.DefBuckets, // Default buckets: .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10
 			Buckets: []float64{.001, .005, .025, .05, .25, .5, 1, 2.5, 5},
