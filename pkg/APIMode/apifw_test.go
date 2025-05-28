@@ -299,6 +299,7 @@ func TestAPIFWBasic(t *testing.T) {
 
 	apifw, err := NewAPIFirewall(
 		WithPathToDB("./wallarm_apifw_test.db"),
+		EnablePassOptionsRequests(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -356,7 +357,6 @@ func TestAPIFWBasicUpdate(t *testing.T) {
 	apifw, err := NewAPIFirewall(
 		WithPathToDB(tmpFileName),
 		DisableUnknownParameters(),
-		DisablePassOptionsRequests(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -419,7 +419,6 @@ func TestAPIFWBasicErrors(t *testing.T) {
 	_, err := NewAPIFirewall(
 		WithPathToDB("./wallarm_apifw_invalid_db_schema.db"),
 		DisableUnknownParameters(),
-		DisablePassOptionsRequests(),
 	)
 	if !errors.Is(err, validator.ErrSpecLoading) {
 		t.Errorf("expected ErrSpecLoading but got %v", err)
@@ -429,7 +428,6 @@ func TestAPIFWBasicErrors(t *testing.T) {
 	_, err = NewAPIFirewall(
 		WithPathToDB("./wallarm_apifw_invalid_spec.db"),
 		DisableUnknownParameters(),
-		DisablePassOptionsRequests(),
 	)
 	if !errors.Is(err, validator.ErrSpecParsing) {
 		t.Errorf("expected ErrSpecParsing but got %v", err)
@@ -439,7 +437,6 @@ func TestAPIFWBasicErrors(t *testing.T) {
 	apifw, err := NewAPIFirewall(
 		WithPathToDB("./wallarm_apifw_test.db"),
 		DisableUnknownParameters(),
-		DisablePassOptionsRequests(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -475,7 +472,6 @@ func TestAPIFWBasicErrors(t *testing.T) {
 	_, err = NewAPIFirewall(
 		WithPathToDB("./wallarm_apifw_spec_validation_failed.db"),
 		DisableUnknownParameters(),
-		DisablePassOptionsRequests(),
 	)
 	if !errors.Is(err, validator.ErrSpecValidation) {
 		t.Errorf("expected ErrSpecValidation but got %v", err)
@@ -489,7 +485,6 @@ func TestSafeCounterThreadSafety(t *testing.T) {
 
 	apifw, err := NewAPIFirewall(
 		WithPathToDB("./wallarm_apifw_test.db"),
-		DisablePassOptionsRequests(),
 	)
 	if err != nil {
 		t.Fatal(err)

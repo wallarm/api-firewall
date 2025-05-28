@@ -74,10 +74,10 @@ func DisableUnknownParameters() Option {
 	}
 }
 
-// DisablePassOptionsRequests is a functional option to disable requests with method OPTIONS
-func DisablePassOptionsRequests() Option {
+// EnablePassOptionsRequests is a functional option to disable requests with method OPTIONS
+func EnablePassOptionsRequests() Option {
 	return func(c *Configuration) {
-		c.PassOptionsRequests = false
+		c.PassOptionsRequests = true
 	}
 }
 
@@ -96,7 +96,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 			PathToSpecDB:               "",
 			DBVersion:                  0,
 			UnknownParametersDetection: true,
-			PassOptionsRequests:        true,
+			PassOptionsRequests:        false,
 			MaxErrorsInResponse:        0,
 		},
 	}

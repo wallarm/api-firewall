@@ -39,9 +39,8 @@ var (
 	// Histogram: HTTP request duration
 	HttpRequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name: "apifw_http_request_duration_seconds",
-			Help: "HTTP request duration in seconds",
-			//Buckets: prometheus.DefBuckets, // Default buckets: .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10
+			Name:    "apifw_http_request_duration_seconds",
+			Help:    "HTTP request duration in seconds",
 			Buckets: []float64{.001, .005, .025, .05, .25, .5, 1, 2.5, 5},
 		},
 		[]string{"method", "endpoint"},
