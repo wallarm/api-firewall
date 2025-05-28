@@ -6,6 +6,7 @@ type APIMode struct {
 	APIFWInit
 	APIFWServer
 	ModSecurity
+	Metrics
 	AllowIP AllowIP
 	TLS     TLS
 

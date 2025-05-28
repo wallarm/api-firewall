@@ -10,11 +10,14 @@ import (
 
 	"github.com/ardanlabs/conf"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpadaptor"
 
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/version"
 )
@@ -188,6 +191,41 @@ func Run(logger zerolog.Logger) error {
 		},
 		Logger:                zeroLogger,
 		NoDefaultServerHeader: true,
+	}
+
+	// =========================================================================
+	// Init Metrics
+
+	if cfg.Metrics.Enabled {
+
+		// Init metrics
+		metrics.InitializeMetrics()
+
+		// Prometheus service handler
+		fastPrometheusHandler := fasthttpadaptor.NewFastHTTPHandler(promhttp.Handler())
+		metricsHandler := func(ctx *fasthttp.RequestCtx) {
+			switch string(ctx.Path()) {
+			case cfg.Metrics.Endpoint:
+				fastPrometheusHandler(ctx)
+				return
+			default:
+				ctx.Error("Unsupported path", fasthttp.StatusNotFound)
+			}
+		}
+
+		metricsAPI := fasthttp.Server{
+			Handler:               metricsHandler,
+			ReadTimeout:           cfg.ReadTimeout,
+			WriteTimeout:          cfg.WriteTimeout,
+			NoDefaultServerHeader: true,
+			Logger:                zeroLogger,
+		}
+
+		// Start the service listening for requests.
+		go func() {
+			logger.Info().Msgf("%s: Metrics API listening on %s%s", logPrefix, cfg.Metrics.Host, cfg.Metrics.Endpoint)
+			serverErrors <- metricsAPI.ListenAndServe(cfg.Metrics.Host)
+		}()
 	}
 
 	// =========================================================================

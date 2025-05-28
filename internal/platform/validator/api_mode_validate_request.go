@@ -14,6 +14,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"github.com/valyala/fastjson"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/router"
@@ -102,6 +103,7 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.P
 	// Convert fasthttp request to net/http request
 	req := http.Request{}
 	if err := fasthttpadaptor.ConvertRequest(ctx, &req, false); err != nil {
+		metrics.IncErrorTypeCounter("request conversion error", ctx.Method(), ctx.Path())
 		return nil, errors.Wrap(err, "request conversion error")
 	}
 
@@ -110,6 +112,7 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.P
 	if requestContentEncoding != "" {
 		var err error
 		if req.Body, err = web.GetDecompressedRequestBody(&ctx.Request, requestContentEncoding); err != nil {
+			metrics.IncErrorTypeCounter("request body decompression error", ctx.Method(), ctx.Path())
 			return nil, errors.Wrap(err, "request body decompression error")
 		}
 	}
@@ -180,7 +183,8 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.P
 				// Parse validator error and build the response
 				parsedValErrs, unknownErr := GetErrorResponse(currentErr)
 				if unknownErr != nil {
-					return nil, errors.Wrap(unknownErr, "validator response parsing error")
+					metrics.IncErrorTypeCounter("request body decode error: unsupported content type", ctx.Method(), ctx.Path())
+					return nil, errors.Wrap(unknownErr, "request body decode error: unsupported content type")
 				}
 
 				if len(parsedValErrs) > 0 {
@@ -192,7 +196,8 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.P
 			// Parse validator error and build the response
 			parsedValErrs, unknownErr := GetErrorResponse(valErr)
 			if unknownErr != nil {
-				return nil, errors.Wrap(unknownErr, "validator response parsing error")
+				metrics.IncErrorTypeCounter("request body decode error: unsupported content type", ctx.Method(), ctx.Path())
+				return nil, errors.Wrap(unknownErr, "request body decode error: unsupported content type")
 			}
 			if parsedValErrs != nil {
 				respErrors = append(respErrors, parsedValErrs...)
@@ -207,6 +212,7 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.P
 			// If it is a parsing error then it already handled by the request validator
 			var parseError *ParseError
 			if !errors.As(valUPReqErrors, &parseError) {
+				metrics.IncErrorTypeCounter("unknown parameter detection error", ctx.Method(), ctx.Path())
 				return nil, errors.Wrap(valUPReqErrors, "unknown parameter detection error")
 			}
 		}

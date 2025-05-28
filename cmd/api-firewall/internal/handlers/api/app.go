@@ -9,12 +9,14 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
 
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
@@ -149,9 +151,18 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	// Add request ID
 	ctx.SetUserValue(web.RequestID, uuid.NewString())
 
+	// Request handling start time
+	start := time.Now()
+
+	defer func() {
+		metrics.IncHTTPRequestStat(start, ctx.Method(), ctx.Path(), ctx.Response.StatusCode())
+	}()
+
 	schemaIDs, notFoundSchemaIDs, err := getWallarmSchemaID(ctx, a.storedSpecs)
 	if err != nil {
 		defer web.LogRequestResponseAtTraceLevel(ctx, a.Log)
+
+		metrics.IncErrorTypeCounter("schema_id not found", ctx.Method(), ctx.Path())
 
 		a.Log.Error().
 			Err(err).

@@ -7,6 +7,8 @@ import (
 
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
+
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 )
 
@@ -31,6 +33,9 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*rou
 			case error:
 				err = e
 			default:
+
+				metrics.IncErrorTypeCounter("request parsing error", ctx.Method(), ctx.Path())
+
 				err = fmt.Errorf("%w: panic: %v", ErrRequestParsing, r)
 			}
 
@@ -51,6 +56,9 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*rou
 	rctx := router.NewRouteContext()
 	handler, err := find(routers, lock, rctx, schemaID, strconv.B2S(ctx.Method()), strconv.B2S(ctx.Request.URI().Path()))
 	if err != nil {
+
+		metrics.IncErrorTypeCounter("schema_id not found", ctx.Method(), ctx.Path())
+
 		return &ValidationResponse{
 			Summary: []*ValidationResponseSummary{
 				{
@@ -91,6 +99,9 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*rou
 	ctx.SetUserValue(router.RouteCtxKey, rctx)
 
 	if err := handler(ctx); err != nil {
+
+		metrics.IncErrorTypeCounter("request parsing error", ctx.Method(), ctx.Path())
+
 		return &ValidationResponse{
 			Summary: []*ValidationResponseSummary{
 				{
@@ -106,6 +117,9 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*rou
 
 	statusCode, ok := ctx.UserValue(strconv2.Itoa(schemaID) + APIModePostfixStatusCode).(int)
 	if !ok {
+
+		metrics.IncErrorTypeCounter("request parsing error", ctx.Method(), ctx.Path())
+
 		// Didn't receive the response code. It means that the router respond to the request because it was not valid.
 		// The API Firewall should respond by 500 status code in this case.
 		return &ValidationResponse{

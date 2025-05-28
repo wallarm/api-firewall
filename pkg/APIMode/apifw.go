@@ -4,12 +4,19 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
+	"time"
 
+	"github.com/ardanlabs/conf"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
+
+	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
+	"github.com/wallarm/api-firewall/internal/version"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
 
@@ -94,6 +101,21 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 		},
 	}
 
+	var cfg config.APIMode
+	cfg.Version.SVN = version.Version
+	cfg.Version.Desc = version.ProjectName
+
+	if err := conf.Parse(os.Args[1:], version.Namespace, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing config: %w", err)
+	}
+
+	// apply env var params
+	apiMode.options.PassOptionsRequests = cfg.PassOptionsRequests
+	apiMode.options.MaxErrorsInResponse = cfg.MaxErrorsInResponse
+	apiMode.options.UnknownParametersDetection = cfg.UnknownParametersDetection
+	apiMode.options.PathToSpecDB = cfg.PathToSpecDB
+	apiMode.options.DBVersion = cfg.DBVersion
+
 	// apply all the functional options
 	for _, opt := range options {
 		opt(apiMode.options)
@@ -167,6 +189,9 @@ func (a *APIFWModeAPI) ValidateRequest(schemaIDs []int, uri, method, body []byte
 	var wg sync.WaitGroup
 	var m sync.Mutex
 
+	// Request handling start time
+	start := time.Now()
+
 	for _, schemaID := range schemaIDs {
 
 		// build fasthttp RequestCTX
@@ -186,6 +211,7 @@ func (a *APIFWModeAPI) ValidateRequest(schemaIDs []int, uri, method, body []byte
 
 		go func(ctx *fasthttp.RequestCtx, sID int) {
 			defer wg.Done()
+			defer metrics.IncHTTPRequestStat(start, ctx.Method(), ctx.Path(), ctx.Response.StatusCode())
 
 			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.routers, a.lock, a.options.PassOptionsRequests, a.options.MaxErrorsInResponse)
 
@@ -223,6 +249,9 @@ func (a *APIFWModeAPI) ValidateRequestFromReader(schemaIDs []int, r *bufio.Reade
 	var wg sync.WaitGroup
 	var m sync.Mutex
 
+	// Request handling start time
+	start := time.Now()
+
 	for _, schemaID := range schemaIDs {
 
 		// build fasthttp RequestCTX
@@ -243,6 +272,7 @@ func (a *APIFWModeAPI) ValidateRequestFromReader(schemaIDs []int, r *bufio.Reade
 
 		go func(sID int) {
 			defer wg.Done()
+			defer metrics.IncHTTPRequestStat(start, ctx.Method(), ctx.Path(), ctx.Response.StatusCode())
 
 			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.routers, a.lock, a.options.PassOptionsRequests, a.options.MaxErrorsInResponse)
 
