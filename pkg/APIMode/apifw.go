@@ -135,6 +135,11 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 
 	var err error
 
+	// init metrics
+	if apiMode.options.Metrics {
+		metrics.InitializeMetrics()
+	}
+
 	// load spec from the database
 	specsStorage, errLoadDB := storage.NewOpenAPIDB(apiMode.options.PathToSpecDB, apiMode.options.DBVersion)
 	if errLoadDB != nil {
