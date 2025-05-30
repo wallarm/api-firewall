@@ -12,6 +12,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/router"
@@ -24,6 +25,7 @@ type APIFirewall interface {
 	ValidateRequestFromReader(schemaIDs []int, r *bufio.Reader) (*validator.ValidationResponse, error)
 	ValidateRequest(schemaIDs []int, uri, method, body []byte, headers map[string][]string) (*validator.ValidationResponse, error)
 	UpdateSpecsStorage() ([]int, bool, error)
+	GetPrometheusMetrics() ([]prometheus.Collector, error)
 }
 
 type APIFWModeAPI struct {
@@ -42,6 +44,7 @@ type Configuration struct {
 	UnknownParametersDetection bool
 	PassOptionsRequests        bool
 	MaxErrorsInResponse        int
+	Metrics                    bool
 }
 
 type Option func(*Configuration)
@@ -105,6 +108,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 			UnknownParametersDetection: true,
 			PassOptionsRequests:        false,
 			MaxErrorsInResponse:        0,
+			Metrics:                    false,
 		},
 	}
 
@@ -122,6 +126,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 	apiMode.options.UnknownParametersDetection = cfg.UnknownParametersDetection
 	apiMode.options.PathToSpecDB = cfg.PathToSpecDB
 	apiMode.options.DBVersion = cfg.DBVersion
+	apiMode.options.Metrics = cfg.Metrics.Enabled
 
 	// apply all the functional options
 	for _, opt := range options {
@@ -305,4 +310,19 @@ func (a *APIFWModeAPI) ValidateRequestFromReader(schemaIDs []int, r *bufio.Reade
 	wg.Wait()
 
 	return &resp, respErr
+}
+
+// GetPrometheusMetrics returns Prometheus metrics
+func (a *APIFWModeAPI) GetPrometheusMetrics() ([]prometheus.Collector, error) {
+
+	if !a.options.Metrics {
+		return nil, errors.New("metrics disabled")
+	}
+
+	return []prometheus.Collector{
+		metrics.ErrorTypeCounter,
+		metrics.TotalErrors,
+		metrics.HttpRequestsTotal,
+		metrics.HttpRequestDuration,
+	}, nil
 }
