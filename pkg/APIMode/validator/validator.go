@@ -34,7 +34,7 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*rou
 				err = e
 			default:
 
-				metrics.IncErrorTypeCounter("request parsing error", ctx.Method(), ctx.Path())
+				metrics.IncErrorTypeCounter("request parsing error", schemaID)
 
 				err = fmt.Errorf("%w: panic: %v", ErrRequestParsing, r)
 			}
@@ -57,7 +57,7 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*rou
 	handler, err := find(routers, lock, rctx, schemaID, strconv.B2S(ctx.Method()), strconv.B2S(ctx.Request.URI().Path()))
 	if err != nil {
 
-		metrics.IncErrorTypeCounter("schema_id not found", ctx.Method(), ctx.Path())
+		metrics.IncErrorTypeCounter("schema_id not found", schemaID)
 
 		return &ValidationResponse{
 			Summary: []*ValidationResponseSummary{
@@ -100,7 +100,7 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*rou
 
 	if err := handler(ctx); err != nil {
 
-		metrics.IncErrorTypeCounter("request parsing error", ctx.Method(), ctx.Path())
+		metrics.IncErrorTypeCounter("request parsing error", schemaID)
 
 		return &ValidationResponse{
 			Summary: []*ValidationResponseSummary{
@@ -118,7 +118,7 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*rou
 	statusCode, ok := ctx.UserValue(strconv2.Itoa(schemaID) + APIModePostfixStatusCode).(int)
 	if !ok {
 
-		metrics.IncErrorTypeCounter("request parsing error", ctx.Method(), ctx.Path())
+		metrics.IncErrorTypeCounter("request parsing error", schemaID)
 
 		// Didn't receive the response code. It means that the router respond to the request because it was not valid.
 		// The API Firewall should respond by 500 status code in this case.

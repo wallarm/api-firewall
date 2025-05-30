@@ -154,15 +154,11 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	// Request handling start time
 	start := time.Now()
 
-	defer func() {
-		metrics.IncHTTPRequestStat(start, ctx.Method(), ctx.Path(), ctx.Response.StatusCode())
-	}()
-
 	schemaIDs, notFoundSchemaIDs, err := getWallarmSchemaID(ctx, a.storedSpecs)
 	if err != nil {
 		defer web.LogRequestResponseAtTraceLevel(ctx, a.Log)
 
-		metrics.IncErrorTypeCounter("schema_id not found", ctx.Method(), ctx.Path())
+		metrics.IncErrorTypeCounter("schema_id not found", 0)
 
 		a.Log.Error().
 			Err(err).
@@ -171,6 +167,8 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 			Bytes("method", ctx.Request.Header.Method()).
 			Interface("request_id", ctx.UserValue(web.RequestID)).
 			Msg("error while getting schema ID")
+
+		metrics.IncHTTPRequestStat(start, 0, fasthttp.StatusInternalServerError)
 
 		if err := web.RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
 			a.Log.Error().
@@ -297,6 +295,11 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	// replace method to send response body
 	if ctx.IsHead() {
 		ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+	}
+
+	// save http request count for each schema ID
+	for _, schemaID := range schemaIDs {
+		metrics.IncHTTPRequestStat(start, schemaID, fasthttp.StatusOK)
 	}
 
 	// limit amount of errors to reduce the total size of the response

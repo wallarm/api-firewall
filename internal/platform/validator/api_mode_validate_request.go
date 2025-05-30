@@ -76,7 +76,7 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 }
 
 // APIModeValidateRequest validates request and respond with 200, 403 (with error) or 500 status code
-func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.ParserPool, openAPI *loader.CustomRoute, unknownParametersDetection bool) (validationErrs []*validator.ValidationError, err error) {
+func APIModeValidateRequest(ctx *fasthttp.RequestCtx, schemaID int, jsonParserPool *fastjson.ParserPool, openAPI *loader.CustomRoute, unknownParametersDetection bool) (validationErrs []*validator.ValidationError, err error) {
 
 	// handle panic
 	defer func() {
@@ -103,7 +103,7 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.P
 	// Convert fasthttp request to net/http request
 	req := http.Request{}
 	if err := fasthttpadaptor.ConvertRequest(ctx, &req, false); err != nil {
-		metrics.IncErrorTypeCounter("request conversion error", ctx.Method(), ctx.Path())
+		metrics.IncErrorTypeCounter("request conversion error", schemaID)
 		return nil, errors.Wrap(err, "request conversion error")
 	}
 
@@ -112,7 +112,7 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.P
 	if requestContentEncoding != "" {
 		var err error
 		if req.Body, err = web.GetDecompressedRequestBody(&ctx.Request, requestContentEncoding); err != nil {
-			metrics.IncErrorTypeCounter("request body decompression error", ctx.Method(), ctx.Path())
+			metrics.IncErrorTypeCounter("request body decompression error", schemaID)
 			return nil, errors.Wrap(err, "request body decompression error")
 		}
 	}
@@ -183,7 +183,7 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.P
 				// Parse validator error and build the response
 				parsedValErrs, unknownErr := GetErrorResponse(currentErr)
 				if unknownErr != nil {
-					metrics.IncErrorTypeCounter("request body decode error: unsupported content type", ctx.Method(), ctx.Path())
+					metrics.IncErrorTypeCounter("request body decode error: unsupported content type", schemaID)
 					return nil, errors.Wrap(unknownErr, "request body decode error: unsupported content type")
 				}
 
@@ -196,7 +196,7 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.P
 			// Parse validator error and build the response
 			parsedValErrs, unknownErr := GetErrorResponse(valErr)
 			if unknownErr != nil {
-				metrics.IncErrorTypeCounter("request body decode error: unsupported content type", ctx.Method(), ctx.Path())
+				metrics.IncErrorTypeCounter("request body decode error: unsupported content type", schemaID)
 				return nil, errors.Wrap(unknownErr, "request body decode error: unsupported content type")
 			}
 			if parsedValErrs != nil {
@@ -212,7 +212,7 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, jsonParserPool *fastjson.P
 			// If it is a parsing error then it already handled by the request validator
 			var parseError *ParseError
 			if !errors.As(valUPReqErrors, &parseError) {
-				metrics.IncErrorTypeCounter("unknown parameter detection error", ctx.Method(), ctx.Path())
+				metrics.IncErrorTypeCounter("unknown parameter detection error", schemaID)
 				return nil, errors.Wrap(valUPReqErrors, "unknown parameter detection error")
 			}
 		}

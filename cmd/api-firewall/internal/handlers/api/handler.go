@@ -55,7 +55,7 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 		return nil
 	}
 
-	validationErrors, err := apiMode.APIModeValidateRequest(ctx, s.ParserPool, s.CustomRoute, s.Cfg.UnknownParametersDetection)
+	validationErrors, err := apiMode.APIModeValidateRequest(ctx, s.SchemaID, s.ParserPool, s.CustomRoute, s.Cfg.UnknownParametersDetection)
 	if err != nil {
 		s.Log.Error().
 			Err(err).

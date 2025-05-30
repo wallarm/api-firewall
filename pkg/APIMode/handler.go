@@ -47,7 +47,7 @@ func (rv *RequestValidator) APIModeHandler(ctx *fasthttp.RequestCtx) (err error)
 		return nil
 	}
 
-	validationErrors, err := apiMode.APIModeValidateRequest(ctx, rv.ParserPool, rv.CustomRoute, rv.Options.UnknownParametersDetection)
+	validationErrors, err := apiMode.APIModeValidateRequest(ctx, rv.SchemaID, rv.ParserPool, rv.CustomRoute, rv.Options.UnknownParametersDetection)
 	if err != nil {
 		return err
 	}

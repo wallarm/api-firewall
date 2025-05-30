@@ -74,10 +74,17 @@ func DisableUnknownParameters() Option {
 	}
 }
 
-// EnablePassOptionsRequests is a functional option to disable requests with method OPTIONS
+// EnablePassOptionsRequests is a functional option to enable requests with method OPTIONS
 func EnablePassOptionsRequests() Option {
 	return func(c *Configuration) {
 		c.PassOptionsRequests = true
+	}
+}
+
+// DisablePassOptionsRequests is a functional option to disable requests with method OPTIONS
+func DisablePassOptionsRequests() Option {
+	return func(c *Configuration) {
+		c.PassOptionsRequests = false
 	}
 }
 
@@ -211,7 +218,7 @@ func (a *APIFWModeAPI) ValidateRequest(schemaIDs []int, uri, method, body []byte
 
 		go func(ctx *fasthttp.RequestCtx, sID int) {
 			defer wg.Done()
-			defer metrics.IncHTTPRequestStat(start, ctx.Method(), ctx.Path(), ctx.Response.StatusCode())
+			defer metrics.IncHTTPRequestStat(start, schemaID, ctx.Response.StatusCode())
 
 			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.routers, a.lock, a.options.PassOptionsRequests, a.options.MaxErrorsInResponse)
 
@@ -272,7 +279,7 @@ func (a *APIFWModeAPI) ValidateRequestFromReader(schemaIDs []int, r *bufio.Reade
 
 		go func(sID int) {
 			defer wg.Done()
-			defer metrics.IncHTTPRequestStat(start, ctx.Method(), ctx.Path(), ctx.Response.StatusCode())
+			defer metrics.IncHTTPRequestStat(start, schemaID, ctx.Response.StatusCode())
 
 			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.routers, a.lock, a.options.PassOptionsRequests, a.options.MaxErrorsInResponse)
 
