@@ -142,6 +142,9 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	// handle panic
 	defer func() {
 		if r := recover(); r != nil {
+
+			a.Metrics.IncErrorTypeCounter("request processing error", 0)
+
 			a.Log.Error().Msgf("panic: %v", r)
 
 			// Log the Go stack trace for this panic'd goroutine.
@@ -266,6 +269,8 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 				})
 				continue
 			}
+
+			a.Metrics.IncErrorTypeCounter("request processing error", schemaIDs[i])
 
 			// Didn't receive the response code. It means that the router respond to the request because it was not valid.
 			// The API Firewall should respond by 500 status code in this case.

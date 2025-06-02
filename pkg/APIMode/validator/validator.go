@@ -34,7 +34,7 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, metrics metrics.Metr
 				err = e
 			default:
 
-				metrics.IncErrorTypeCounter("request parsing error", schemaID)
+				metrics.IncErrorTypeCounter("request processing error", schemaID)
 
 				err = fmt.Errorf("%w: panic: %v", ErrRequestParsing, r)
 			}
@@ -100,8 +100,6 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, metrics metrics.Metr
 
 	if err := handler(ctx); err != nil {
 
-		// todo: add metric
-
 		return &ValidationResponse{
 			Summary: []*ValidationResponseSummary{
 				{
@@ -118,7 +116,7 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, metrics metrics.Metr
 	statusCode, ok := ctx.UserValue(strconv2.Itoa(schemaID) + APIModePostfixStatusCode).(int)
 	if !ok {
 
-		metrics.IncErrorTypeCounter("request parsing error", schemaID)
+		metrics.IncErrorTypeCounter("request processing error", schemaID)
 
 		// Didn't receive the response code. It means that the router respond to the request because it was not valid.
 		// The API Firewall should respond by 500 status code in this case.

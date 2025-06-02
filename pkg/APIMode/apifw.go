@@ -288,7 +288,7 @@ func (a *APIFWModeAPI) ValidateRequestFromReader(schemaIDs []int, r *bufio.Reade
 
 			respErr = fmt.Errorf("%w; %w: %w", respErr, validator.ErrRequestParsing, err)
 
-			a.metrics.IncErrorTypeCounter("request conversion error", schemaID)
+			a.metrics.IncErrorTypeCounter("request context error", schemaID)
 
 			continue
 		}
