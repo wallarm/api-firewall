@@ -13,6 +13,7 @@ import (
 	"github.com/valyala/fasthttp"
 
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
@@ -35,7 +36,7 @@ func BenchmarkAPIModeBasic(b *testing.B) {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	handler := handlersAPI.Handlers(&lock, &cfg, shutdown, logger, specStorage, nil, nil)
+	handler := handlersAPI.Handlers(&lock, &cfg, shutdown, logger, metrics.NewPrometheusMetrics(false), specStorage, nil, nil)
 
 	p, err := json.Marshal(map[string]any{
 		"firstname": "test",

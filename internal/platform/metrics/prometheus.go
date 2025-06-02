@@ -1,14 +1,20 @@
 package metrics
 
 import (
+	"fmt"
 	strconv2 "strconv"
-	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
+	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpadaptor"
+	"github.com/wallarm/api-firewall/internal/config"
 )
 
-// List of metrics
+const logMetricsPrefix = "prometheus metrics"
+
 var (
 	// Counter: Total number of errors
 	TotalErrors = prometheus.NewCounter(
@@ -46,37 +52,89 @@ var (
 	)
 )
 
-// InitializeMetrics metrics
-func InitializeMetrics() {
+type Options struct {
+	EndpointName string
+	Host         string
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+}
+
+type PrometheusMetrics struct {
+	logger      *zerolog.Logger
+	serviceOpts *Options
+	enabled     bool
+}
+
+var _ Metrics = (*PrometheusMetrics)(nil)
+
+func NewPrometheusMetrics(enabled bool) *PrometheusMetrics {
+	return &PrometheusMetrics{enabled: enabled}
+}
+
+func (p *PrometheusMetrics) StartService(logger *zerolog.Logger, options *Options) error {
+
+	p.logger = logger
+	p.serviceOpts = options
+
+	if p.logger == nil {
+		return fmt.Errorf("%s: logger not initialized", logMetricsPrefix)
+	}
+
+	p.initializeMetrics()
+
+	// Prometheus service handler
+	fastPrometheusHandler := fasthttpadaptor.NewFastHTTPHandler(promhttp.Handler())
+	metricsHandler := func(ctx *fasthttp.RequestCtx) {
+		switch string(ctx.Path()) {
+		case p.serviceOpts.EndpointName:
+			fastPrometheusHandler(ctx)
+			return
+		default:
+			ctx.Error("Unsupported path", fasthttp.StatusNotFound)
+		}
+	}
+
+	metricsAPI := fasthttp.Server{
+		Handler:               metricsHandler,
+		ReadTimeout:           p.serviceOpts.ReadTimeout,
+		WriteTimeout:          p.serviceOpts.WriteTimeout,
+		NoDefaultServerHeader: true,
+		Logger:                &config.ZerologAdapter{Logger: *p.logger},
+	}
+
+	// Start the service listening for requests.
+	p.logger.Info().Msgf("%s: API listening on %s%s", logMetricsPrefix, p.serviceOpts.Host, p.serviceOpts.EndpointName)
+
+	return metricsAPI.ListenAndServe(p.serviceOpts.Host)
+}
+
+// initializeMetrics initialized metrics
+func (p *PrometheusMetrics) initializeMetrics() {
 	prometheus.MustRegister(TotalErrors, ErrorTypeCounter, HttpRequestsTotal, HttpRequestDuration)
 }
 
-func IncErrorTypeCounter(err string, schemaID int) {
+func (p *PrometheusMetrics) IncErrorTypeCounter(err string, schemaID int) {
+	if !p.enabled {
+		return
+	}
+
 	TotalErrors.Add(1)
 	ErrorTypeCounter.WithLabelValues(err, strconv2.Itoa(schemaID)).Inc()
 }
 
-func IncHTTPRequestStat(start time.Time, schemaID int, statusCode int) {
+func (p *PrometheusMetrics) IncHTTPRequestStat(start time.Time, schemaID int, statusCode int) {
+	if !p.enabled {
+		return
+	}
+
 	HttpRequestDuration.WithLabelValues(strconv2.Itoa(schemaID)).Observe(time.Since(start).Seconds())
 	HttpRequestsTotal.WithLabelValues(strconv2.Itoa(schemaID), strconv2.Itoa(statusCode)).Inc()
 }
 
-// Normalize endpoints for metrics (replace dynamic parts)
-func normalizeEndpoint(path string) string {
-	// Replace numeric IDs with placeholder
-	parts := strings.Split(path, "/")
-	for i, part := range parts {
-		if part != "" {
-			// Check if part is numeric (ID)
-			if _, err := strconv2.Atoi(part); err == nil {
-				parts[i] = "{id}"
-			}
-		}
+func (p *PrometheusMetrics) IncHTTPRequestTotalCountOnly(schemaID int, statusCode int) {
+	if !p.enabled {
+		return
 	}
 
-	normalized := strings.Join(parts, "/")
-	if normalized == "" {
-		return "/"
-	}
-	return normalized
+	HttpRequestsTotal.WithLabelValues(strconv2.Itoa(schemaID), strconv2.Itoa(statusCode)).Inc()
 }

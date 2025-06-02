@@ -23,7 +23,7 @@ var (
 	StatusInternalServerError int = fasthttp.StatusInternalServerError
 )
 
-func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, routers map[int]*router.Mux, lock *sync.RWMutex, passOptionsRequests bool, maxErrorsInResponse int) (resp *ValidationResponse, err error) {
+func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, metrics metrics.Metrics, routers map[int]*router.Mux, lock *sync.RWMutex, passOptionsRequests bool, maxErrorsInResponse int) (resp *ValidationResponse, err error) {
 
 	// handle panic
 	defer func() {

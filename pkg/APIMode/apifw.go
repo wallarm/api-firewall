@@ -25,13 +25,14 @@ type APIFirewall interface {
 	ValidateRequestFromReader(schemaIDs []int, r *bufio.Reader) (*validator.ValidationResponse, error)
 	ValidateRequest(schemaIDs []int, uri, method, body []byte, headers map[string][]string) (*validator.ValidationResponse, error)
 	UpdateSpecsStorage() ([]int, bool, error)
-	GetPrometheusMetrics() ([]prometheus.Collector, error)
+	GetPrometheusCollectors() ([]prometheus.Collector, error)
 }
 
 type APIFWModeAPI struct {
 	routers      map[int]*router.Mux
 	specsStorage storage.DBOpenAPILoader
 	parserPool   *fastjson.ParserPool
+	metrics      metrics.Metrics
 	lock         *sync.RWMutex
 	options      *Configuration
 }
@@ -44,7 +45,7 @@ type Configuration struct {
 	UnknownParametersDetection bool
 	PassOptionsRequests        bool
 	MaxErrorsInResponse        int
-	Metrics                    bool
+	MetricsEnabled             bool
 }
 
 type Option func(*Configuration)
@@ -108,7 +109,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 			UnknownParametersDetection: true,
 			PassOptionsRequests:        false,
 			MaxErrorsInResponse:        0,
-			Metrics:                    false,
+			MetricsEnabled:             false,
 		},
 	}
 
@@ -126,7 +127,7 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 	apiMode.options.UnknownParametersDetection = cfg.UnknownParametersDetection
 	apiMode.options.PathToSpecDB = cfg.PathToSpecDB
 	apiMode.options.DBVersion = cfg.DBVersion
-	apiMode.options.Metrics = cfg.Metrics.Enabled
+	apiMode.options.MetricsEnabled = cfg.Metrics.Enabled
 
 	// apply all the functional options
 	for _, opt := range options {
@@ -134,11 +135,6 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 	}
 
 	var err error
-
-	// init metrics
-	if apiMode.options.Metrics {
-		metrics.InitializeMetrics()
-	}
 
 	// load spec from the database
 	specsStorage, errLoadDB := storage.NewOpenAPIDB(apiMode.options.PathToSpecDB, apiMode.options.DBVersion)
@@ -149,12 +145,15 @@ func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 	apiMode.specsStorage = specsStorage
 
 	// init routers
-	routers, errRouters := getRouters(apiMode.specsStorage, &parserPool, apiMode.options)
+	routers, errRouters := getRouters(apiMode.specsStorage, &parserPool, apiMode.metrics, apiMode.options)
 	if errRouters != nil {
 		err = errors.Join(err, fmt.Errorf("%w: %w", validator.ErrHandlersInit, errRouters))
 	}
 
 	apiMode.routers = routers
+
+	// init metrics
+	apiMode.metrics = metrics.NewPrometheusMetrics(apiMode.options.MetricsEnabled)
 
 	return &apiMode, err
 }
@@ -179,7 +178,7 @@ func (a *APIFWModeAPI) UpdateSpecsStorage() ([]int, bool, error) {
 		a.lock.Lock()
 		defer a.lock.Unlock()
 
-		routers, err := getRouters(newSpecDB, a.parserPool, a.options)
+		routers, err := getRouters(newSpecDB, a.parserPool, a.metrics, a.options)
 		if err != nil {
 			return a.specsStorage.SchemaIDs(), isUpdated, fmt.Errorf("%w: %w", validator.ErrHandlersInit, err)
 		}
@@ -228,9 +227,9 @@ func (a *APIFWModeAPI) ValidateRequest(schemaIDs []int, uri, method, body []byte
 
 		go func(ctx *fasthttp.RequestCtx, sID int) {
 			defer wg.Done()
-			defer metrics.IncHTTPRequestStat(start, schemaID, ctx.Response.StatusCode())
+			defer a.metrics.IncHTTPRequestStat(start, schemaID, ctx.Response.StatusCode())
 
-			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.routers, a.lock, a.options.PassOptionsRequests, a.options.MaxErrorsInResponse)
+			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.metrics, a.routers, a.lock, a.options.PassOptionsRequests, a.options.MaxErrorsInResponse)
 
 			m.Lock()
 			defer m.Unlock()
@@ -289,9 +288,9 @@ func (a *APIFWModeAPI) ValidateRequestFromReader(schemaIDs []int, r *bufio.Reade
 
 		go func(sID int) {
 			defer wg.Done()
-			defer metrics.IncHTTPRequestStat(start, schemaID, ctx.Response.StatusCode())
+			defer a.metrics.IncHTTPRequestStat(start, schemaID, ctx.Response.StatusCode())
 
-			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.routers, a.lock, a.options.PassOptionsRequests, a.options.MaxErrorsInResponse)
+			pReqResp, pReqErrs := validator.ProcessRequest(sID, ctx, a.metrics, a.routers, a.lock, a.options.PassOptionsRequests, a.options.MaxErrorsInResponse)
 
 			m.Lock()
 			defer m.Unlock()
@@ -317,12 +316,8 @@ func (a *APIFWModeAPI) ValidateRequestFromReader(schemaIDs []int, r *bufio.Reade
 	return &resp, respErr
 }
 
-// GetPrometheusMetrics returns Prometheus metrics
-func (a *APIFWModeAPI) GetPrometheusMetrics() ([]prometheus.Collector, error) {
-
-	if !a.options.Metrics {
-		return nil, errors.New("metrics disabled")
-	}
+// GetPrometheusCollectors returns Prometheus collectors for external registration and monitoring
+func (a *APIFWModeAPI) GetPrometheusCollectors() ([]prometheus.Collector, error) {
 
 	return []prometheus.Collector{
 		metrics.ErrorTypeCounter,

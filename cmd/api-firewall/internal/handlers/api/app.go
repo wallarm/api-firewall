@@ -34,6 +34,7 @@ var (
 type App struct {
 	Routers             map[int]*router.Mux
 	Log                 zerolog.Logger
+	Metrics             metrics.Metrics
 	passOPTIONS         bool
 	maxErrorsInResponse int
 	shutdown            chan os.Signal
@@ -43,7 +44,7 @@ type App struct {
 }
 
 // NewApp creates an App value that handle a set of routes for the set of application.
-func NewApp(lock *sync.RWMutex, passOPTIONS bool, maxErrorsInResponse int, storedSpecs storage.DBOpenAPILoader, shutdown chan os.Signal, logger zerolog.Logger, mw ...web.Middleware) *App {
+func NewApp(lock *sync.RWMutex, passOPTIONS bool, maxErrorsInResponse int, storedSpecs storage.DBOpenAPILoader, shutdown chan os.Signal, logger zerolog.Logger, pMetrics metrics.Metrics, mw ...web.Middleware) *App {
 
 	schemaIDs := storedSpecs.SchemaIDs()
 
@@ -58,6 +59,7 @@ func NewApp(lock *sync.RWMutex, passOPTIONS bool, maxErrorsInResponse int, store
 		shutdown:            shutdown,
 		mw:                  mw,
 		Log:                 logger,
+		Metrics:             pMetrics,
 		storedSpecs:         storedSpecs,
 		lock:                lock,
 		passOPTIONS:         passOPTIONS,
@@ -158,7 +160,7 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	if err != nil {
 		defer web.LogRequestResponseAtTraceLevel(ctx, a.Log)
 
-		metrics.IncErrorTypeCounter("schema_id not found", 0)
+		a.Metrics.IncErrorTypeCounter("schema_id not found", 0)
 
 		a.Log.Error().
 			Err(err).
@@ -168,7 +170,7 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 			Interface("request_id", ctx.UserValue(web.RequestID)).
 			Msg("error while getting schema ID")
 
-		metrics.IncHTTPRequestStat(start, 0, fasthttp.StatusInternalServerError)
+		a.Metrics.IncHTTPRequestTotalCountOnly(0, fasthttp.StatusInternalServerError)
 
 		if err := web.RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
 			a.Log.Error().
@@ -299,7 +301,7 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 
 	// save http request count for each schema ID
 	for _, schemaID := range schemaIDs {
-		metrics.IncHTTPRequestStat(start, schemaID, fasthttp.StatusOK)
+		a.Metrics.IncHTTPRequestStat(start, schemaID, fasthttp.StatusOK)
 	}
 
 	// limit amount of errors to reduce the total size of the response

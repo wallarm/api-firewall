@@ -76,7 +76,7 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 }
 
 // APIModeValidateRequest validates request and respond with 200, 403 (with error) or 500 status code
-func APIModeValidateRequest(ctx *fasthttp.RequestCtx, schemaID int, jsonParserPool *fastjson.ParserPool, openAPI *loader.CustomRoute, unknownParametersDetection bool) (validationErrs []*validator.ValidationError, err error) {
+func APIModeValidateRequest(ctx *fasthttp.RequestCtx, metrics metrics.Metrics, schemaID int, jsonParserPool *fastjson.ParserPool, openAPI *loader.CustomRoute, unknownParametersDetection bool) (validationErrs []*validator.ValidationError, err error) {
 
 	// handle panic
 	defer func() {

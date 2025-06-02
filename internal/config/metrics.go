@@ -1,7 +1,11 @@
 package config
 
+import "time"
+
 type Metrics struct {
-	Endpoint string `conf:"default:metrics,env:METRICS_ENDPOINT" validate:"required,url"`
-	Host     string `conf:"default:0.0.0.0:9090,env:METRICS_HOST" validate:"required"`
-	Enabled  bool   `conf:"default:false,env:METRICS_ENABLED"`
+	EndpointName string        `conf:"default:metrics,env:METRICS_ENDPOINT" validate:"required,url"`
+	Host         string        `conf:"default:0.0.0.0:9010,env:METRICS_HOST" validate:"required"`
+	Enabled      bool          `conf:"default:false,env:METRICS_ENABLED"`
+	ReadTimeout  time.Duration `conf:"default:5s"`
+	WriteTimeout time.Duration `conf:"default:5s"`
 }

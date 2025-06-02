@@ -1,13 +1,13 @@
 package api
 
 import (
-	"github.com/rs/zerolog"
 	"net/url"
 	"os"
 	"runtime/debug"
 	"sync"
 
 	"github.com/corazawaf/coraza/v3"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
@@ -16,11 +16,12 @@ import (
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 )
 
-func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, logger zerolog.Logger, storedSpecs storage.DBOpenAPILoader, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
+func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, logger zerolog.Logger, metrics metrics.Metrics, storedSpecs storage.DBOpenAPILoader, AllowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) fasthttp.RequestHandler {
 
 	// handle panic
 	defer func() {
@@ -52,7 +53,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 	}
 
 	// Construct the App which holds all routes as well as common Middleware.
-	apps := NewApp(lock, cfg.PassOptionsRequests, cfg.MaxErrorsInResponse, storedSpecs, shutdown, logger, mid.IPAllowlist(&ipAllowlistOptions), mid.WAFModSecurity(&modSecOptions), mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
+	apps := NewApp(lock, cfg.PassOptionsRequests, cfg.MaxErrorsInResponse, storedSpecs, shutdown, logger, metrics, mid.IPAllowlist(&ipAllowlistOptions), mid.WAFModSecurity(&modSecOptions), mid.Logger(logger), mid.MIMETypeIdentifier(logger), mid.Errors(logger), mid.Panics(logger))
 
 	for _, schemaID := range schemaIDs {
 
@@ -89,6 +90,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 				ParserPool:    &parserPool,
 				OpenAPIRouter: newSwagRouter,
 				SchemaID:      schemaID,
+				Metrics:       metrics,
 			}
 			updRoutePathEsc, err := url.JoinPath(serverURL.Path, newSwagRouter.Routes[i].Path)
 			if err != nil {

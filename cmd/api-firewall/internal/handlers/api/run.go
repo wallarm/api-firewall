@@ -10,10 +10,8 @@ import (
 
 	"github.com/ardanlabs/conf"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
-	"github.com/valyala/fasthttp/fasthttpadaptor"
 
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
@@ -109,9 +107,31 @@ func Run(logger zerolog.Logger) error {
 	zeroLogger := &config.ZerologAdapter{Logger: logger}
 
 	// =========================================================================
+	// Init Metrics
+
+	// make a channel to listen for errors coming from the metrics listener. Use a
+	// buffered channel so the goroutine can exit if we don't collect this error.
+	metricsErrors := make(chan error, 1)
+
+	options := metrics.Options{
+		EndpointName: cfg.Metrics.EndpointName,
+		Host:         cfg.Metrics.Host,
+		ReadTimeout:  cfg.Metrics.ReadTimeout,
+		WriteTimeout: cfg.Metrics.WriteTimeout,
+	}
+
+	metricsController := metrics.NewPrometheusMetrics(cfg.Metrics.Enabled)
+
+	if cfg.Metrics.Enabled {
+		go func() {
+			metricsErrors <- metricsController.StartService(&logger, &options)
+		}()
+	}
+
+	// =========================================================================
 	// Init Handlers
 
-	requestHandlers := Handlers(&dbLock, &cfg, shutdown, logger, specStorage, allowedIPCache, waf)
+	requestHandlers := Handlers(&dbLock, &cfg, shutdown, logger, metricsController, specStorage, allowedIPCache, waf)
 
 	// =========================================================================
 	// Start Health API Service
@@ -194,46 +214,11 @@ func Run(logger zerolog.Logger) error {
 	}
 
 	// =========================================================================
-	// Init Metrics
-
-	if cfg.Metrics.Enabled {
-
-		// Init metrics
-		metrics.InitializeMetrics()
-
-		// Prometheus service handler
-		fastPrometheusHandler := fasthttpadaptor.NewFastHTTPHandler(promhttp.Handler())
-		metricsHandler := func(ctx *fasthttp.RequestCtx) {
-			switch string(ctx.Path()) {
-			case cfg.Metrics.Endpoint:
-				fastPrometheusHandler(ctx)
-				return
-			default:
-				ctx.Error("Unsupported path", fasthttp.StatusNotFound)
-			}
-		}
-
-		metricsAPI := fasthttp.Server{
-			Handler:               metricsHandler,
-			ReadTimeout:           cfg.ReadTimeout,
-			WriteTimeout:          cfg.WriteTimeout,
-			NoDefaultServerHeader: true,
-			Logger:                zeroLogger,
-		}
-
-		// Start the service listening for requests.
-		go func() {
-			logger.Info().Msgf("%s: Metrics API listening on %s%s", logPrefix, cfg.Metrics.Host, cfg.Metrics.Endpoint)
-			serverErrors <- metricsAPI.ListenAndServe(cfg.Metrics.Host)
-		}()
-	}
-
-	// =========================================================================
 	// Init Regular Update Controller
 
 	updSpecErrors := make(chan error, 1)
 
-	updOpenAPISpec := NewHandlerUpdater(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache, waf)
+	updOpenAPISpec := NewHandlerUpdater(&dbLock, logger, metricsController, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache, waf)
 
 	// disable updater if SpecificationUpdatePeriod == 0
 	if cfg.SpecificationUpdatePeriod.Seconds() > 0 {
@@ -265,6 +250,9 @@ func Run(logger zerolog.Logger) error {
 
 	case err := <-updSpecErrors:
 		return errors.Wrap(err, "regular updater error")
+
+	case err := <-metricsErrors:
+		return errors.Wrap(err, "metrics error")
 
 	case sig := <-shutdown:
 		logger.Info().Msgf("%s: %v: Start shutdown", logPrefix, sig)

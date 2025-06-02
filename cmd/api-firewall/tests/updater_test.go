@@ -15,6 +15,7 @@ import (
 
 	handlersAPI "github.com/wallarm/api-firewall/cmd/api-firewall/internal/handlers/api"
 	"github.com/wallarm/api-firewall/internal/config"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
@@ -50,7 +51,7 @@ func TestUpdaterBasic(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, specStorage, nil, nil)
+	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, metrics.NewPrometheusMetrics(false), specStorage, nil, nil)
 
 	// invalid route in the old spec
 	req := fasthttp.AcquireRequest()
@@ -125,7 +126,7 @@ func TestUpdaterBasic(t *testing.T) {
 	// start updater
 	updSpecErrors := make(chan error, 1)
 	health := handlersAPI.Health{}
-	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgUpdater, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, metrics.NewPrometheusMetrics(false), specStorage, &cfgUpdater, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfgUpdater.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -226,7 +227,7 @@ func TestUpdaterFromEmptyDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, specStorage, nil, nil)
+	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, metrics.NewPrometheusMetrics(false), specStorage, nil, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -266,7 +267,7 @@ func TestUpdaterFromEmptyDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgUpdater, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, metrics.NewPrometheusMetrics(false), specStorage, &cfgUpdater, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfgUpdater.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -367,7 +368,7 @@ func TestUpdaterToEmptyDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, specStorage, nil, nil)
+	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, metrics.NewPrometheusMetrics(false), specStorage, nil, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -450,7 +451,7 @@ func TestUpdaterToEmptyDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgUpdaterEmpty, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, metrics.NewPrometheusMetrics(false), specStorage, &cfgUpdaterEmpty, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfgUpdater.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -516,7 +517,7 @@ func TestUpdaterInvalidDBSchema(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, specStorage, nil, nil)
+	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, metrics.NewPrometheusMetrics(false), specStorage, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
@@ -560,7 +561,7 @@ func TestUpdaterInvalidDBFile(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, specStorage, nil, nil)
+	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, metrics.NewPrometheusMetrics(false), specStorage, nil, nil)
 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI("/test/new")
@@ -604,7 +605,7 @@ func TestUpdaterToInvalidDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, specStorage, nil, nil)
+	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, metrics.NewPrometheusMetrics(false), specStorage, nil, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -687,7 +688,7 @@ func TestUpdaterToInvalidDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgUpdaterEmpty, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, metrics.NewPrometheusMetrics(false), specStorage, &cfgUpdaterEmpty, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfgUpdater.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -753,7 +754,7 @@ func TestUpdaterFromInvalidDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, specStorage, nil, nil)
+	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, metrics.NewPrometheusMetrics(false), specStorage, nil, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -783,7 +784,7 @@ func TestUpdaterFromInvalidDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgUpdater, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, metrics.NewPrometheusMetrics(false), specStorage, &cfgUpdater, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfgUpdater.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -884,7 +885,7 @@ func TestUpdaterToNotExistDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, specStorage, nil, nil)
+	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, metrics.NewPrometheusMetrics(false), specStorage, nil, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -967,7 +968,7 @@ func TestUpdaterToNotExistDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgUpdaterEmpty, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, metrics.NewPrometheusMetrics(false), specStorage, &cfgUpdaterEmpty, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfgUpdater.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
@@ -1033,7 +1034,7 @@ func TestUpdaterFromNotExistDB(t *testing.T) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	api := fasthttp.Server{}
-	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, specStorage, nil, nil)
+	api.Handler = handlersAPI.Handlers(&lock, &cfgUpdater, shutdown, logger, metrics.NewPrometheusMetrics(false), specStorage, nil, nil)
 	health := handlersAPI.Health{}
 
 	// invalid route in the old spec
@@ -1063,7 +1064,7 @@ func TestUpdaterFromNotExistDB(t *testing.T) {
 
 	// start updater
 	updSpecErrors := make(chan error, 1)
-	updater := handlersAPI.NewHandlerUpdater(&lock, logger, specStorage, &cfgUpdater, &api, shutdown, &health, nil, nil)
+	updater := handlersAPI.NewHandlerUpdater(&lock, logger, metrics.NewPrometheusMetrics(false), specStorage, &cfgUpdater, &api, shutdown, &health, nil, nil)
 	go func() {
 		t.Logf("starting specification regular update process every %.0f seconds", cfgUpdater.SpecificationUpdatePeriod.Seconds())
 		updSpecErrors <- updater.Start()
