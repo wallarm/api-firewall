@@ -12,9 +12,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	strconv2 "github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpadaptor"
 
 	"github.com/wallarm/api-firewall/demo/interface/api-mode/internal/updater"
 	"github.com/wallarm/api-firewall/internal/config"
@@ -25,7 +28,7 @@ const logMainPrefix = "Wallarm API-Firewall"
 
 var (
 	updateTime = 60 * time.Second
-	apiHost    = "0.0.0.0:8080"
+	apiHost    = "0.0.0.0:8282"
 )
 
 func main() {
@@ -39,7 +42,8 @@ func main() {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	apiFirewall, err := APIMode.NewAPIFirewall(
-		APIMode.WithPathToDB("./wallarm_apifw_test.db"),
+		APIMode.WithPathToDB("pkg/APIMode/wallarm_apifw_test.db"),
+		APIMode.EnablePrometheusMetrics(),
 	)
 	if err != nil {
 		logger.Err(err)
@@ -88,6 +92,42 @@ func main() {
 		ctx.Response.SetBody(response)
 	}
 
+	// Start Metrics logging
+	metrics, err := apiFirewall.GetPrometheusCollectors()
+	if err != nil {
+		logger.Err(err).Msgf("%s: error getting prometheus metrics: %s", logMainPrefix, err)
+	}
+
+	metricsErrors := make(chan error, 1)
+
+	if metrics != nil {
+		reg := prometheus.NewRegistry()
+		reg.MustRegister(metrics...)
+
+		fastPrometheusHandler := fasthttpadaptor.NewFastHTTPHandler(promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+		metricsHandler := func(ctx *fasthttp.RequestCtx) {
+			switch string(ctx.Path()) {
+			case "/metrics":
+				fastPrometheusHandler(ctx)
+				return
+			default:
+				ctx.Error("Unsupported path", fasthttp.StatusNotFound)
+			}
+		}
+
+		metricsAPI := fasthttp.Server{
+			Handler:               metricsHandler,
+			NoDefaultServerHeader: true,
+			Logger:                &logger,
+		}
+
+		// Start the service listening for requests.
+		go func() {
+			logger.Info().Msgf("%s:Prometheus Metrics: API listening on 0.0.0.0:9010/metrics", logMainPrefix)
+			metricsErrors <- metricsAPI.ListenAndServe("0.0.0.0:9010")
+		}()
+	}
+
 	// =========================================================================
 	// Init ZeroLogger
 
@@ -128,6 +168,9 @@ func main() {
 		return
 	case err := <-updSpecErrors:
 		logger.Err(errors.Wrap(err, "regular updater error"))
+		return
+	case err := <-metricsErrors:
+		logger.Err(errors.Wrap(err, "metrics error"))
 		return
 	case sig := <-shutdown:
 		logger.Info().Msgf("%s: %v: Start shutdown", logMainPrefix, sig)

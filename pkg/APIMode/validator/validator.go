@@ -57,7 +57,7 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, metrics metrics.Metr
 	handler, err := find(routers, lock, rctx, schemaID, strconv.B2S(ctx.Method()), strconv.B2S(ctx.Request.URI().Path()))
 	if err != nil {
 
-		metrics.IncErrorTypeCounter("schema_id not found", schemaID)
+		metrics.IncErrorTypeCounter("schema not found", schemaID)
 
 		return &ValidationResponse{
 			Summary: []*ValidationResponseSummary{
@@ -100,7 +100,7 @@ func ProcessRequest(schemaID int, ctx *fasthttp.RequestCtx, metrics metrics.Metr
 
 	if err := handler(ctx); err != nil {
 
-		metrics.IncErrorTypeCounter("request parsing error", schemaID)
+		// todo: add metric
 
 		return &ValidationResponse{
 			Summary: []*ValidationResponseSummary{

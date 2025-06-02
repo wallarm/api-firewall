@@ -92,6 +92,13 @@ func DisablePassOptionsRequests() Option {
 	}
 }
 
+// EnablePrometheusMetrics is a functional option to enable prometheus metrics
+func EnablePrometheusMetrics() Option {
+	return func(c *Configuration) {
+		c.MetricsEnabled = true
+	}
+}
+
 func NewAPIFirewall(options ...Option) (APIFirewall, error) {
 
 	// db usage lock
@@ -281,6 +288,8 @@ func (a *APIFWModeAPI) ValidateRequestFromReader(schemaIDs []int, r *bufio.Reade
 
 			respErr = fmt.Errorf("%w; %w: %w", respErr, validator.ErrRequestParsing, err)
 
+			a.metrics.IncErrorTypeCounter("request conversion error", schemaID)
+
 			continue
 		}
 
@@ -318,6 +327,10 @@ func (a *APIFWModeAPI) ValidateRequestFromReader(schemaIDs []int, r *bufio.Reade
 
 // GetPrometheusCollectors returns Prometheus collectors for external registration and monitoring
 func (a *APIFWModeAPI) GetPrometheusCollectors() ([]prometheus.Collector, error) {
+
+	if !a.options.MetricsEnabled {
+		return nil, errors.New("metrics disabled")
+	}
 
 	return []prometheus.Collector{
 		metrics.ErrorTypeCounter,

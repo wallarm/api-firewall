@@ -82,11 +82,13 @@ func (p *PrometheusMetrics) StartService(logger *zerolog.Logger, options *Option
 
 	p.initializeMetrics()
 
+	endpointName := fmt.Sprintf("/%s", p.serviceOpts.EndpointName)
+
 	// Prometheus service handler
 	fastPrometheusHandler := fasthttpadaptor.NewFastHTTPHandler(promhttp.Handler())
 	metricsHandler := func(ctx *fasthttp.RequestCtx) {
 		switch string(ctx.Path()) {
-		case p.serviceOpts.EndpointName:
+		case endpointName:
 			fastPrometheusHandler(ctx)
 			return
 		default:

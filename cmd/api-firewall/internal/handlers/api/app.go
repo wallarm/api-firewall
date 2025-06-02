@@ -160,7 +160,7 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	if err != nil {
 		defer web.LogRequestResponseAtTraceLevel(ctx, a.Log)
 
-		a.Metrics.IncErrorTypeCounter("schema_id not found", 0)
+		a.Metrics.IncErrorTypeCounter("schema not found", 0)
 
 		a.Log.Error().
 			Err(err).
