@@ -124,6 +124,8 @@ func Run(logger zerolog.Logger) error {
 
 	if cfg.Metrics.Enabled {
 		go func() {
+			// Start the service listening for requests.
+			logger.Info().Msgf("Prometheus metrics: API listening on %s/%s", options.Host, options.EndpointName)
 			metricsErrors <- metricsController.StartService(&logger, &options)
 		}()
 	}
@@ -206,6 +208,9 @@ func Run(logger zerolog.Logger) error {
 				Bytes("path", ctx.Path()).
 				Bytes("method", ctx.Request.Header.Method()).
 				Msg("request processing error")
+
+			metricsController.IncHTTPRequestTotalCountOnly(0, fasthttp.StatusInternalServerError)
+			metricsController.IncErrorTypeCounter("request processing error", 0)
 
 			ctx.Error("", fasthttp.StatusInternalServerError)
 		},

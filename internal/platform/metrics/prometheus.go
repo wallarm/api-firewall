@@ -1,7 +1,9 @@
 package metrics
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
 	strconv2 "strconv"
 	"time"
 
@@ -10,10 +12,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
+
 	"github.com/wallarm/api-firewall/internal/config"
 )
 
-const logMetricsPrefix = "prometheus metrics"
+const logMetricsPrefix = "Prometheus metrics"
 
 var (
 	// Counter: Total number of errors
@@ -63,6 +66,7 @@ type PrometheusMetrics struct {
 	logger      *zerolog.Logger
 	serviceOpts *Options
 	enabled     bool
+	registry    *prometheus.Registry
 }
 
 var _ Metrics = (*PrometheusMetrics)(nil)
@@ -80,12 +84,17 @@ func (p *PrometheusMetrics) StartService(logger *zerolog.Logger, options *Option
 		return fmt.Errorf("%s: logger not initialized", logMetricsPrefix)
 	}
 
-	p.initializeMetrics()
+	if err := p.initializeMetrics(); err != nil {
+		return err
+	}
 
-	endpointName := fmt.Sprintf("/%s", p.serviceOpts.EndpointName)
+	endpointName, err := url.JoinPath("/", p.serviceOpts.EndpointName)
+	if err != nil {
+		return err
+	}
 
 	// Prometheus service handler
-	fastPrometheusHandler := fasthttpadaptor.NewFastHTTPHandler(promhttp.Handler())
+	fastPrometheusHandler := fasthttpadaptor.NewFastHTTPHandler(promhttp.HandlerFor(p.registry, promhttp.HandlerOpts{}))
 	metricsHandler := func(ctx *fasthttp.RequestCtx) {
 		switch string(ctx.Path()) {
 		case endpointName:
@@ -104,15 +113,19 @@ func (p *PrometheusMetrics) StartService(logger *zerolog.Logger, options *Option
 		Logger:                &config.ZerologAdapter{Logger: *p.logger},
 	}
 
-	// Start the service listening for requests.
-	p.logger.Info().Msgf("%s: API listening on %s%s", logMetricsPrefix, p.serviceOpts.Host, p.serviceOpts.EndpointName)
-
 	return metricsAPI.ListenAndServe(p.serviceOpts.Host)
 }
 
-// initializeMetrics initialized metrics
-func (p *PrometheusMetrics) initializeMetrics() {
-	prometheus.MustRegister(TotalErrors, ErrorTypeCounter, HttpRequestsTotal, HttpRequestDuration)
+// initializeMetrics initializes prometheus registry and registers metrics
+func (p *PrometheusMetrics) initializeMetrics() error {
+	if p.registry == nil {
+		p.registry = prometheus.NewRegistry()
+		p.registry.MustRegister(TotalErrors, ErrorTypeCounter, HttpRequestsTotal, HttpRequestDuration)
+
+		return nil
+	}
+
+	return errors.New("registry not initialized")
 }
 
 func (p *PrometheusMetrics) IncErrorTypeCounter(err string, schemaID int) {

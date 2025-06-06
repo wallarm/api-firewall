@@ -2,7 +2,7 @@ module github.com/wallarm/api-firewall
 
 go 1.23.0
 
-toolchain go1.23.9
+toolchain go1.23.10
 
 require (
 	github.com/andybalholm/brotli v1.1.1
@@ -30,7 +30,7 @@ require (
 	github.com/valyala/fasthttp v1.62.0
 	github.com/valyala/fastjson v1.6.4
 	github.com/wundergraph/graphql-go-tools v1.67.4
-	golang.org/x/sync v0.14.0
+	golang.org/x/sync v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

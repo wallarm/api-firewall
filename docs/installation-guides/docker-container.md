@@ -27,7 +27,7 @@ networks:
 services:
   api-firewall:
     container_name: api-firewall
-    image: wallarm/api-firewall:v0.9.1
+    image: wallarm/api-firewall:v0.9.2
     restart: on-failure
     volumes:
       - <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC>
@@ -169,6 +169,6 @@ To start API Firewall on Docker, you can also use regular Docker commands as in 
         -v <HOST_PATH_TO_SPEC>:<CONTAINER_PATH_TO_SPEC> -e APIFW_API_SPECS=<PATH_TO_MOUNTED_SPEC> \
         -e APIFW_URL=<API_FIREWALL_URL> -e APIFW_SERVER_URL=<PROTECTED_APP_URL> \
         -e APIFW_REQUEST_VALIDATION=<REQUEST_VALIDATION_MODE> -e APIFW_RESPONSE_VALIDATION=<RESPONSE_VALIDATION_MODE> \
-        -p 8088:8088 wallarm/api-firewall:v0.9.1
+        -p 8088:8088 wallarm/api-firewall:v0.9.2
     ```
 4. When the environment is started, test it and enable traffic on API Firewall following steps 6 and 7.

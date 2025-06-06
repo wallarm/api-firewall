@@ -290,6 +290,8 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 
 	// Add schema IDs that were not found in the DB to the response
 	for i := 0; i < len(notFoundSchemaIDs); i++ {
+		a.Metrics.IncErrorTypeCounter("schema not found", notFoundSchemaIDs[i])
+		a.Metrics.IncHTTPRequestTotalCountOnly(notFoundSchemaIDs[i], fasthttp.StatusOK)
 		responseSummary = append(responseSummary, &validator.ValidationResponseSummary{
 			SchemaID:   &notFoundSchemaIDs[i],
 			StatusCode: &statusInternalError,
