@@ -9,12 +9,14 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
 
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
@@ -32,6 +34,7 @@ var (
 type App struct {
 	Routers             map[int]*router.Mux
 	Log                 zerolog.Logger
+	Metrics             metrics.Metrics
 	passOPTIONS         bool
 	maxErrorsInResponse int
 	shutdown            chan os.Signal
@@ -41,7 +44,7 @@ type App struct {
 }
 
 // NewApp creates an App value that handle a set of routes for the set of application.
-func NewApp(lock *sync.RWMutex, passOPTIONS bool, maxErrorsInResponse int, storedSpecs storage.DBOpenAPILoader, shutdown chan os.Signal, logger zerolog.Logger, mw ...web.Middleware) *App {
+func NewApp(lock *sync.RWMutex, passOPTIONS bool, maxErrorsInResponse int, storedSpecs storage.DBOpenAPILoader, shutdown chan os.Signal, logger zerolog.Logger, pMetrics metrics.Metrics, mw ...web.Middleware) *App {
 
 	schemaIDs := storedSpecs.SchemaIDs()
 
@@ -56,6 +59,7 @@ func NewApp(lock *sync.RWMutex, passOPTIONS bool, maxErrorsInResponse int, store
 		shutdown:            shutdown,
 		mw:                  mw,
 		Log:                 logger,
+		Metrics:             pMetrics,
 		storedSpecs:         storedSpecs,
 		lock:                lock,
 		passOPTIONS:         passOPTIONS,
@@ -138,6 +142,9 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	// handle panic
 	defer func() {
 		if r := recover(); r != nil {
+
+			a.Metrics.IncErrorTypeCounter("request processing error", 0)
+
 			a.Log.Error().Msgf("panic: %v", r)
 
 			// Log the Go stack trace for this panic'd goroutine.
@@ -149,9 +156,14 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	// Add request ID
 	ctx.SetUserValue(web.RequestID, uuid.NewString())
 
+	// Request handling start time
+	start := time.Now()
+
 	schemaIDs, notFoundSchemaIDs, err := getWallarmSchemaID(ctx, a.storedSpecs)
 	if err != nil {
 		defer web.LogRequestResponseAtTraceLevel(ctx, a.Log)
+
+		a.Metrics.IncErrorTypeCounter("schema not found", 0)
 
 		a.Log.Error().
 			Err(err).
@@ -160,6 +172,8 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 			Bytes("method", ctx.Request.Header.Method()).
 			Interface("request_id", ctx.UserValue(web.RequestID)).
 			Msg("error while getting schema ID")
+
+		a.Metrics.IncHTTPRequestTotalCountOnly(0, fasthttp.StatusInternalServerError)
 
 		if err := web.RespondError(ctx, fasthttp.StatusInternalServerError, ""); err != nil {
 			a.Log.Error().
@@ -256,6 +270,8 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 				continue
 			}
 
+			a.Metrics.IncErrorTypeCounter("request processing error", schemaIDs[i])
+
 			// Didn't receive the response code. It means that the router respond to the request because it was not valid.
 			// The API Firewall should respond by 500 status code in this case.
 			ctx.Response.Header.Reset()
@@ -274,6 +290,8 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 
 	// Add schema IDs that were not found in the DB to the response
 	for i := 0; i < len(notFoundSchemaIDs); i++ {
+		a.Metrics.IncErrorTypeCounter("schema not found", notFoundSchemaIDs[i])
+		a.Metrics.IncHTTPRequestTotalCountOnly(notFoundSchemaIDs[i], fasthttp.StatusOK)
 		responseSummary = append(responseSummary, &validator.ValidationResponseSummary{
 			SchemaID:   &notFoundSchemaIDs[i],
 			StatusCode: &statusInternalError,
@@ -286,6 +304,11 @@ func (a *App) APIModeMainHandler(ctx *fasthttp.RequestCtx) {
 	// replace method to send response body
 	if ctx.IsHead() {
 		ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+	}
+
+	// save http request count for each schema ID
+	for _, schemaID := range schemaIDs {
+		a.Metrics.IncHTTPRequestStat(start, schemaID, fasthttp.StatusOK)
 	}
 
 	// limit amount of errors to reduce the total size of the response

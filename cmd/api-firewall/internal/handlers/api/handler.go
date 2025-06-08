@@ -10,6 +10,7 @@ import (
 
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	apiMode "github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
@@ -21,6 +22,7 @@ type RequestValidator struct {
 	Log           zerolog.Logger
 	Cfg           *config.APIMode
 	ParserPool    *fastjson.ParserPool
+	Metrics       metrics.Metrics
 	SchemaID      int
 }
 
@@ -55,7 +57,7 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 		return nil
 	}
 
-	validationErrors, err := apiMode.APIModeValidateRequest(ctx, s.ParserPool, s.CustomRoute, s.Cfg.UnknownParametersDetection)
+	validationErrors, err := apiMode.APIModeValidateRequest(ctx, s.Metrics, s.SchemaID, s.ParserPool, s.CustomRoute, s.Cfg.UnknownParametersDetection)
 	if err != nil {
 		s.Log.Error().
 			Err(err).

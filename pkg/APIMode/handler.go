@@ -6,7 +6,9 @@ import (
 
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
+
 	"github.com/wallarm/api-firewall/internal/platform/loader"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	apiMode "github.com/wallarm/api-firewall/internal/platform/validator"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
@@ -15,6 +17,7 @@ type RequestValidator struct {
 	CustomRoute   *loader.CustomRoute
 	OpenAPIRouter *loader.Router
 	ParserPool    *fastjson.ParserPool
+	Metrics       metrics.Metrics
 	SchemaID      int
 	Options       *Configuration
 }
@@ -47,7 +50,7 @@ func (rv *RequestValidator) APIModeHandler(ctx *fasthttp.RequestCtx) (err error)
 		return nil
 	}
 
-	validationErrors, err := apiMode.APIModeValidateRequest(ctx, rv.ParserPool, rv.CustomRoute, rv.Options.UnknownParametersDetection)
+	validationErrors, err := apiMode.APIModeValidateRequest(ctx, rv.Metrics, rv.SchemaID, rv.ParserPool, rv.CustomRoute, rv.Options.UnknownParametersDetection)
 	if err != nil {
 		return err
 	}

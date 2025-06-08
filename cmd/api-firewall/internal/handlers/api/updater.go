@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"os"
 	"runtime/debug"
 	"sync"
@@ -35,10 +36,11 @@ type Specification struct {
 	health         *Health
 	lock           *sync.RWMutex
 	allowedIPCache *allowiplist.AllowedIPsType
+	metrics        metrics.Metrics
 }
 
 // NewHandlerUpdater function defines configuration updater controller
-func NewHandlerUpdater(lock *sync.RWMutex, logger zerolog.Logger, sqlLiteStorage storage.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *Health, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
+func NewHandlerUpdater(lock *sync.RWMutex, logger zerolog.Logger, metrics metrics.Metrics, sqlLiteStorage storage.DBOpenAPILoader, cfg *config.APIMode, api *fasthttp.Server, shutdown chan os.Signal, health *Health, allowedIPCache *allowiplist.AllowedIPsType, waf coraza.WAF) updater.Updater {
 	return &Specification{
 		logger:         logger,
 		waf:            waf,
@@ -51,6 +53,7 @@ func NewHandlerUpdater(lock *sync.RWMutex, logger zerolog.Logger, sqlLiteStorage
 		health:         health,
 		lock:           lock,
 		allowedIPCache: allowedIPCache,
+		metrics:        metrics,
 	}
 }
 
@@ -100,7 +103,7 @@ func (s *Specification) Run() {
 
 				s.lock.Lock()
 				s.sqlLiteStorage = newSpecDB
-				s.api.Handler = Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.sqlLiteStorage, s.allowedIPCache, s.waf)
+				s.api.Handler = Handlers(s.lock, s.cfg, s.shutdown, s.logger, s.metrics, s.sqlLiteStorage, s.allowedIPCache, s.waf)
 				s.health.OpenAPIDB = s.sqlLiteStorage
 				if err := s.sqlLiteStorage.AfterLoad(s.cfg.PathToSpecDB); err != nil {
 					s.logger.Error().Err(err).Msgf("%s: error in after specification loading function", logPrefix)

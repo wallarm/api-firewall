@@ -8,6 +8,7 @@ import (
 	"github.com/valyala/fastjson"
 
 	"github.com/wallarm/api-firewall/internal/platform/loader"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
@@ -27,7 +28,7 @@ func wrapOASpecErrs(err error) error {
 }
 
 // getRouters function prepares router.Mux with the routes from OpenAPI specs
-func getRouters(specStorage storage.DBOpenAPILoader, parserPool *fastjson.ParserPool, options *Configuration) (map[int]*router.Mux, error) {
+func getRouters(specStorage storage.DBOpenAPILoader, parserPool *fastjson.ParserPool, metrics metrics.Metrics, options *Configuration) (map[int]*router.Mux, error) {
 
 	// Init routers
 	routers := make(map[int]*router.Mux)
@@ -66,6 +67,7 @@ func getRouters(specStorage storage.DBOpenAPILoader, parserPool *fastjson.Parser
 				ParserPool:    parserPool,
 				OpenAPIRouter: newSwagRouter,
 				SchemaID:      schemaID,
+				Metrics:       metrics,
 				Options:       options,
 			}
 			updRoutePathEsc, err := url.JoinPath(serverURL.Path, newSwagRouter.Routes[i].Path)

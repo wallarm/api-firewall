@@ -15,6 +15,7 @@ import (
 
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/version"
 )
@@ -106,9 +107,33 @@ func Run(logger zerolog.Logger) error {
 	zeroLogger := &config.ZerologAdapter{Logger: logger}
 
 	// =========================================================================
+	// Init Metrics
+
+	// make a channel to listen for errors coming from the metrics listener. Use a
+	// buffered channel so the goroutine can exit if we don't collect this error.
+	metricsErrors := make(chan error, 1)
+
+	options := metrics.Options{
+		EndpointName: cfg.Metrics.EndpointName,
+		Host:         cfg.Metrics.Host,
+		ReadTimeout:  cfg.Metrics.ReadTimeout,
+		WriteTimeout: cfg.Metrics.WriteTimeout,
+	}
+
+	metricsController := metrics.NewPrometheusMetrics(cfg.Metrics.Enabled)
+
+	if cfg.Metrics.Enabled {
+		go func() {
+			// Start the service listening for requests.
+			logger.Info().Msgf("Prometheus metrics: API listening on %s/%s", options.Host, options.EndpointName)
+			metricsErrors <- metricsController.StartService(&logger, &options)
+		}()
+	}
+
+	// =========================================================================
 	// Init Handlers
 
-	requestHandlers := Handlers(&dbLock, &cfg, shutdown, logger, specStorage, allowedIPCache, waf)
+	requestHandlers := Handlers(&dbLock, &cfg, shutdown, logger, metricsController, specStorage, allowedIPCache, waf)
 
 	// =========================================================================
 	// Start Health API Service
@@ -184,6 +209,9 @@ func Run(logger zerolog.Logger) error {
 				Bytes("method", ctx.Request.Header.Method()).
 				Msg("request processing error")
 
+			metricsController.IncHTTPRequestTotalCountOnly(0, fasthttp.StatusInternalServerError)
+			metricsController.IncErrorTypeCounter("request processing error", 0)
+
 			ctx.Error("", fasthttp.StatusInternalServerError)
 		},
 		Logger:                zeroLogger,
@@ -195,7 +223,7 @@ func Run(logger zerolog.Logger) error {
 
 	updSpecErrors := make(chan error, 1)
 
-	updOpenAPISpec := NewHandlerUpdater(&dbLock, logger, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache, waf)
+	updOpenAPISpec := NewHandlerUpdater(&dbLock, logger, metricsController, specStorage, &cfg, &api, shutdown, &healthData, allowedIPCache, waf)
 
 	// disable updater if SpecificationUpdatePeriod == 0
 	if cfg.SpecificationUpdatePeriod.Seconds() > 0 {
@@ -227,6 +255,9 @@ func Run(logger zerolog.Logger) error {
 
 	case err := <-updSpecErrors:
 		return errors.Wrap(err, "regular updater error")
+
+	case err := <-metricsErrors:
+		return errors.Wrap(err, "metrics error")
 
 	case sig := <-shutdown:
 		logger.Info().Msgf("%s: %v: Start shutdown", logPrefix, sig)
