@@ -2,10 +2,11 @@
 
 This page describes new releases of Wallarm API Firewall.
 
-## v0.9.2 (2025-06-06)
+## v0.9.2 (2025-06-09)
 
 * Added Prometheus metrics support in the `API` mode
 * Added support of the env vars in the API-Firewall pkg
+* Add ModSecurity-specific validation configuration options (#127)
 * Dependency upgrade
 
 ## v0.9.1 (2025-04-23)
