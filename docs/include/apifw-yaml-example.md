@@ -2,6 +2,9 @@
 mode: "PROXY"
 RequestValidation: "BLOCK"
 ResponseValidation: "BLOCK"
+ModSecurity:
+  RequestValidation: "LOG_ONLY"
+  ResponseValidation: "LOG_ONLY"
 CustomBlockStatusCode: 403
 AddValidationStatusHeader: false
 APISpecs: "openapi.yaml"
