@@ -7,6 +7,9 @@ You can configure [validation modes](../installation-guides/docker-container.md#
     mode: "PROXY"
     RequestValidation: "BLOCK"
     ResponseValidation: "BLOCK"
+    ModSecurity:
+      RequestValidation: "LOG_ONLY"
+      ResponseValidation: "LOG_ONLY"
     ...
     Endpoints:
     - Path: "/test/endpoint1"

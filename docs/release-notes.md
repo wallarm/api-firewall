@@ -4,9 +4,12 @@ This page describes new releases of Wallarm API Firewall.
 
 ## v0.9.2 (2025-06-09)
 
-* Added Prometheus metrics support in the `API` mode
-* Added support of the env vars in the API-Firewall pkg
-* Add ModSecurity-specific validation configuration options (#127)
+* Added support for [Prometheus metrics in `API` mode](installation-guides/api-mode.md#prometheus-metrics)
+* Added parameters to configure request and response validation in line with ModSecurity rules ([#127 PR](https://github.com/wallarm/api-firewall/pull/127)):
+
+    * The `APIFW_MODSEC_REQUEST_VALIDATION` environment variable with the corresponding `ModSecurity.RequestValidation` YAML configuration parameter
+    * The `APIFW_MODSEC_RESPONSE_VALIDATION` environment variable with the corresponding `ModSecurity.ResponseValidation` YAML configuration parameter
+* Added support for the environment variables in the API Firewall package
 * Dependency upgrade
 
 ## v0.9.1 (2025-04-23)
