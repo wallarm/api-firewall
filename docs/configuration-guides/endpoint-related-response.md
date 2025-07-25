@@ -1,20 +1,20 @@
 # Endpoint-Related Response Actions
 
-You can configure [validation modes](../installation-guides/docker-container.md#apifw-req-val) (`RequestValidation`, `ResponseValidation`, ModSecurity → `RequestValidation`, ModSecurity → `ResponseValidation`) for each endpoint separately. If not set for the endpoint specifically, global value is used.
+You can configure [validation modes](../installation-guides/docker-container.md#apifw-req-val) (`RequestValidation`, `ResponseValidation`) for each endpoint separately. If not set for the endpoint specifically, global value is used.
 
 !!! info "Example of `apifw.yaml`"
     ```yaml
     mode: "PROXY"
     RequestValidation: "BLOCK"
     ResponseValidation: "BLOCK"
+    ModSecurity:
+      RequestValidation: "LOG_ONLY"
+      ResponseValidation: "LOG_ONLY"
     ...
     Endpoints:
     - Path: "/test/endpoint1"
         RequestValidation: "LOG_ONLY"
         ResponseValidation: "LOG_ONLY"
-        ModSecurity:
-          RequestValidation: "BLOCK"
-          ResponseValidation: "BLOCK"
     - Path: "/test/endpoint1/{internal_id}"
         Method: "get"
         RequestValidation: "LOG_ONLY"

@@ -56,7 +56,9 @@ You can pass to the container the following variables:
 | `APIFW_HEALTH_HOST` | The host of the health check service. The default value is `0.0.0.0:9667`. The liveness probe service path is `/v1/liveness` and the readiness service path is `/v1/readiness`. | No |
 | `APIFW_API_MODE_DB_VERSION` | Determines the SQLite database version that the API Firewall is configured to use. Available options are:<ul><li>`0` (default) - tries to load V2 (with the `status` field) first; if unsuccessful, attempts V1. On both failures, the firewall fails to start.</li><li>`1` - recognize and process the database as V1 only.</li><li>`2` - recognize and process the database as V2 only.</li></ul> | No |
 |`APIFW_API_MODE_MAX_ERRORS_IN_RESPONSE` | Limits the number of errors included in the API Firewall response for a single request validation.<br><br>The default value is `0`, which means no limit is applied.<br><br>Supported starting from version 0.9.1. | No |
-|`APIFW_METRICS_ENABLED` | Enables the [built-in Prometheus metrics endpoint](#prometheus-metrics), which is exposed at port `9010` on the `/metrics` path. The default value is `false`. | No |
+|`APIFW_METRICS_ENABLED` | Enables the [built-in Prometheus metrics endpoint](#prometheus-metrics), which is exposed at port `9010` on the `/metrics` path by default. The default value is `false`. | No |
+|`APIFW_METRICS_ENDPOINT_NAME` | Defines the path at which the [built-in Prometheus metrics endpoint](#prometheus-metrics) is exposed. The default value is `metrics`. | No |
+|`APIFW_METRICS_HOST` | Defines the IP address and/or port for the [built-in Prometheus metrics endpoint](#prometheus-metrics). When specifying a port, prefix it with a colon (`:`). The default value is `:9010`. | No |
 
 ## Evaluating requests against the specification
 
@@ -140,9 +142,13 @@ API Firewall responds with the `200` HTTP code and JSON with details on request 
 To enable Prometheus-compatible metrics:
 
 1. Set the `APIFW_METRICS_ENABLED` environment variable to `true`.
-1. Expose port `9010` in your container or deployment configuration (`-p 9010:9010`).
+1. If needed, customize the default Prometheus endpoint `http://<host>:9010/metrics` using the following environment variables:
 
-Once enabled, metrics are available at `http://<host>:9010/metrics`.
+    * `APIFW_METRICS_ENDPOINT_NAME`: the path at which the metrics endpoint is exposed.
+    * `APIFW_METRICS_HOST`: the IP address and/or port for the metrics endpoint. When specifying a port, prefix it with a colon (`:`).
+1. Expose the metrics port in your container or deployment configuration (e.g., for the default state, use `-p 9010:9010`).
+
+Once enabled, metrics are available at `http://<host>:9010/metrics` unless custom host or path are used.
 
 The following Prometheus metrics are exposed:
 
