@@ -1,0 +1,15 @@
+<script>
+    if (window.location.hostname === "wallarm.github.io") {
+      var script = document.createElement("script");
+      script.src = "https://cdn.amplitude.com/script/78e35700de65a613b46a06dafca5d5e7.js";
+      script.onload = function () {
+        window.amplitude.init("78e35700de65a613b46a06dafca5d5e7", {
+          fetchRemoteConfig: true,
+          autocapture: true,
+          minIdLength: 3
+        });
+      };
+      document.head.appendChild(script);
+    }
+  </script>
+  

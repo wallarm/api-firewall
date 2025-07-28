@@ -42,6 +42,8 @@ extra:
     - icon: fontawesome/brands/youtube
       link: https://www.youtube.com/channel/UCgD4zSzAJwf3tBlOgJo7Qkw
   generator: false
+  analytics:
+    provider: custom
 
 extra_css:
   - extra.css
