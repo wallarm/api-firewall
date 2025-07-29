@@ -8,7 +8,7 @@ For REST API, should any of the flagged tokens surface in a request, the API Fir
 
 To enable the denylist feature:
 
-1. Draft a .txt file with the compromised tokens. Each token should be on a new line. Here is an example:
+1. Draft a `.txt` file with the compromised tokens. Each token should be on a new line. Here is an example:
 
     ```txt
     eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzb21lIjoicGF5bG9hZDk5OTk5ODIifQ.CUq8iJ_LUzQMfDTvArpz6jUyK0Qyn7jZ9WCqE0xKTCA
