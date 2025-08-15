@@ -1293,6 +1293,18 @@ func init() {
 	RegisterBodyDecoderSuffix("+plain", plainBodyDecoder)
 	RegisterBodyDecoderSuffix("+zip", zipFileBodyDecoder)
 
+	// basic image CTs
+	RegisterBodyDecoder("image/png", FileBodyDecoder)
+	RegisterBodyDecoder("image/jpeg", FileBodyDecoder)
+	RegisterBodyDecoder("image/gif", FileBodyDecoder)
+	RegisterBodyDecoder("image/webp", FileBodyDecoder)
+	RegisterBodyDecoder("image/avif", FileBodyDecoder)
+	RegisterBodyDecoder("image/heic", FileBodyDecoder)
+	RegisterBodyDecoder("image/heif", FileBodyDecoder)
+	RegisterBodyDecoder("image/bmp", FileBodyDecoder)
+	RegisterBodyDecoder("image/tiff", FileBodyDecoder)
+	RegisterBodyDecoder("image/svg+xml", FileBodyDecoder)
+
 	RegisterBodyDecoder("application/json", jsonBodyDecoder)
 	RegisterBodyDecoder("application/xml", xmlBodyDecoder)
 	RegisterBodyDecoder("application/json-patch+json", jsonBodyDecoder)

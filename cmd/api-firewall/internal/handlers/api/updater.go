@@ -1,7 +1,6 @@
 package api
 
 import (
-	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"os"
 	"runtime/debug"
 	"sync"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
+	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/storage/updater"
