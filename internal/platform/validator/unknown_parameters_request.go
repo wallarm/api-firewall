@@ -195,8 +195,9 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 	case mType == "application/json" || mType == "multipart/form-data" || suffix == "+json":
 		paramList, ok := value.(map[string]any)
 		if !ok {
-			return foundUnknownParams, ErrDecodingFailed
+			return foundUnknownParams, nil
 		}
+
 		for paramName := range paramList {
 			if _, found := contentType.Schema.Value.Properties[paramName]; !found {
 				unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
