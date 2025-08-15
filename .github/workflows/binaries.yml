@@ -51,7 +51,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.23.10.linux-amd64.tar.gz"
+      X_GO_DISTRIBUTION: "https://go.dev/dl/go1.24.6.linux-amd64.tar.gz"
       APIFIREWALL_NAMESPACE: "github.com/wallarm/api-firewall"
     strategy:
       matrix:
@@ -162,7 +162,7 @@ jobs:
     needs:
       - draft-release
     env:
-      X_GO_VERSION: "1.23.10"
+      X_GO_VERSION: "1.24.6"
       APIFIREWALL_NAMESPACE: "github.com/wallarm/api-firewall"
     strategy:
       matrix:
@@ -181,7 +181,7 @@ jobs:
       -
         uses: addnab/docker-run-action@v3
         with:
-          image: golang:${{ env.X_GO_VERSION }}-alpine3.21
+          image: golang:${{ env.X_GO_VERSION }}-alpine3.22
           options: >
             --volume ${{ github.workspace }}:/build
             --workdir /build
@@ -272,19 +272,19 @@ jobs:
         include:
           - arch: armv6
             distro: bookworm
-            go_distribution: https://go.dev/dl/go1.23.10.linux-armv6l.tar.gz
+            go_distribution: https://go.dev/dl/go1.24.6.linux-armv6l.tar.gz
             artifact: armv6-libc
           - arch: aarch64
             distro: bookworm
-            go_distribution: https://go.dev/dl/go1.23.10.linux-arm64.tar.gz
+            go_distribution: https://go.dev/dl/go1.24.6.linux-arm64.tar.gz
             artifact: arm64-libc
           - arch: armv6
             distro: alpine_latest
-            go_distribution: https://go.dev/dl/go1.23.10.linux-armv6l.tar.gz
+            go_distribution: https://go.dev/dl/go1.24.6.linux-armv6l.tar.gz
             artifact: armv6-musl
           - arch: aarch64
             distro: alpine_latest
-            go_distribution: https://go.dev/dl/go1.23.10.linux-arm64.tar.gz
+            go_distribution: https://go.dev/dl/go1.24.6.linux-arm64.tar.gz
             artifact: arm64-musl
     steps:
       - uses: actions/checkout@v4
