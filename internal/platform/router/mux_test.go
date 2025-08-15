@@ -82,42 +82,42 @@ func TestMuxBasic(t *testing.T) {
 
 	// GET /
 	if _, body := testRequest(t, m, "GET", "/", nil); body != "hi peter" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 
 	// GET /ping
 	if _, body := testRequest(t, m, "GET", "/ping", nil); body != "." {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 
 	// GET /pingall
 	if _, body := testRequest(t, m, "GET", "/pingall", nil); body != "ping all" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 
 	// GET /ping/all
 	if _, body := testRequest(t, m, "GET", "/ping/all", nil); body != "ping all" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 
 	// GET /ping/all2
 	if _, body := testRequest(t, m, "GET", "/ping/all2", nil); body != "ping all2" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 
 	// POST /ping/123
 	if _, body := testRequest(t, m, "POST", "/ping/123", nil); body != "ping one id: 123" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 
 	// GET /ping/allan
 	if _, body := testRequest(t, m, "POST", "/ping/allan", nil); body != "ping one id: allan" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 
 	// GET /ping/1/woop
 	if _, body := testRequest(t, m, "GET", "/ping/1/woop", nil); body != "woop.1" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 
 	if status, _ := testRequest(t, m, "HEAD", "/ping", nil); status != 200 {
@@ -126,12 +126,12 @@ func TestMuxBasic(t *testing.T) {
 
 	// GET /admin/catch-this
 	if status, body := testRequest(t, m, "GET", "/admin/catch-thazzzzz", nil); body != "" && status != 0 {
-		t.Fatalf("method not found failed")
+		t.Fatal("method not found failed")
 	}
 
 	// POST /admin/catch-this
 	if _, body := testRequest(t, m, "POST", "/admin/casdfsadfs", bytes.NewReader([]byte{})); body != "catchall" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 }
 
@@ -222,10 +222,10 @@ func TestMuxEmptyParams(t *testing.T) {
 	}
 
 	if _, body := testRequest(t, r, "GET", "/users/a/b/c", nil); body != "a-b-c" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 	if _, body := testRequest(t, r, "GET", "/users///c", nil); body != "--c" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 }
 
@@ -273,10 +273,10 @@ func TestMuxRegexp2(t *testing.T) {
 	}
 
 	if _, body := testRequest(t, r, "GET", "/foo-.json", nil); body != "" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 	if _, body := testRequest(t, r, "GET", "/foo-abc.json", nil); body != "abc" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 }
 
@@ -303,13 +303,13 @@ func TestMuxRegexp3(t *testing.T) {
 	}
 
 	if _, body := testRequest(t, r, "GET", "/one/hello/peter/first", nil); body != "first" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 	if _, body := testRequest(t, r, "GET", "/one/hithere/123/second", nil); body != "second" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 	if _, body := testRequest(t, r, "DELETE", "/one/hithere/123/second", nil); body != "third" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 }
 
@@ -336,16 +336,16 @@ func TestMuxSubrouterWildcardParam(t *testing.T) {
 	}
 
 	if _, body := testRequest(t, r, "GET", "/bare/hi", nil); body != "param:hi *:" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 	if _, body := testRequest(t, r, "GET", "/bare/hi/yes", nil); body != "param:hi *:yes" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 	if _, body := testRequest(t, r, "GET", "/case0/hi", nil); body != "param:hi *:" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 	if _, body := testRequest(t, r, "GET", "/case0/hi/yes", nil); body != "param:hi *:yes" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 }
 
@@ -385,7 +385,7 @@ func TestEscapedURLParams(t *testing.T) {
 	}
 
 	if _, body := testRequest(t, m, "GET", "/api/http:%2f%2fexample.com%2fimage.png/full/max/0/color.png", nil); body != "success" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 }
 
@@ -413,10 +413,10 @@ func TestCustomHTTPMethod(t *testing.T) {
 	}
 
 	if _, body := testRequest(t, r, "GET", "/", nil); body != "." {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 	if _, body := testRequest(t, r, "BOO", "/hi", nil); body != "custom method" {
-		t.Fatalf(body)
+		t.Fatal(body)
 	}
 }
 
