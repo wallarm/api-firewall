@@ -4,8 +4,8 @@ This page describes new releases of Wallarm API Firewall.
 
 ## v0.9.3 (2025-08-15)
 
-* Added support for images with the following MIME types: image/png, image/jpeg, image/gif, image/webp, image/avif, image/heic, image/heif, image/bmp, image/tiff, image/svg+xml
-* Bump up Go version to 1.24
+* Relaxed `content-type` handling: API Firewall no longer rejects requests with image MIME types (image/png, image/jpeg, image/gif, image/webp, image/avif, image/heic, image/heif, image/bmp, image/tiff, image/svg+xml)
+* Bump Go version to 1.24
 
 ## v0.9.2 (2025-06-09)
 
