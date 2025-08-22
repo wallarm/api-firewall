@@ -4,6 +4,7 @@ import (
 	"runtime/debug"
 	strconv2 "strconv"
 
+	oasValidator "github.com/pb33f/libopenapi-validator"
 	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
@@ -24,6 +25,7 @@ type RequestValidator struct {
 	ParserPool    *fastjson.ParserPool
 	Metrics       metrics.Metrics
 	SchemaID      int
+	OASValidator  oasValidator.Validator
 }
 
 // Handler validates request and respond with 200, 403 (with error) or 500 status code
@@ -43,21 +45,22 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 	keyValidationErrors := strconv2.Itoa(s.SchemaID) + validator.APIModePostfixValidationErrors
 	keyStatusCode := strconv2.Itoa(s.SchemaID) + validator.APIModePostfixStatusCode
 
+	// todo: fix
 	// Route not found
-	if s.CustomRoute == nil {
-		s.Log.Debug().
-			Interface("request_id", ctx.UserValue(web.RequestID)).
-			Bytes("host", ctx.Request.Header.Host()).
-			Bytes("path", ctx.Path()).
-			Bytes("method", ctx.Request.Header.Method()).
-			Msg("method or path were not found")
+	//if s.CustomRoute == nil {
+	//	s.Log.Debug().
+	//		Interface("request_id", ctx.UserValue(web.RequestID)).
+	//		Bytes("host", ctx.Request.Header.Host()).
+	//		Bytes("path", ctx.Path()).
+	//		Bytes("method", ctx.Request.Header.Method()).
+	//		Msg("method or path were not found")
+	//
+	//	ctx.SetUserValue(keyValidationErrors, []*validator.ValidationError{{Message: validator.ErrMethodAndPathNotFound.Error(), Code: validator.ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
+	//	ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
+	//	return nil
+	//}
 
-		ctx.SetUserValue(keyValidationErrors, []*validator.ValidationError{{Message: validator.ErrMethodAndPathNotFound.Error(), Code: validator.ErrCodeMethodAndPathNotFound, SchemaID: &s.SchemaID}})
-		ctx.SetUserValue(keyStatusCode, fasthttp.StatusForbidden)
-		return nil
-	}
-
-	validationErrors, err := apiMode.APIModeValidateRequest(ctx, s.Metrics, s.SchemaID, s.ParserPool, s.CustomRoute, s.Cfg.UnknownParametersDetection)
+	validationErrors, err := apiMode.APIModeValidateRequest(ctx, s.Metrics, s.SchemaID, s.ParserPool, s.CustomRoute, s.Cfg.UnknownParametersDetection, s.OASValidator)
 	if err != nil {
 		s.Log.Error().
 			Err(err).
@@ -76,7 +79,8 @@ func (s *RequestValidator) Handler(ctx *fasthttp.RequestCtx) error {
 		// add schema IDs to the validation error messages
 		for _, r := range validationErrors {
 			r.SchemaID = &s.SchemaID
-			r.SchemaVersion = s.OpenAPIRouter.SchemaVersion
+			//r.SchemaVersion = s.OpenAPIRouter.SchemaVersion
+			// todo: fix
 		}
 
 		s.Log.Debug().

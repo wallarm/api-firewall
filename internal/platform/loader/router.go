@@ -76,6 +76,68 @@ func NewRouter(doc *openapi3.T, validate bool) (*Router, error) {
 	return &router, nil
 }
 
+////NewRouterAPI creates a new router for API mode.
+////
+////If the given Swagger has servers, router will use them.
+////All operations of the Swagger will be added to the router.
+//func NewRouterAPI(doc libopenapi.Document, validate bool) (*Router, error) {
+//	if validate {
+//		if err := LibOpenAPIValidateOAS(doc); err != nil {
+//			return nil, fmt.Errorf("OpenAPI specification validation failed: %v", err)
+//		}
+//	}
+//
+//	var router Router
+//
+//	model, err := doc.BuildV3Model()
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to build v3 model: %v", err)
+//	}
+//
+//
+//
+//	for path, pathItem := range model.Model.Paths.PathItems. {
+//		for method, operation := range pathItem.Operations() {
+//			method = strings.ToUpper(method)
+//			//route := routers.Route{
+//			//	Spec:      doc,
+//			//	Path:      path,
+//			//	PathItem:  pathItem,
+//			//	Method:    method,
+//			//	Operation: operation,
+//			//}
+//
+//			// count number of parameters in the path
+//			pathParamLength := 0
+//			if getOp := pathItem.GetOperation(route.Method); getOp != nil {
+//				for _, param := range getOp.Parameters {
+//					if param.Value.In == openapi3.ParameterInPath {
+//						pathParamLength += 1
+//					}
+//				}
+//			}
+//
+//			// check common parameters
+//			if getOp := pathItem.Parameters; getOp != nil {
+//				for _, param := range getOp {
+//					if param.Value.In == openapi3.ParameterInPath {
+//						pathParamLength += 1
+//					}
+//				}
+//			}
+//
+//			router.Routes = append(router.Routes, CustomRoute{
+//				Route:                  &route,
+//				Path:                   path,
+//				Method:                 method,
+//				ParametersNumberInPath: pathParamLength,
+//			})
+//		}
+//	}
+//
+//	return &router, nil
+//}
+
 // NewRouterDBLoader creates a new router based on DB OpenAPI loader.
 func NewRouterDBLoader(schemaVersion string, spec *openapi3.T) (*Router, error) {
 

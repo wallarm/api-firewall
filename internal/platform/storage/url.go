@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/pb33f/libopenapi"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
 
@@ -24,7 +24,7 @@ type URL struct {
 	customHeader *config.CustomHeader
 	RawSpec      string
 	LastUpdate   time.Time
-	OpenAPISpec  *openapi3.T
+	OpenAPISpec  libopenapi.Document
 	lock         *sync.RWMutex
 	client       *fasthttp.Client
 }
@@ -93,7 +93,7 @@ func (u *URL) Load(url string) (bool, error) {
 
 	rawSpec := resp.Body()
 
-	parsedSpec, err := loader.ParseOAS(rawSpec, "", undefinedSchemaID)
+	parsedSpec, err := loader.LibOpenAPIParseOAS(rawSpec, "", undefinedSchemaID)
 	if err != nil {
 		parsingErrs = errors.Join(parsingErrs, err)
 	}
@@ -108,7 +108,7 @@ func (u *URL) Load(url string) (bool, error) {
 	return isReady, parsingErrs
 }
 
-func (u *URL) Specification(_ int) *openapi3.T {
+func (u *URL) Specification(_ int) any {
 	u.lock.RLock()
 	defer u.lock.RUnlock()
 

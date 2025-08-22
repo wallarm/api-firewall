@@ -10,8 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/getkin/kin-openapi/openapi3"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/pb33f/libopenapi"
 	"github.com/savsgio/gotils/strconv"
 
 	"github.com/wallarm/api-firewall/internal/platform/loader"
@@ -26,7 +25,7 @@ type File struct {
 	isReady     bool
 	RawSpec     string
 	LastUpdate  time.Time
-	OpenAPISpec *openapi3.T
+	OpenAPISpec libopenapi.Document
 	lock        *sync.RWMutex
 }
 
@@ -71,7 +70,7 @@ func (f *File) Load(OASPath string) (bool, error) {
 		return isReady, err
 	}
 
-	parsedSpec, err := loader.ParseOAS(rawSpec, "", undefinedSchemaID)
+	parsedSpec, err := loader.LibOpenAPIParseOAS(rawSpec, "", undefinedSchemaID)
 	if err != nil {
 		parsingErrs = errors.Join(parsingErrs, err)
 	}
@@ -86,7 +85,7 @@ func (f *File) Load(OASPath string) (bool, error) {
 	return isReady, parsingErrs
 }
 
-func (s *File) Specification(_ int) *openapi3.T {
+func (s *File) Specification(_ int) any {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 

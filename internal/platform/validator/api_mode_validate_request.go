@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	oasValidator "github.com/pb33f/libopenapi-validator"
 	"github.com/pkg/errors"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
@@ -17,7 +17,6 @@ import (
 	"github.com/wallarm/api-firewall/internal/platform/metrics"
 
 	"github.com/wallarm/api-firewall/internal/platform/loader"
-	"github.com/wallarm/api-firewall/internal/platform/router"
 	"github.com/wallarm/api-firewall/internal/platform/web"
 	"github.com/wallarm/api-firewall/pkg/APIMode/validator"
 )
@@ -76,7 +75,7 @@ var apiModeSecurityRequirementsOptions = &openapi3filter.Options{
 }
 
 // APIModeValidateRequest validates request and respond with 200, 403 (with error) or 500 status code
-func APIModeValidateRequest(ctx *fasthttp.RequestCtx, metrics metrics.Metrics, schemaID int, jsonParserPool *fastjson.ParserPool, openAPI *loader.CustomRoute, unknownParametersDetection bool) (validationErrs []*validator.ValidationError, err error) {
+func APIModeValidateRequest(ctx *fasthttp.RequestCtx, metrics metrics.Metrics, schemaID int, jsonParserPool *fastjson.ParserPool, openAPI *loader.CustomRoute, unknownParametersDetection bool, OASValidator oasValidator.Validator) (validationErrs []*validator.ValidationError, err error) {
 
 	// handle panic
 	defer func() {
@@ -95,11 +94,11 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, metrics metrics.Metrics, s
 	}()
 
 	// Get path parameters
-	var pathParams map[string]string
-
-	if openAPI.ParametersNumberInPath > 0 {
-		pathParams = router.AllURLParams(ctx)
-	}
+	//var pathParams map[string]string
+	//
+	//if openAPI.ParametersNumberInPath > 0 {
+	//	pathParams = router.AllURLParams(ctx)
+	//}
 
 	// Convert fasthttp request to net/http request
 	req := http.Request{}
@@ -119,19 +118,19 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, metrics metrics.Metrics, s
 	}
 
 	// Validate request
-	requestValidationInput := &openapi3filter.RequestValidationInput{
-		Request:     &req,
-		PathParams:  pathParams,
-		Route:       openAPI.Route,
-		QueryParams: req.URL.Query(),
-		Options:     apiModeSecurityRequirementsOptions,
-	}
+	//requestValidationInput := &openapi3filter.RequestValidationInput{
+	//	Request:     &req,
+	//	PathParams:  pathParams,
+	//	Route:       openAPI.Route,
+	//	QueryParams: req.URL.Query(),
+	//	Options:     apiModeSecurityRequirementsOptions,
+	//}
 
 	var wg sync.WaitGroup
 
-	var valReqErrors error
-	var valUPReqErrors error
-	var upResults []RequestUnknownParameterError
+	//var valReqErrors error
+	//var valUPReqErrors error
+	//var upResults []RequestUnknownParameterError
 	var respErrors []*validator.ValidationError
 
 	wg.Add(1)
@@ -145,91 +144,110 @@ func APIModeValidateRequest(ctx *fasthttp.RequestCtx, metrics metrics.Metrics, s
 			}
 		}()
 
-		// Get fastjson parser
-		jsonParser := jsonParserPool.Get()
-		defer jsonParserPool.Put(jsonParser)
+		//Get fastjson parser
+		//jsonParser := jsonParserPool.Get()
+		//defer jsonParserPool.Put(jsonParser)
+		//
+		//valReqErrors = ValidateRequest(ctx, requestValidationInput, jsonParser)
 
-		valReqErrors = ValidateRequest(ctx, requestValidationInput, jsonParser)
+		requestValid, validationErrors := OASValidator.ValidateHttpRequest(&req)
+
+		if !requestValid {
+			for i := range validationErrors {
+				respErrors = append(respErrors, &validator.ValidationError{
+					Message:       validationErrors[i].Message,
+					Code:          "experiment",
+					SchemaVersion: "1",
+					SchemaID:      &schemaID,
+				})
+				// or something.
+			}
+		}
+
 	}()
 
 	// Validate unknown parameters
-	if unknownParametersDetection {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			// handle panic
-			defer func() {
-				if r := recover(); r != nil {
-					return
-				}
-			}()
-
-			// Get fastjson parser
-			jsonParser := jsonParserPool.Get()
-			defer jsonParserPool.Put(jsonParser)
-
-			upResults, valUPReqErrors = ValidateUnknownRequestParameters(ctx, requestValidationInput.Route, req.Header, jsonParser)
-		}()
-	}
+	//if unknownParametersDetection {
+	//	wg.Add(1)
+	//	go func() {
+	//		defer wg.Done()
+	//
+	//		// handle panic
+	//		defer func() {
+	//			if r := recover(); r != nil {
+	//				return
+	//			}
+	//		}()
+	//
+	//		// Get fastjson parser
+	//		jsonParser := jsonParserPool.Get()
+	//		defer jsonParserPool.Put(jsonParser)
+	//
+	//		upResults, valUPReqErrors = ValidateUnknownRequestParameters(ctx, requestValidationInput.Route, req.Header, jsonParser)
+	//	}()
+	//}
 
 	wg.Wait()
 
-	if valReqErrors != nil {
-		switch valErr := valReqErrors.(type) {
-
-		case openapi3.MultiError:
-
-			for _, currentErr := range valErr {
-				// Parse validator error and build the response
-				parsedValErrs, unknownErr := GetErrorResponse(currentErr)
-				if unknownErr != nil {
-					metrics.IncErrorTypeCounter("request body parsing error", schemaID)
-					return nil, errors.Wrap(unknownErr, "request body decode error: unsupported content type")
-				}
-
-				if len(parsedValErrs) > 0 {
-					respErrors = append(respErrors, parsedValErrs...)
-				}
-			}
-
-		default:
-			// Parse validator error and build the response
-			parsedValErrs, unknownErr := GetErrorResponse(valErr)
-			if unknownErr != nil {
-				metrics.IncErrorTypeCounter("request body parsing error", schemaID)
-				return nil, errors.Wrap(unknownErr, "request body decode error: unsupported content type")
-			}
-			if parsedValErrs != nil {
-				respErrors = append(respErrors, parsedValErrs...)
-			}
-		}
+	if respErrors != nil {
+		return respErrors, nil
 	}
 
-	if unknownParametersDetection {
-		if valUPReqErrors != nil {
+	//if valReqErrors != nil {
+	//	switch valErr := valReqErrors.(type) {
+	//
+	//	case openapi3.MultiError:
+	//
+	//		for _, currentErr := range valErr {
+	//			// Parse validator error and build the response
+	//			parsedValErrs, unknownErr := GetErrorResponse(currentErr)
+	//			if unknownErr != nil {
+	//				metrics.IncErrorTypeCounter("request body parsing error", schemaID)
+	//				return nil, errors.Wrap(unknownErr, "request body decode error: unsupported content type")
+	//			}
+	//
+	//			if len(parsedValErrs) > 0 {
+	//				respErrors = append(respErrors, parsedValErrs...)
+	//			}
+	//		}
+	//
+	//	default:
+	//		// Parse validator error and build the response
+	//		parsedValErrs, unknownErr := GetErrorResponse(valErr)
+	//		if unknownErr != nil {
+	//			metrics.IncErrorTypeCounter("request body parsing error", schemaID)
+	//			return nil, errors.Wrap(unknownErr, "request body decode error: unsupported content type")
+	//		}
+	//		if parsedValErrs != nil {
+	//			respErrors = append(respErrors, parsedValErrs...)
+	//		}
+	//	}
+	//}
 
-			// If it is not a parsing error then return 500
-			// If it is a parsing error then it already handled by the request validator
-			var parseError *ParseError
-			if !errors.As(valUPReqErrors, &parseError) {
-				metrics.IncErrorTypeCounter("unknown parameter detection error", schemaID)
-				return nil, errors.Wrap(valUPReqErrors, "unknown parameter detection error")
-			}
-		}
-
-		if len(upResults) > 0 {
-			for _, upResult := range upResults {
-				for _, f := range upResult.Parameters {
-					response := validator.ValidationError{}
-					response.Message = upResult.Message
-					response.Code = validator.ErrCodeUnknownParameterFound
-					response.Fields = []string{f.Name}
-					respErrors = append(respErrors, &response)
-				}
-			}
-		}
-	}
+	//if unknownParametersDetection {
+	//	if valUPReqErrors != nil {
+	//
+	//		// If it is not a parsing error then return 500
+	//		// If it is a parsing error then it already handled by the request validator
+	//		var parseError *ParseError
+	//		if !errors.As(valUPReqErrors, &parseError) {
+	//			metrics.IncErrorTypeCounter("unknown parameter detection error", schemaID)
+	//			return nil, errors.Wrap(valUPReqErrors, "unknown parameter detection error")
+	//		}
+	//	}
+	//
+	//	if len(upResults) > 0 {
+	//		for _, upResult := range upResults {
+	//			for _, f := range upResult.Parameters {
+	//				response := validator.ValidationError{}
+	//				response.Message = upResult.Message
+	//				response.Code = validator.ErrCodeUnknownParameterFound
+	//				response.Fields = []string{f.Name}
+	//				respErrors = append(respErrors, &response)
+	//			}
+	//		}
+	//	}
+	//}
 
 	return respErrors, nil
 }

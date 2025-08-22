@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/corazawaf/coraza/v3"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/karlseguin/ccache/v2"
@@ -159,7 +160,7 @@ func Handlers(lock *sync.RWMutex, cfg *config.ProxyMode, serverURL *url.URL, shu
 		CustomBlockStatusCode: cfg.CustomBlockStatusCode,
 	}
 
-	swagRouter, err := loader.NewRouter(specStorage.Specification(0), true)
+	swagRouter, err := loader.NewRouter(specStorage.Specification(0).(*openapi3.T), true)
 	if err != nil {
 		logger.Error().Msgf("Error parsing OpenAPI specification: %v", err)
 		return nil

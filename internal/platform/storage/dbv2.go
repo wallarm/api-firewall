@@ -12,8 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/getkin/kin-openapi/openapi3"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/pb33f/libopenapi"
 	"github.com/wallarm/api-firewall/internal/platform/loader"
 )
 
@@ -31,7 +30,7 @@ type SQLLiteV2 struct {
 	isReady     bool
 	RawSpecs    map[int]*SpecificationEntryV2
 	LastUpdate  time.Time
-	OpenAPISpec map[int]*openapi3.T
+	OpenAPISpec map[int]libopenapi.Document
 	lock        *sync.RWMutex
 }
 
@@ -40,7 +39,7 @@ func NewOpenAPIDBV2(dbStoragePath string, execAfterLoad bool) (DBOpenAPILoader, 
 	sqlObj := SQLLiteV2{
 		lock:        &sync.RWMutex{},
 		RawSpecs:    make(map[int]*SpecificationEntryV2),
-		OpenAPISpec: make(map[int]*openapi3.T),
+		OpenAPISpec: make(map[int]libopenapi.Document),
 		isReady:     true,
 	}
 
@@ -62,7 +61,7 @@ func NewOpenAPIDBV2(dbStoragePath string, execAfterLoad bool) (DBOpenAPILoader, 
 func (s *SQLLiteV2) Load(dbStoragePath string) (bool, error) {
 
 	entries := make(map[int]*SpecificationEntryV2)
-	specs := make(map[int]*openapi3.T)
+	specs := make(map[int]libopenapi.Document)
 
 	var parsingErrs error
 	var isReady bool
@@ -107,7 +106,7 @@ func (s *SQLLiteV2) Load(dbStoragePath string) (bool, error) {
 
 	for schemaID, spec := range s.RawSpecs {
 
-		parsedSpec, err := loader.ParseOAS(getSpecBytes(spec.SchemaContent), spec.SchemaVersion, schemaID)
+		parsedSpec, err := loader.LibOpenAPIParseOAS(getSpecBytes(spec.SchemaContent), spec.SchemaVersion, schemaID)
 		if err != nil {
 			parsingErrs = errors.Join(parsingErrs, err)
 			delete(s.RawSpecs, schemaID)
@@ -127,7 +126,7 @@ func (s *SQLLiteV2) Load(dbStoragePath string) (bool, error) {
 	return isReady, parsingErrs
 }
 
-func (s *SQLLiteV2) Specification(schemaID int) *openapi3.T {
+func (s *SQLLiteV2) Specification(schemaID int) any {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 

@@ -7,15 +7,14 @@ import (
 	"sync"
 
 	"github.com/corazawaf/coraza/v3"
+	"github.com/pb33f/libopenapi"
+	oasValidator "github.com/pb33f/libopenapi-validator"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fastjson"
-
 	"github.com/wallarm/api-firewall/internal/config"
 	"github.com/wallarm/api-firewall/internal/mid"
 	"github.com/wallarm/api-firewall/internal/platform/allowiplist"
-	"github.com/wallarm/api-firewall/internal/platform/loader"
 	"github.com/wallarm/api-firewall/internal/platform/metrics"
 	"github.com/wallarm/api-firewall/internal/platform/storage"
 	"github.com/wallarm/api-firewall/internal/platform/web"
@@ -26,10 +25,10 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 	// handle panic
 	defer func() {
 		if r := recover(); r != nil {
-			log.Error().Msgf("panic: %v", r)
+			logger.Error().Msgf("panic: %v", r)
 
 			// Log the Go stack trace for this panic'd goroutine.
-			log.Debug().Msgf("%s", debug.Stack())
+			logger.Debug().Msgf("%s", debug.Stack())
 			return
 		}
 	}()
@@ -57,19 +56,16 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 
 	for _, schemaID := range schemaIDs {
 
-		serverURLStr := "/"
-		spec := storedSpecs.Specification(schemaID)
-		servers := spec.Servers
-		if servers != nil {
-			var err error
-			if serverURLStr, err = servers.BasePath(); err != nil {
-				log.Error().Msgf("getting server URL from OpenAPI specification: %v", err)
-			}
+		// todo: fix
+		spec := storedSpecs.Specification(schemaID).(libopenapi.Document)
+		serverURLStr := spec.GetConfiguration().BasePath
+		if serverURLStr == "" {
+			serverURLStr = "/"
 		}
 
 		serverURL, err := url.Parse(serverURLStr)
 		if err != nil {
-			log.Error().Msgf("parsing server URL from OpenAPI specification: %v", err)
+			logger.Error().Msgf("parsing server URL from OpenAPI specification: %v", err)
 		}
 
 		if serverURL.Path == "" {
@@ -77,40 +73,96 @@ func Handlers(lock *sync.RWMutex, cfg *config.APIMode, shutdown chan os.Signal, 
 		}
 
 		// get new router
-		newSwagRouter, err := loader.NewRouterDBLoader(storedSpecs.SpecificationVersion(schemaID), storedSpecs.Specification(schemaID))
-		if err != nil {
-			log.Fatal().Err(err).Msg("new router creation failed")
+		//newSwagRouter, err := loader.NewRouterDBLoader(storedSpecs.SpecificationVersion(schemaID), storedSpecs.Specification(schemaID))
+		//if err != nil {
+		//	logger.Fatal().Err(err).Msg("new router creation failed")
+		//}
+
+		highLevelValidator, validatorErrs := oasValidator.NewValidator(spec)
+		if len(validatorErrs) > 0 {
+			logger.Error().Msgf("error validator init: %v", validatorErrs)
 		}
 
-		for i := 0; i < len(newSwagRouter.Routes); i++ {
+		//for i := 0; i < len(newSwagRouter.Routes); i++ {
+		//
+		//	s := RequestValidator{
+		//		//CustomRoute:   &newSwagRouter.Routes[i],
+		//		Cfg:           cfg,
+		//		ParserPool:    &parserPool,
+		//		//OpenAPIRouter: newSwagRouter,
+		//		SchemaID:      schemaID,
+		//		Metrics:       metrics,
+		//		OASValidator:  highLevelValidator,
+		//	}
+		//	updRoutePathEsc, err := url.JoinPath(serverURL.Path, newSwagRouter.Routes[i].Path)
+		//	if err != nil {
+		//		logger.Error().Msgf("url parse error: Schema ID %d: openAPI version %s: loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
+		//		continue
+		//	}
+		//
+		//	updRoutePath, err := url.PathUnescape(updRoutePathEsc)
+		//	if err != nil {
+		//		logger.Error().Msgf("url unescape error: schema ID %d: openAPI version %s: loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
+		//		continue
+		//	}
+		//
+		//	logger.Debug().Msgf("handler: schema ID %d: openAPI version %s: loaded path %s - %s", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Method, updRoutePath)
+		//
+		//	if err := apps.Handle(schemaID, newSwagRouter.Routes[i].Method, updRoutePath, s.Handler); err != nil {
+		//		logger.Error().Err(err).
+		//			Int("schema_id", schemaID).
+		//			Msgf("the OAS endpoint registration failed: method %s, path %s", newSwagRouter.Routes[i].Method, updRoutePath)
+		//	}
+		//}
+
+		model, modelErr := spec.BuildV3Model()
+		if err != nil {
+			logger.Error().Msgf("error building model: %v", modelErr)
+			return nil
+		}
+
+		oas := model.Model // *v3.Document
+
+		// Итерируемся по путям в стабильном порядке (порядок вставки)
+		for path, pathItem := range oas.Paths.PathItems.FromOldest() {
+			//fmt.Println("PATH:", path)
+
+			// Перебор операций у pathItem.
+			// Удобно воспользоваться коллекцией операций:
 
 			s := RequestValidator{
-				CustomRoute:   &newSwagRouter.Routes[i],
-				Cfg:           cfg,
-				ParserPool:    &parserPool,
-				OpenAPIRouter: newSwagRouter,
-				SchemaID:      schemaID,
-				Metrics:       metrics,
+				//CustomRoute:   &newSwagRouter.Routes[i],
+				Cfg:        cfg,
+				ParserPool: &parserPool,
+				//OpenAPIRouter: newSwagRouter,
+				SchemaID:     schemaID,
+				Metrics:      metrics,
+				OASValidator: highLevelValidator,
 			}
-			updRoutePathEsc, err := url.JoinPath(serverURL.Path, newSwagRouter.Routes[i].Path)
+			updRoutePathEsc, err := url.JoinPath(serverURL.Path, path)
 			if err != nil {
-				log.Error().Msgf("url parse error: Schema ID %d: openAPI version %s: loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
+				logger.Error().Msgf("url parse error: Schema ID %d: openAPI version %s: loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), path, err)
 				continue
 			}
 
 			updRoutePath, err := url.PathUnescape(updRoutePathEsc)
 			if err != nil {
-				log.Error().Msgf("url unescape error: schema ID %d: openAPI version %s: loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Path, err)
+				logger.Error().Msgf("url unescape error: schema ID %d: openAPI version %s: loaded path %s - %v", schemaID, storedSpecs.SpecificationVersion(schemaID), path, err)
 				continue
 			}
 
-			log.Debug().Msgf("handler: schema ID %d: openAPI version %s: loaded path %s - %s", schemaID, storedSpecs.SpecificationVersion(schemaID), newSwagRouter.Routes[i].Method, updRoutePath)
+			ops := pathItem.GetOperations() // ordered map с ключами: get, post, put, delete, patch, head, options, trace
+			for method, _ := range ops.FromOldest() {
 
-			if err := apps.Handle(schemaID, newSwagRouter.Routes[i].Method, updRoutePath, s.Handler); err != nil {
-				log.Error().Err(err).
-					Int("schema_id", schemaID).
-					Msgf("the OAS endpoint registration failed: method %s, path %s", newSwagRouter.Routes[i].Method, updRoutePath)
+				logger.Debug().Msgf("handler: schema ID %d: openAPI version %s: loaded path %s - %s", schemaID, storedSpecs.SpecificationVersion(schemaID), method, updRoutePath)
+
+				if err := apps.Handle(schemaID, method, updRoutePath, s.Handler); err != nil {
+					logger.Error().Err(err).
+						Int("schema_id", schemaID).
+						Msgf("the OAS endpoint registration failed: method %s, path %s", method, updRoutePath)
+				}
 			}
+
 		}
 
 	}

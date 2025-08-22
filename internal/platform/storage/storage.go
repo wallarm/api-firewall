@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"net/url"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/wallarm/api-firewall/internal/config"
@@ -16,7 +15,7 @@ type DBOpenAPILoader interface {
 	SpecificationRaw(schemaID int) any
 	SpecificationRawContent(schemaID int) []byte
 	SpecificationVersion(schemaID int) string
-	Specification(schemaID int) *openapi3.T
+	Specification(schemaID int) any
 	IsLoaded(schemaID int) bool
 	SchemaIDs() []int
 	IsReady() bool
