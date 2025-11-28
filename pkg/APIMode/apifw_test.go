@@ -462,6 +462,9 @@ func TestAPIFWBasicErrors(t *testing.T) {
 	}
 	bw.Flush()
 
+	// reset the reader
+	r.Reset(bufio.NewReader(w))
+
 	// check ErrSchemaNotFound
 	_, err = apifw.ValidateRequestFromReader([]int{wrongIntSchemaID}, r)
 	if !errors.Is(err, validator.ErrSchemaNotFound) {

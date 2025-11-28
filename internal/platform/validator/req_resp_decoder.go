@@ -1231,7 +1231,7 @@ var headerCT = http.CanonicalHeaderKey("Content-Type")
 const prefixUnsupportedCT = "unsupported content type"
 
 // getBodyDecoder searches by media type or suffix and returns body decoder or error
-func getBodyDecoder(mediaType, suffix string) (BodyDecoder, error) {
+func getBodyDecoder(schema *openapi3.SchemaRef, mediaType, suffix string) (BodyDecoder, error) {
 	var decoder BodyDecoder
 	var ok bool
 
@@ -1273,7 +1273,7 @@ func decodeBody(body io.Reader, header http.Header, schema *openapi3.SchemaRef, 
 		}
 	}
 	mediaType, suffix := parseMediaType(contentType)
-	decoder, err := getBodyDecoder(mediaType, suffix)
+	decoder, err := getBodyDecoder(schema, mediaType, suffix)
 	if err != nil {
 		return "", nil, err
 	}
@@ -1561,12 +1561,23 @@ func multipartBodyDecoder(body io.Reader, header http.Header, schema *openapi3.S
 			}
 		}
 
+		partHeader := http.Header(part.Header)
 		var value any
-		if _, value, err = decodeBody(part, http.Header(part.Header), valueSchema, subEncFn, jsonParser); err != nil {
+		if _, value, err = decodeBody(part, partHeader, valueSchema, subEncFn, jsonParser); err != nil {
 			if v, ok := err.(*ParseError); ok {
 				return nil, &ParseError{path: []any{name}, Cause: v}
 			}
 			return nil, fmt.Errorf("part %s: %w", name, err)
+		}
+		// Parse primitive types when no content type is explicitely provided, or the content type is set to text/plain
+		contentType := partHeader.Get(headerCT)
+		if contentType == "" || contentType == "text/plain" {
+			if value, err = parsePrimitive(value.(string), valueSchema); err != nil {
+				if v, ok := err.(*ParseError); ok {
+					return nil, &ParseError{path: []any{name}, Cause: v}
+				}
+				return nil, fmt.Errorf("part %s: %w", name, err)
+			}
 		}
 		values[name] = append(values[name], value)
 	}
