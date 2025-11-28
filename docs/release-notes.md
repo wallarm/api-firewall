@@ -4,7 +4,8 @@ This page describes new releases of Wallarm API Firewall.
 
 ## v0.9.4 (2025-11-28)
 
-* Dependency upgrade
+* Upgrade Go to 1.24.10
+* Upgrade dependencies
 
 ## v0.9.3 (2025-08-15)
 
