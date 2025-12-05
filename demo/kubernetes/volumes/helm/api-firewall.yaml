@@ -10,7 +10,7 @@ manifest:
           "url": "https://kennethreitz.org",
           "email": "me@kennethreitz.org"
         },
-        "version": "0.9.4"
+        "version": "0.9.5"
       },
       "servers": [
         {
