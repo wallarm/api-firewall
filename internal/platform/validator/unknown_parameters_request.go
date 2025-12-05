@@ -24,6 +24,16 @@ var ErrUnknownBodyParameter = errors.New("body parameter not defined in the Open
 // ErrDecodingFailed is returned when the API FW got error or unexpected value from the decoder
 var ErrDecodingFailed = errors.New("the decoder returned the error")
 
+// ErrMaxDepthExceeded is returned when the JSON body exceeds the maximum allowed nesting depth
+var ErrMaxDepthExceeded = errors.New("maximum JSON nesting depth exceeded")
+
+const (
+	// maxJSONArrayDepth is the maximum allowed nesting depth for JSON arrays
+	maxJSONArrayDepth = 32
+	// maxJSONArrayElements is the maximum number of array elements to process
+	maxJSONArrayElements = 10000
+)
+
 // RequestParameterDetails contains details about found unknown parameter
 type RequestParameterDetails struct {
 	Name        string `json:"name"`
@@ -72,6 +82,50 @@ func identifyData(data any) string {
 	}
 
 	return "unknown"
+}
+
+// findUnknownParamsInJSONBody searches for unknown parameters in the body.
+// The function covers array of objects and single object.
+// The depth parameter limits recursion to prevent stack overflow from deeply nested arrays.
+func findUnknownParamsInJSONBody(decodedBody any, contentType *openapi3.MediaType, depth int) ([]RequestParameterDetails, error) {
+	if depth > maxJSONArrayDepth {
+		return nil, ErrMaxDepthExceeded
+	}
+
+	var unknownParameters []RequestParameterDetails
+
+	paramLists, ok := decodedBody.([]interface{})
+	if ok {
+		// Limit the number of array elements to process
+		if len(paramLists) > maxJSONArrayElements {
+			paramLists = paramLists[:maxJSONArrayElements]
+		}
+		for _, paramList := range paramLists {
+			currentUnknownParameters, err := findUnknownParamsInJSONBody(paramList, contentType, depth+1)
+			if err != nil {
+				return nil, err
+			}
+			unknownParameters = append(unknownParameters, currentUnknownParameters...)
+		}
+		return unknownParameters, nil
+	}
+
+	paramList, ok := decodedBody.(map[string]any)
+	if !ok {
+		return unknownParameters, ErrDecodingFailed
+	}
+
+	for paramName := range paramList {
+		if _, found := contentType.Schema.Value.Properties[paramName]; !found {
+			unknownParameters = append(unknownParameters, RequestParameterDetails{
+				Name:        paramName,
+				Placeholder: "body",
+				Type:        identifyData(paramList[paramName]),
+			})
+		}
+	}
+
+	return unknownParameters, nil
 }
 
 // ValidateUnknownRequestParameters is used to get a list of request parameters that are not specified in the OpenAPI specification
@@ -193,21 +247,16 @@ func ValidateUnknownRequestParameters(ctx *fasthttp.RequestCtx, route *routers.R
 			}
 		})
 	case mType == "application/json" || mType == "multipart/form-data" || suffix == "+json":
-		paramList, ok := value.(map[string]any)
-		if !ok {
-			return foundUnknownParams, nil
+
+		currentUBParams, err := findUnknownParamsInJSONBody(value, contentType, 0)
+		if err != nil {
+			return foundUnknownParams, err
+		}
+		if len(currentUBParams) > 0 {
+			unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
+			unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, currentUBParams...)
 		}
 
-		for paramName := range paramList {
-			if _, found := contentType.Schema.Value.Properties[paramName]; !found {
-				unknownBodyParams.Message = ErrUnknownBodyParameter.Error()
-				unknownBodyParams.Parameters = append(unknownBodyParams.Parameters, RequestParameterDetails{
-					Name:        paramName,
-					Placeholder: "body",
-					Type:        identifyData(paramList[paramName]),
-				})
-			}
-		}
 	case mType == "application/xml" || suffix == "+xml":
 		var propKeys []string
 		for key := range contentType.Schema.Value.Properties {

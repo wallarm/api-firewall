@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -116,6 +117,7 @@ paths:
 		requestBody *testRequestBody
 		ct          string
 		url         string
+		array       bool
 	}
 	tests := []struct {
 		name         string
@@ -206,6 +208,26 @@ paths:
 				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood, UnknownParameter: "test"},
 				url:         "/category?category=cookies",
 				ct:          "application/json",
+			},
+			expectedErr: nil,
+			expectedResp: []*RequestUnknownParameterError{
+				{
+					Parameters: []RequestParameterDetails{{
+						Name:        "unknown",
+						Placeholder: "body",
+						Type:        "string",
+					}},
+					Message: ErrUnknownBodyParameter.Error(),
+				},
+			},
+		},
+		{
+			name: "Unknown JSON param in array",
+			args: args{
+				requestBody: &testRequestBody{SubCategory: "Chocolate", Category: &categoryFood, UnknownParameter: "test"},
+				url:         "/category?category=cookies",
+				ct:          "application/json",
+				array:       true,
 			},
 			expectedErr: nil,
 			expectedResp: []*RequestUnknownParameterError{
@@ -399,7 +421,14 @@ paths:
 					}
 					requestBody = strings.NewReader(req.PostArgs().String())
 				case "application/json":
-					testingBody, err := json.Marshal(tc.args.requestBody)
+					var err error
+					var testingBody []byte
+					if tc.args.array {
+						testingBody, err = json.Marshal([]testRequestBody{*tc.args.requestBody})
+					} else {
+						testingBody, err = json.Marshal(tc.args.requestBody)
+					}
+
 					require.NoError(t, err)
 					requestBody = bytes.NewReader(testingBody)
 				case "application/xml":
@@ -512,4 +541,52 @@ func matchUnknownParamsResp(expected []*RequestUnknownParameterError, actual []R
 	}
 
 	return true
+}
+
+func TestFindUnknownParamsInJSONBody_DepthLimit(t *testing.T) {
+	schema := &openapi3.MediaType{
+		Schema: &openapi3.SchemaRef{
+			Value: &openapi3.Schema{
+				Properties: openapi3.Schemas{
+					"field": &openapi3.SchemaRef{
+						Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+					},
+				},
+			},
+		},
+	}
+
+	// Create deeply nested array that exceeds maxJSONArrayDepth (32)
+	var nested any = map[string]any{"field": "value"}
+	for i := 0; i < 35; i++ {
+		nested = []interface{}{nested}
+	}
+
+	_, err := findUnknownParamsInJSONBody(nested, schema, 0)
+	assert.ErrorIs(t, err, ErrMaxDepthExceeded, "expected ErrMaxDepthExceeded for deeply nested array")
+}
+
+func TestFindUnknownParamsInJSONBody_ElementLimit(t *testing.T) {
+	schema := &openapi3.MediaType{
+		Schema: &openapi3.SchemaRef{
+			Value: &openapi3.Schema{
+				Properties: openapi3.Schemas{
+					"field": &openapi3.SchemaRef{
+						Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+					},
+				},
+			},
+		},
+	}
+
+	// Create array with more than maxJSONArrayElements (10000) elements
+	largeArray := make([]interface{}, 15000)
+	for i := 0; i < 15000; i++ {
+		largeArray[i] = map[string]any{"unknown": "value"}
+	}
+
+	result, err := findUnknownParamsInJSONBody(largeArray, schema, 0)
+	require.NoError(t, err)
+	// Should only process maxJSONArrayElements (10000) elements
+	assert.LessOrEqual(t, len(result), maxJSONArrayElements, "should limit processed elements to maxJSONArrayElements")
 }
