@@ -2,6 +2,10 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.9.6 (2025-12-12)
+
+* TBD
+
 ## v0.9.5 (2025-12-05)
 
 * Upgrade Go to 1.24.11
