@@ -2,18 +2,14 @@ package proxy
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path"
 	"sync"
 	"time"
 
 	"github.com/fasthttp/websocket"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
@@ -92,28 +88,9 @@ func builtinForwardHeaderHandler(ctx *fasthttp.RequestCtx) (forwardHeader http.H
 
 func NewWSClient(logger zerolog.Logger, options *WSClientOptions) (WebSocketClient, error) {
 
-	// get the SystemCertPool, continue with an empty pool on error
-	rootCAs, err := x509.SystemCertPool()
+	tlsConfig, err := BuildTLSConfig(options.InsecureConnection, options.RootCA)
 	if err != nil {
 		return nil, err
-	}
-
-	if options.RootCA != "" {
-		// read in the cert file
-		certs, err := os.ReadFile(options.RootCA)
-		if err != nil {
-			return nil, fmt.Errorf("failed to append %q to RootCAs: %v", options.RootCA, err)
-		}
-
-		// append our cert to the system pool
-		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			return nil, errors.New("no certs appended, using system certs only")
-		}
-	}
-
-	tlsConfig := &tls.Config{
-		InsecureSkipVerify: options.InsecureConnection,
-		RootCAs:            rootCAs,
 	}
 
 	dialer := websocket.Dialer{
