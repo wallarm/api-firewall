@@ -16,3 +16,7 @@ vendor/
 .DS_Store
 .idea/
 /dev/
+
+# Claude Code configuration
+CLAUDE.md
+.claude/

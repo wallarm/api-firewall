@@ -328,7 +328,7 @@ var testSupportedEncodingSchemas = []string{"gzip", "deflate", "br"}
 const (
 	testOauthBearerToken = "testtesttest"
 	testOauthJWTTokenRS  = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJqd3QudGVzdC5naXRodWIuaW8iLCJzdWIiOiJldmFuZGVyIiwiYXVkIjoibmFpbWlzaCIsImlhdCI6MTYzODUwNjIxNywiZXhwIjozNTMxOTM3ODc1LCJzY29wZSI6InJlYWQgd3JpdGUifQ.MPC35ZX52qWE4AktY1Bs-HVEWUUYrByfRVUSL9GbzZhZfXlfcNkF-qNRK_EDG2eviE4UHb6CFVZeYTsO5MyKg0H3shp79LeZTA2XzCuCZvzAqA7EQrpUKiKof-9af5g3jIRU4YFxvtpp8XxXGHaMvbIy4gqQJ7WEsOksYOytEsbLtsCs880zxCJb1iM4Bu9Q_Nl-wW1NeYSZyHYZP7es7gVvb9Bbm6qYW4qcVbt20pW4dguBGEvUvLM6axqeTZe7JgtqU__uUwkcIS6bu711Y7Zi-TpeZAMp506Wx8qZrhi7Ea0QFZUMjoF0O7jgRtps_BlbqBXNoleMO-kKnSkd6A"
-	testOauthJWTTokenHS  = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE2Mzg1MDU4OTYsImV4cCI6MTc3MDA0MTg5NiwiYXVkIjoid3d3LmV4YW1wbGUuY29tIiwic3ViIjoianJvY2tldEBleGFtcGxlLmNvbSIsIkdpdmVuTmFtZSI6IkpvaG5ueSIsIlN1cm5hbWUiOiJSb2NrZXQiLCJFbWFpbCI6Impyb2NrZXRAZXhhbXBsZS5jb20iLCJSb2xlIjoiTWFuYWdlciIsInNjb3BlIjoicmVhZCB3cml0ZSJ9.GgtDHEjw_zCbzcYR0rxrC-A2QKDeSpif7QBhCUlmqdk"
+	testOauthJWTTokenHS  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6Impyb2NrZXRAZXhhbXBsZS5jb20iLCJHaXZlbk5hbWUiOiJKb2hubnkiLCJSb2xlIjoiTWFuYWdlciIsIlN1cm5hbWUiOiJSb2NrZXQiLCJhdWQiOiJ3d3cuZXhhbXBsZS5jb20iLCJleHAiOjIwOTU4OTEyMDAsImlhdCI6MTYzODUwNTg5NiwiaXNzIjoiT25saW5lIEpXVCBCdWlsZGVyIiwic2NvcGUiOiJyZWFkIHdyaXRlIiwic3ViIjoianJvY2tldEBleGFtcGxlLmNvbSJ9.zj2pfsriqlnWR9-x2lKHP4hyE6zJ4fskhgeZbbW0no4"
 	testOauthJWTKeyHS    = "qwertyuiopasdfghjklzxcvbnm123456"
 	testContentType      = "test"
 
@@ -1506,7 +1506,7 @@ func (s *ServiceTests) testOauthIntrospectionReadSuccess(t *testing.T) {
 	serverConf := config.Backend{
 		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
-			ClientPoolCapacity: 1000,
+
 			InsecureConnection: false,
 			RootCA:             "",
 			MaxConnsPerHost:    512,
@@ -1593,7 +1593,7 @@ func (s *ServiceTests) testOauthIntrospectionReadUnsuccessful(t *testing.T) {
 	serverConf := config.Backend{
 		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
-			ClientPoolCapacity: 1000,
+
 			InsecureConnection: false,
 			RootCA:             "",
 			MaxConnsPerHost:    512,
@@ -1659,7 +1659,7 @@ func (s *ServiceTests) testOauthIntrospectionInvalidResponse(t *testing.T) {
 	serverConf := config.Backend{
 		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
-			ClientPoolCapacity: 1000,
+
 			InsecureConnection: false,
 			RootCA:             "",
 			MaxConnsPerHost:    512,
@@ -1725,7 +1725,7 @@ func (s *ServiceTests) testOauthIntrospectionReadWriteSuccess(t *testing.T) {
 	serverConf := config.Backend{
 		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
-			ClientPoolCapacity: 1000,
+
 			InsecureConnection: false,
 			RootCA:             "",
 			MaxConnsPerHost:    512,
@@ -1796,7 +1796,7 @@ func (s *ServiceTests) testOauthIntrospectionContentTypeRequest(t *testing.T) {
 	serverConf := config.Backend{
 		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
-			ClientPoolCapacity: 1000,
+
 			InsecureConnection: false,
 			RootCA:             "",
 			MaxConnsPerHost:    512,
@@ -1859,7 +1859,7 @@ func (s *ServiceTests) testOauthJWTRS256(t *testing.T) {
 	serverConf := config.Backend{
 		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
-			ClientPoolCapacity: 1000,
+
 			InsecureConnection: false,
 			RootCA:             "",
 			MaxConnsPerHost:    512,
@@ -1936,7 +1936,7 @@ func (s *ServiceTests) testOauthJWTHS256(t *testing.T) {
 	serverConf := config.Backend{
 		ProtectedAPI: config.ProtectedAPI{
 			URL:                "",
-			ClientPoolCapacity: 1000,
+
 			InsecureConnection: false,
 			RootCA:             "",
 			MaxConnsPerHost:    512,
@@ -2843,7 +2843,7 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 		ProtectedAPI: config.ProtectedAPI{
 			URL:                "http://localhost:28290",
 			RequestHostHeader:  "testCustomHost",
-			ClientPoolCapacity: 1000,
+
 			InsecureConnection: false,
 			RootCA:             "",
 			MaxConnsPerHost:    512,
@@ -2864,24 +2864,13 @@ func (s *ServiceTests) testCustomHostHeader(t *testing.T) {
 		Server: serverConf,
 	}
 
-	ipAddrs := []net.IPAddr{}
-	ipAddrs = append(ipAddrs, net.IPAddr{IP: net.IPv4(127, 0, 0, 1), Zone: ""})
-
-	s.dnsCache.EXPECT().LookupIPAddr(gomock.Any(), gomock.Any()).Return(ipAddrs, nil).Times(2)
-
-	options := proxy.Options{
-		InitialPoolCapacity: 1,
-		ClientPoolCapacity:  cfg.Server.ClientPoolCapacity,
-		InsecureConnection:  cfg.Server.InsecureConnection,
-		RootCA:              cfg.Server.RootCA,
-		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
-		ReadTimeout:         cfg.Server.ReadTimeout,
-		WriteTimeout:        cfg.Server.WriteTimeout,
-		DialTimeout:         cfg.Server.DialTimeout,
-		DNSResolver:         s.dnsCache,
-		Logger:              s.logger,
-	}
-	pool, err := proxy.NewChanPool("localhost:28290", &options)
+	pool, err := proxy.NewPoolV2("localhost:28290", &proxy.PoolV2Options{
+		MaxConnsPerHost: cfg.Server.MaxConnsPerHost,
+		ReadTimeout:     cfg.Server.ReadTimeout,
+		WriteTimeout:    cfg.Server.WriteTimeout,
+		DialTimeout:     cfg.Server.DialTimeout,
+		Logger:          s.logger,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2941,7 +2930,7 @@ func (s *ServiceTests) testDNSCacheFetch(t *testing.T) {
 		ProtectedAPI: config.ProtectedAPI{
 			URL:                "http://localhost:28290",
 			RequestHostHeader:  "testCustomHost",
-			ClientPoolCapacity: 1,
+
 			InsecureConnection: false,
 			RootCA:             "",
 			MaxConnsPerHost:    512,
@@ -2966,27 +2955,13 @@ func (s *ServiceTests) testDNSCacheFetch(t *testing.T) {
 		},
 	}
 
-	options := proxy.Options{
-		InitialPoolCapacity: 1,
-		ClientPoolCapacity:  cfg.Server.ClientPoolCapacity,
-		InsecureConnection:  cfg.Server.InsecureConnection,
-		RootCA:              cfg.Server.RootCA,
-		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
-		ReadTimeout:         cfg.Server.ReadTimeout,
-		WriteTimeout:        cfg.Server.WriteTimeout,
-		DialTimeout:         cfg.Server.DialTimeout,
-		DNSConfig:           cfg.DNS,
-		DNSResolver:         s.dnsCache,
-		Logger:              s.logger,
-	}
-
-	localIP := net.ParseIP("127.0.0.1")
-	ipAddrs := []net.IPAddr{}
-	ipAddrs = append(ipAddrs, net.IPAddr{IP: localIP, Zone: ""})
-
-	s.dnsCache.EXPECT().LookupIPAddr(gomock.Any(), gomock.Any()).Return(ipAddrs, nil).Times(3)
-
-	pool, err := proxy.NewChanPool("localhost:28290", &options)
+	pool, err := proxy.NewPoolV2("localhost:28290", &proxy.PoolV2Options{
+		MaxConnsPerHost: cfg.Server.MaxConnsPerHost,
+		ReadTimeout:     cfg.Server.ReadTimeout,
+		WriteTimeout:    cfg.Server.WriteTimeout,
+		DialTimeout:     cfg.Server.DialTimeout,
+		Logger:          s.logger,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

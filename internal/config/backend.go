@@ -27,7 +27,6 @@ type Oauth struct {
 type ProtectedAPI struct {
 	URL                  string        `conf:"default:http://localhost:3000/v1/" validate:"required,url"`
 	RequestHostHeader    string        `conf:""`
-	ClientPoolCapacity   int           `conf:"default:1000" validate:"gt=0"`
 	InsecureConnection   bool          `conf:"default:false"`
 	RootCA               string        `conf:""`
 	MaxConnsPerHost      int           `conf:"default:512"`
@@ -38,6 +37,8 @@ type ProtectedAPI struct {
 	WriteBufferSize      int           `conf:"default:8192"`
 	MaxResponseBodySize  int           `conf:"default:0"`
 	DeleteAcceptEncoding bool          `conf:"default:false"`
+	HealthCheckInterval  time.Duration `conf:"default:30s"`
+	MaxIdleConnDuration  time.Duration `conf:"default:10s"`
 }
 
 type Backend struct {

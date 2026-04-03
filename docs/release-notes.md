@@ -2,6 +2,13 @@
 
 This page describes new releases of Wallarm API Firewall.
 
+## v0.9.6 (2026-04-03)
+
+* Upgrade Go to 1.25.8
+* Upgrade dependencies
+* Replace ChanPool with lock-free PoolV2 using fasthttp internal pooling
+* Bump Alpine version to 3.23
+
 ## v0.9.5 (2025-12-05)
 
 * Upgrade Go to 1.24.11

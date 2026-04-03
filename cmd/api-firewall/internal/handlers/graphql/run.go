@@ -24,9 +24,8 @@ import (
 const (
 	logPrefix = "main"
 
-	initialPoolCapacity = 100
-	livenessEndpoint    = "/v1/liveness"
-	readinessEndpoint   = "/v1/readiness"
+	livenessEndpoint  = "/v1/liveness"
+	readinessEndpoint = "/v1/readiness"
 )
 
 func Run(logger zerolog.Logger) error {
@@ -113,28 +112,20 @@ func Run(logger zerolog.Logger) error {
 		}
 	}
 
-	initialCap := initialPoolCapacity
-
-	if cfg.Server.ClientPoolCapacity < initialPoolCapacity {
-		initialCap = 1
-	}
-
-	options := proxy.Options{
-		InitialPoolCapacity: initialCap,
-		ClientPoolCapacity:  cfg.Server.ClientPoolCapacity,
-		InsecureConnection:  cfg.Server.InsecureConnection,
-		RootCA:              cfg.Server.RootCA,
+	pool, err := proxy.NewPoolV2(host, &proxy.PoolV2Options{
 		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
+		MaxIdleConnDuration: cfg.Server.MaxIdleConnDuration,
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
+		DialTimeout:         cfg.Server.DialTimeout,
 		ReadBufferSize:      cfg.Server.ReadBufferSize,
 		WriteBufferSize:     cfg.Server.WriteBufferSize,
 		MaxResponseBodySize: cfg.Server.MaxResponseBodySize,
-		DialTimeout:         cfg.Server.DialTimeout,
+		InsecureConnection:  cfg.Server.InsecureConnection,
+		RootCA:              cfg.Server.RootCA,
+		HealthCheckInterval: cfg.Server.HealthCheckInterval,
 		Logger:              logger,
-	}
-
-	pool, err := proxy.NewChanPool(host, &options)
+	})
 	if err != nil {
 		return errors.Wrap(err, "proxy pool init")
 	}

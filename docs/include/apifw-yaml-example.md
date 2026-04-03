@@ -72,7 +72,6 @@ Backend:
   ProtectedAPI:
   	URL: "http://localhost:3000/v1/"
 	RequestHostHeader: ""
-	ClientPoolCapacity: 1000
 	InsecureConnection: false
 	RootCA: ""
 	MaxConnsPerHost: 512
@@ -83,4 +82,6 @@ Backend:
 	WriteBufferSize: 8192
 	MaxResponseBodySize: 0
 	DeleteAcceptEncoding: false
+	HealthCheckInterval: "30s"
+	MaxIdleConnDuration: "10s"
 ```

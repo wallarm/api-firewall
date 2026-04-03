@@ -1,9 +1,7 @@
 package proxy
 
 import (
-	"context"
 	"mime"
-	"net"
 	"net/url"
 	"os"
 	"os/signal"
@@ -29,9 +27,8 @@ import (
 )
 
 const (
-	initialPoolCapacity = 100
-	livenessEndpoint    = "/v1/liveness"
-	readinessEndpoint   = "/v1/readiness"
+	livenessEndpoint  = "/v1/liveness"
+	readinessEndpoint = "/v1/readiness"
 )
 
 func Run(logger zerolog.Logger) error {
@@ -145,63 +142,20 @@ func Run(logger zerolog.Logger) error {
 		}
 	}
 
-	initialCap := initialPoolCapacity
-
-	if cfg.Server.ClientPoolCapacity < initialPoolCapacity {
-		initialCap = 1
-	}
-
-	// default DNS resolver
-	resolver := &net.Resolver{
-		PreferGo:     true,
-		StrictErrors: false,
-	}
-
-	// configuration of the custom DNS server
-	if cfg.DNS.Nameserver.Host != "" {
-		var builder strings.Builder
-		builder.WriteString(cfg.DNS.Nameserver.Host)
-		builder.WriteString(":")
-		builder.WriteString(cfg.DNS.Nameserver.Port)
-
-		resolver.Dial = func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := net.Dialer{
-				Timeout: cfg.DNS.LookupTimeout,
-			}
-			return d.DialContext(ctx, cfg.DNS.Nameserver.Proto, builder.String())
-		}
-	}
-
-	// init DNS resolver
-	dnsCacheOptions := proxy.DNSCacheOptions{
-		UseCache:      cfg.DNS.Cache,
-		Logger:        logger,
-		FetchTimeout:  cfg.DNS.FetchTimeout,
-		LookupTimeout: cfg.DNS.LookupTimeout,
-	}
-
-	dnsResolver, err := proxy.NewDNSResolver(resolver, &dnsCacheOptions)
-	if err != nil {
-		return errors.Wrap(err, "DNS cache resolver init")
-	}
-
-	options := proxy.Options{
-		InitialPoolCapacity: initialCap,
-		ClientPoolCapacity:  cfg.Server.ClientPoolCapacity,
-		InsecureConnection:  cfg.Server.InsecureConnection,
-		RootCA:              cfg.Server.RootCA,
+	pool, err := proxy.NewPoolV2(host, &proxy.PoolV2Options{
 		MaxConnsPerHost:     cfg.Server.MaxConnsPerHost,
+		MaxIdleConnDuration: cfg.Server.MaxIdleConnDuration,
 		ReadTimeout:         cfg.Server.ReadTimeout,
 		WriteTimeout:        cfg.Server.WriteTimeout,
+		DialTimeout:         cfg.Server.DialTimeout,
 		ReadBufferSize:      cfg.Server.ReadBufferSize,
 		WriteBufferSize:     cfg.Server.WriteBufferSize,
 		MaxResponseBodySize: cfg.Server.MaxResponseBodySize,
-		DialTimeout:         cfg.Server.DialTimeout,
-		DNSConfig:           cfg.DNS,
+		InsecureConnection:  cfg.Server.InsecureConnection,
+		RootCA:              cfg.Server.RootCA,
+		HealthCheckInterval: cfg.Server.HealthCheckInterval,
 		Logger:              logger,
-		DNSResolver:         dnsResolver,
-	}
-	pool, err := proxy.NewChanPool(host, &options)
+	})
 	if err != nil {
 		return errors.Wrap(err, "proxy pool init")
 	}
